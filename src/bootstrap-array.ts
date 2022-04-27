@@ -307,19 +307,20 @@ namespace Runtime {
   env.set('print',    Utils.mkNativeFunc(env, 'print',    ['x'], x => { console.log(...(<any[]>x).map(arg => Utils.toString(arg))); return []; }))
   env.set('break',    Utils.mkNativeFunc(env, 'break',    ['x'], ([name, x]) => { debugger; return x; }))
 
-  env.set('eq',       Utils.mkNativeFunc(env, 'eq',       ['x', 'y'], ([x, y]) => Lisp.eq(x, y)))
-  env.set('list',     Utils.mkNativeFunc(env, 'list',     ['x'], x => Lisp.list(...x)))
   env.set('caar',     Utils.mkNativeFunc(env, 'caar',     ['x'], x => Lisp.caar(x[0])))
   env.set('cadr',     Utils.mkNativeFunc(env, 'cadr',     ['x'], x => Lisp.cadr(x[0])))
   env.set('cadar',    Utils.mkNativeFunc(env, 'cadar',    ['x'], x => Lisp.cadar(x[0])))
   env.set('caddr',    Utils.mkNativeFunc(env, 'caddr',    ['x'], x => Lisp.caddr(x[0])))
-  env.set('caddar',   Utils.mkNativeFunc(env,'caddar',    ['x'], x => Lisp.caddar(x[0])))
-  env.set('append.',  Utils.mkNativeFunc(env,'append.',   ['a', 'b'], ([a, b]: any) => a.concat(b)))
-  env.set('pair',     Utils.mkNativeFunc(env,'pair',      ['a', 'b'], ([a, b]: any) => {
+  env.set('caddar',   Utils.mkNativeFunc(env, 'caddar',   ['x'], x => Lisp.caddar(x[0])))
+
+  env.set('list',     Utils.mkNativeFunc(env, 'list',     ['x'], x => Lisp.list(...x)))
+  env.set('eq',       Utils.mkNativeFunc(env, 'eq',       ['x', 'y'], ([x, y]) => Lisp.eq(x, y)))
+  env.set('append.',  Utils.mkNativeFunc(env, 'append.',  ['a', 'b'], ([a, b]) => [...a, ...b]))
+  env.set('pair',     Utils.mkNativeFunc(env, 'pair',     ['a', 'b'], ([a, b]) => {
     if (Utils.isEmpty(a) && Utils.isEmpty(b)) { return Lisp.EMPTY; };
     if (!Utils.isArray(a) || !Utils.isArray(b)) { return Lisp.EMPTY; };
     Utils.expect(a, a.length===b.length, "Can't pair lists of different length")
-    return a.map((a: any, i: any) => [a, b[i]])
+    return a.map((a, i) => [a, b[i]])
   }))
 
   /*
@@ -373,7 +374,7 @@ namespace Runtime {
   *  metacircular evaluator
   *
   */
-  Lisp.exec(`
+  Lisp.exec(`(
     (defun eval (e a)
       (cond
         ((atom e) (assoc. e a))
@@ -399,21 +400,17 @@ namespace Runtime {
           (eval (caddar e)
                 (append. (pair (cadar e) (evlis (cdr e) a))
                           a)))))
-  `, env)
 
-  Lisp.exec(`
     (defun evcon (c a)
       (cond
-            ((eval (caar c) a) (eval (cadar c) a))
-            ('#t               (evcon (cdr c) a))))`
-  , env)
+        ((eval (caar c) a) (eval (cadar c) a))
+        ('#t               (evcon (cdr c) a))))
 
-  Lisp.exec(`
     (defun evlis (m a)
       (cond ((null. m) '())
             ('#t (cons (eval  (car m) a)
-                       (evlis (cdr m) a)))))`
-  , env)
+                        (evlis (cdr m) a)))))
+  )`, env)
 }
 
 namespace Testing {
