@@ -368,6 +368,9 @@ namespace Runtime {
             ((null. (cdr y)) '())
             ('#t (assoc. x (cdr y)))))`
   , env)
+}
+
+namespace MetaEval {
 
   /*
   *
@@ -410,7 +413,8 @@ namespace Runtime {
       (cond ((null. m) '())
             ('#t (cons (eval  (car m) a)
                         (evlis (cdr m) a)))))
-  )`, env)
+  )`
+  , Runtime.env)
 }
 
 namespace Testing {
