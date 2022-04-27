@@ -52,14 +52,10 @@
               (append. (pair. (cadar e) (evlis. (cdr e) a))
                       a)))))
 
-(defun evcon. (c a)
-  (cond ((eval (caar c) a) (eval (cadar c) a))
-        ('#t (evcon. (cdr c) a))))
 
-(defun evlis. (m a)
-  (cond ((nil m) '())
-        ('#t (cons (eval   (car m) a)
-                   (evlis. (cdr m) a)))))
+
+
+
 
 (defun eval (e a)
       (cond
@@ -76,7 +72,7 @@
                                        (eval (caddr e) a)))
             ((eq (car e) 'cond) (evcon (cdr e)))
             ('#t (eval (cons (assoc (car e) a)
-                            (cdr e))
+                             (cdr e))
                         a))))
 
         ((eq (caar e) 'label)
@@ -87,3 +83,91 @@
           (eval (caddar e)
                   (append (pair (cadar e) (evlis (cdr e) a))
                           a)))))
+
+(defun evcon. (c a)
+  (cond
+        ((eval (caar c) a) (eval (cadar c) a))
+        ('#t (evcon. (cdr c) a))))
+
+(defun evlis. (m a)
+  (cond
+        ((nil m) '())
+        ('#t (cons (eval   (car m) a)
+                   (evlis. (cdr m) a)))))
+
+
+
+
+
+
+
+
+
+(label subst (lambda x y z)
+  (cond ((atom z)
+          (cond ((eq z y) x)
+                  ('#t z)))
+          ('#t (cons (subst x y (car z))
+                      (subst x y (cdr z))))))
+
+(
+  (label subst (lambda (x y z)
+                  (cond
+                    ((atom z)
+                      (cond (
+                        (eq z y) x)
+                        ('#t z)))
+                    ((nil. z) z)
+                    ('#t (cons (subst x y (car z))
+                               (subst x y (cdr z)))))))
+  (subst 'm 'b '(a b (a b c) d))
+)
+
+(
+(label subst (lambda (x y z)
+  (cond ((atom z)
+    (cond ((eq z y) x)
+           ('#t z)))
+  ('#t (cons (subst x y (car z))
+             (subst x y (cdr z)))))))
+
+(subst 'm 'b '(a b (a b c) d))
+)
+
+
+
+
+((label cadr (lambda (x) (car (cdr x)))) '(m b))
+
+(
+  (label cadr (lambda (x) (car (cdr x))))
+  ((label swap (lambda (x)
+    (cons (car (cdr x)) (cons (car x) '()))))
+
+  '(m b)))
+
+((label cadr (lambda (x) (car (cdr x))) ((label swap (lambda (x) (cons (car (cdr x)) (cons (car x) '())))) '(m b) )))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(define ADD3 (n) (+ n 3))
+
+(ADD3 3)
+
+// 6
+
