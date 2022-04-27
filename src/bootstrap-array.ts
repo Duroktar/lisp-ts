@@ -305,7 +305,7 @@ namespace Runtime {
   env.set('debugf',   Utils.mkNativeFunc(env, 'debugf',   ['x'], x => { console.log('[DEBUG-F]', x); return []; }))
   env.set('debug',    Utils.mkNativeFunc(env, 'debug',    ['x'], x => { console.log('[DEBUG]', x); return x; }))
   env.set('print',    Utils.mkNativeFunc(env, 'print',    ['x'], x => { console.log(...(<any[]>x).map(arg => Utils.toString(arg))); return []; }))
-  env.set('break',    Utils.mkNativeFunc(env, 'break',    ['x'], ([name, x]) => { debugger; return x; }))
+  env.set('break',    Utils.mkNativeFunc(env, 'break',    ['x'], x => { debugger; return x; }))
 
   env.set('caar',     Utils.mkNativeFunc(env, 'caar',     ['x'], x => Lisp.caar(x[0])))
   env.set('cadr',     Utils.mkNativeFunc(env, 'cadr',     ['x'], x => Lisp.cadr(x[0])))
@@ -315,13 +315,6 @@ namespace Runtime {
 
   env.set('list',     Utils.mkNativeFunc(env, 'list',     ['x'], x => Lisp.list(...x)))
   env.set('eq',       Utils.mkNativeFunc(env, 'eq',       ['x', 'y'], ([x, y]) => Lisp.eq(x, y)))
-  env.set('append.',  Utils.mkNativeFunc(env, 'append.',  ['a', 'b'], ([a, b]) => [...a, ...b]))
-  env.set('pair',     Utils.mkNativeFunc(env, 'pair',     ['a', 'b'], ([a, b]) => {
-    if (Utils.isEmpty(a) && Utils.isEmpty(b)) { return Lisp.EMPTY; };
-    if (!Utils.isArray(a) || !Utils.isArray(b)) { return Lisp.EMPTY; };
-    Utils.expect(a, a.length===b.length, "Can't pair lists of different length")
-    return a.map((a, i) => [a, b[i]])
-  }))
 
   /*
   *
@@ -348,19 +341,19 @@ namespace Runtime {
         ('#t '#t)))`
   , env)
 
-  // Lisp.exec(`
-  //   (defun append. (x y)
-  //     (cond ((null. x) y)
-  //           ('#t (cons (car x) (append. (cdr x) y)))))`
-  // , env)
+  Lisp.exec(`
+    (defun append. (x y)
+      (cond ((null. x) y)
+            ('#t (cons (car x) (append. (cdr x) y)))))`
+  , env)
 
-  // Lisp.exec(`
-  //   (defun pair (x y)
-  //     (cond ((and. (null. x) (null. y)) '())
-  //           ((and. (not. (atom x)) (not. (atom y)))
-  //             (cons (list  (car x) (car y))
-  //                   (pair (cdr x) (cdr y))))))`
-  // , env)
+  Lisp.exec(`
+    (defun pair. (x y)
+      (cond ((and. (null. x) (null. y)) '())
+            ((and. (not. (atom x)) (not. (atom y)))
+              (cons (list  (car x) (car y))
+                    (pair. (cdr x) (cdr y))))))`
+  , env)
 
   Lisp.exec(`
     (defun assoc. (x y)
@@ -395,13 +388,14 @@ namespace MetaEval {
             ('#t (eval (cons (assoc. (car e) a)
                                      (cdr e))
                         a))))
+
         ((eq (caar e) 'label)
           (eval (cons (caddar e) (cdr e))
                 (cons (list (cadar e) (caddar e)) a)))
 
         ((eq (caar e) 'lambda)
           (eval (caddar e)
-                (append. (pair (cadar e) (evlis (cdr e) a))
+                (append. (pair. (cadar e) (evlis (cdr e) a))
                           a)))))
 
     (defun evcon (c a)
@@ -412,7 +406,7 @@ namespace MetaEval {
     (defun evlis (m a)
       (cond ((null. m) '())
             ('#t (cons (eval  (car m) a)
-                        (evlis (cdr m) a)))))
+                       (evlis (cdr m) a)))))
   )`
   , Runtime.env)
 }
@@ -427,15 +421,53 @@ namespace Testing {
 
   // Lisp.print(Lisp.exec("(eval '(eq. 'a 'a) '((a xVar)))", Runtime.env))
 
-  Utils.print(Lisp.exec(`
-    (eval '(
-      (label cadr (lambda (x) (car (cdr x))))
-      ((label swap (lambda (x)
-        (cons (cadr x) (cons (car x) '()))))
+  // Utils.print(Lisp.exec(`
+  //   (eval '(
+  //     (label cadr (lambda (x) (car (cdr x))))
+  //     ((label swap (lambda (x)
+  //       (cons (cadr x) (cons (car x) '()))))
 
-      '(x y)))
-    '((a bVar) (b bVar)))
-  `, Runtime.env))
+  //     '(x y)))
+  //   '((a bVar) (b bVar)))
+  // `, Runtime.env))
+  export const compose = (...fns: [...fns: Function[], arg: any]) => fns.reduceRight((acc, fn) => fn(acc), fns.pop())
+  // const { car, cdr } = Lisp
+
+  // Runtime.env.set('cdar',     Utils.mkNativeFunc(Runtime.env, 'cdar',     ['x'], ([x]) => compose(cdr, car, x)))
+  // Runtime.env.set('cddar',    Utils.mkNativeFunc(Runtime.env, 'cddar',    ['x'], ([x]) => compose(cdr, cdr, car, x)))
+  // Runtime.env.set('cdddar',   Utils.mkNativeFunc(Runtime.env, 'cdddar',   ['x'], ([x]) => compose(cdr, cdr, cdr, car, x)))
+  // Runtime.env.set('cddddar',  Utils.mkNativeFunc(Runtime.env, 'cddddar',  ['x'], ([x]) => compose(cdr, cdr, cdr, cdr, car, x)))
+
+  // Runtime.env.set('cddr',     Utils.mkNativeFunc(Runtime.env, 'cddr',     ['x'], ([x]) => compose(cdr, cdr, x)))
+  // Runtime.env.set('cdddr',    Utils.mkNativeFunc(Runtime.env, 'cdddr',    ['x'], ([x]) => compose(cdr, cdr, cdr, x)))
+  // Runtime.env.set('cddddr',   Utils.mkNativeFunc(Runtime.env, 'cddddr',   ['x'], ([x]) => compose(cdr, cdr, cdr, cdr, x)))
+  // Runtime.env.set('cdddddr',  Utils.mkNativeFunc(Runtime.env, 'cdddddr',  ['x'], ([x]) => compose(cdr, cdr, cdr, cdr, cdr, x)))
+  // Runtime.env.set('caddr',    Utils.mkNativeFunc(Runtime.env, 'caddr',    ['x'], ([x]) => compose(car, cdr, cdr, x)))
+  // Runtime.env.set('cadddr',   Utils.mkNativeFunc(Runtime.env, 'cadddr',   ['x'], ([x]) => compose(car, cdr, cdr, cdr, x)))
+  // Runtime.env.set('caddddr',  Utils.mkNativeFunc(Runtime.env, 'caddddr',  ['x'], ([x]) => compose(car, cdr, cdr, cdr, cdr, x)))
+  // Runtime.env.set('cadddddr', Utils.mkNativeFunc(Runtime.env, 'cadddddr', ['x'], ([x]) => compose(car, cdr, cdr, cdr, cdr, cdr, x)))
+
+  // Runtime.env.set('caddar',    Utils.mkNativeFunc(Runtime.env, 'caddar',    ['x'], ([x]) => compose(car, cdr, cdr, car,  x)))
+  // Runtime.env.set('cadddar',   Utils.mkNativeFunc(Runtime.env, 'cadddar',   ['x'], ([x]) => compose(car, cdr, cdr, cdr, car,  x)))
+  // Runtime.env.set('caddddar',  Utils.mkNativeFunc(Runtime.env, 'caddddar',  ['x'], ([x]) => compose(car, cdr, cdr, cdr, cdr, car,  x)))
+  // Runtime.env.set('cadddddar', Utils.mkNativeFunc(Runtime.env, 'cadddddar', ['x'], ([x]) => compose(car, cdr, cdr, cdr, cdr, cdr, car,  x)))
+
+  // console.log(
+  //   Utils.toString(Lisp.exec("(caddr '(a b c d e f g h))", Runtime.env))
+  // )
+  // console.log(
+  //   Utils.toString(Lisp.exec("(cadddar '((a b c d e f g h) (h i j k l m n o) (p q r s t u v w))))", Runtime.env))
+  // )
+
+  console.log(
+    Utils.toString(Lisp.exec("(append. '(a b c d e f g h) '(i j k l m n o p))", Runtime.env))
+  )
+
+  console.log(
+    Utils.toString(Lisp.exec("(pair. '(a b c d e f g h) '(i j k l m n o p))", Runtime.env))
+  )
+
+  // Lisp.exec("(print (eval '(car '((a b c d e f g h) (h i j k l m n o) (p q r s t u v w))) '((x xVar))))", Runtime.env)
 
   // Utils.print(Lisp.exec("(eval '((label subst (lambda (x y z) (cond ((atom z) (cond ((eq z y) x) ('#t z))) ('#t (cons (subst x y (car z)) (subst x y (cdr z))))))) ('m 'b '(a b (a b c) d))) '((a xVar)))", Runtime.env))
 }
