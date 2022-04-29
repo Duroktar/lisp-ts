@@ -149,12 +149,23 @@
 ((label cadr (lambda (x) (car (cdr x))) ((label swap (lambda (x) (cons (car (cdr x)) (cons (car x) '())))) '(m b) )))
 
 
+((label cadr (lambda (x) (car (cdr x)))) '(x y))
+((label swap (lambda (x) (list (car (cdr x)) (car x)))) '(x y))
+
+(
+      (label cadr (lambda (x) (car (cdr x))))
+      ((label swap (lambda (x) (list (cadr x) (car x))))
+
+      '(x y)))
 
 
 
-
-
-
+(eval
+  '(
+    (label swap (lambda (x) (list (car (cdr x)) (car x))))
+    '(m b))
+  '((m mars) (b cat))
+)
 
 
 
