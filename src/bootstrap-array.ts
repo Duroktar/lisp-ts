@@ -85,14 +85,15 @@ namespace Lisp {
     const isHash    = () => expr[cursor] === '#';
     const isAlpha   = (c: string) => (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')));
     const isDigit   = (c: string) => ((c >= '0') && (c <= '9'));
-    const isSpecial = (c: string) => ((c === '.') || (c === '-') || (c === '_'));
+    const isSpecial = (c: string) => ((c === '.') || (c === '_'));
+    const isMathOp  = (c: string) => ((c === '+') || (c === '-') || (c === '*') || (c === '/'));
     const isAlnum   = (c: string) => isAlpha(c) || isDigit(c);
-    const isAtom    = (c: string) => isAlnum(c) || isSpecial(c) || isHash();
+    const isAtom    = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash();
     const isEOF     = () => cursor > end;
     const eatSpace  = () => { while ((isSpace() || isNewLine()) && !isEOF()) advance() }
 
     function parseAtom(): Expr {
-      if (isAlpha(current()) || isHash()) {
+      if (isAtom(current())) {
         let res: Expr[] = []
         while (isAtom(current()) && !isEOF()) {
           res.push(advance())
@@ -225,7 +226,8 @@ namespace Lisp {
   }
   export const evalCond = (c: Expr, a: Env): Expr => {
     if (Utils.isEmpty(c)) {
-      throw new Error('Fallthrough COND !!!')
+      // throw new Error('Fallthrough COND !!!')
+      return c
     }
     if (Utils.is(evaluate(caar(c), a))) {
       return evaluate(cadar(c), a)
@@ -313,10 +315,35 @@ namespace Runtime {
   env.set('print',    Utils.mkNativeFunc(env, 'print',    ['x'], x => { console.log(Utils.toString(x)); return []; }))
   env.set('break',    Utils.mkNativeFunc(env, 'break',    ['x'], x => { debugger; return x; }))
 
-  // env.set('list',     Utils.mkNativeFunc(env, 'list',     ['x'], x => x))
-  // env.set('list',     Utils.mkNativeFunc(env, 'list',     ['x'], x => {
-  //   return x
-  // }))
+  env.set('+', Utils.mkNativeFunc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc + val)))
+  env.set('-', Utils.mkNativeFunc(env, '-', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc - val)))
+  env.set('*', Utils.mkNativeFunc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val)))
+  env.set('/', Utils.mkNativeFunc(env, '/', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc / val)))
+
+  env.set('let',  Utils.mkNativeFunc(env, 'let', ['args'], (args, _eval, env) => {
+      let x = Lisp.cons('let', args)
+      const [bindings, body] = args
+      Utils.expect(x, args.length>1, 'Must provide arguments to "let" function')
+      Utils.expect(x, (<any[]>bindings).every(b => Utils.isArray(b) && b.length===2 && Utils.isAtom(b[0])))
+      // const [vars, vals] =
+  }))
+
+  env.set('call/cc',  Utils.mkNativeFunc(env, 'call/cc', ['retval'], ([proc], _eval, env) => {
+      class RuntimeWarning extends Error { public retval?: any }
+      let ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.")
+      const throw_ = Utils.mkNativeFunc(env, 'call/cc', ['retval'], retval => {
+        ball.retval = retval; throw ball
+      })
+      try {
+        if (proc instanceof Lisp.Proc) {
+          const env = Lisp.mkEnv(proc.params, [throw_ as Lisp.Expr], proc.env)
+          return Lisp.evaluate(proc.expr, env)
+        }
+      } catch(err) {
+        if (err === ball) { return ball.retval}
+        else { throw err }
+      }
+  }))
 
   /*
   *
@@ -423,44 +450,53 @@ namespace MetaEval {
 
 namespace Testing {
 
-  Lisp.exec("(eval '(eq 'a 'a) '((a aVar)))", Runtime.env)
+  // Lisp.exec(`
+  //   ;    (defun cadr         (x) (car (cdr x)))
+  //   ; -> (label cadr (lambda (x) (car (cdr x))))
+  //   (print (eval '(defun. capr (x y) (eq x y)) '((a aVar))))
+  // `, Runtime.env)
 
-  Lisp.exec("(print (list 'a 'a 'a))", Runtime.env)
-  Lisp.exec("(print (list 'a 'a (list 'a 'a)))", Runtime.env)
-  Lisp.exec("(print (eval '(list 'a 'a 'a) '((a aVar))))", Runtime.env)
-  Lisp.exec("(print (eval '(list 'a 'a (list 'a 'a)) '((a aVar))))", Runtime.env)
+  Lisp.exec(`(debugn 'yppp (call/cc (lambda (throw) (eq 'm (throw 'hello)))))`, Runtime.env)
+  Lisp.exec("(print (+ '1 '1 '1))", Runtime.env)
 
-  Lisp.exec("(print (eval '(eq a a) '((a aVar))))", Runtime.env)
-  Lisp.exec("(print (eval '(eq 'a 'a) '()))", Runtime.env)
-  Lisp.exec("(print (eval '(eq 'a 'b) '()))", Runtime.env)
-  Lisp.exec("(print (eq 'x 'x))", Runtime.env)
+  // Lisp.exec("(eval '(eq 'a 'a) '((a aVar)))", Runtime.env)
 
-  Lisp.exec("(print (evlis '(x x x) '((x cat))))", Runtime.env)
+  // Lisp.exec("(print (list 'a 'a 'a))", Runtime.env)
+  // Lisp.exec("(print (list 'a 'a (list 'a 'a)))", Runtime.env)
+  // Lisp.exec("(print (eval '(list 'a 'a 'a) '((a aVar))))", Runtime.env)
+  // Lisp.exec("(print (eval '(list 'a 'a (list 'a 'a)) '((a aVar))))", Runtime.env)
 
-  Utils.print(Lisp.exec(`
-    (eval '((label cadr (lambda (x) (car (cdr x)))) '(fst snd)) '()))
-  `, Runtime.env))
+  // Lisp.exec("(print (eval '(eq a a) '((a aVar))))", Runtime.env)
+  // Lisp.exec("(print (eval '(eq 'a 'a) '()))", Runtime.env)
+  // Lisp.exec("(print (eval '(eq 'a 'b) '()))", Runtime.env)
+  // Lisp.exec("(print (eq 'x 'x))", Runtime.env)
 
-  Utils.debugLog(Lisp.exec(`
-    (eval
-      '(
-        (label cadr (lambda (x) (car (cdr x))))
-        ((label swap (lambda (x)
-          (cons (car (cdr x)) (cons (car x) '()))))
+  // Lisp.exec("(print (evlis '(x x x) '((x cat))))", Runtime.env)
 
-        '(m b)))
-      '())
-  `, Runtime.env))
+  // Utils.print(Lisp.exec(`
+  //   (eval '((label cadr (lambda (x) (car (cdr x)))) '(fst snd)) '()))
+  // `, Runtime.env))
 
-  Utils.debugLog(Lisp.exec(`
-    (eval
-      '(
-        (label cadr (lambda (x) (car (cdr x))))
-        ((label swap (lambda (x)
-          (list (cadr x) (car x))))
+  // Utils.debugLog(Lisp.exec(`
+  //   (eval
+  //     '(
+  //       (label cadr (lambda (x) (car (cdr x))))
+  //       ((label swap (lambda (x)
+  //         (cons (car (cdr x)) (cons (car x) '()))))
 
-        '(m b)))
-      '())
-  `, Runtime.env))
+  //       '(m b)))
+  //     '())
+  // `, Runtime.env))
+
+  // Utils.debugLog(Lisp.exec(`
+  //   (eval
+  //     '(
+  //       (label cadr (lambda (x) (car (cdr x))))
+  //       ((label swap (lambda (x)
+  //         (list (cadr x) (car x))))
+
+  //       '(m b)))
+  //     '())
+  // `, Runtime.env))
 
 }
