@@ -25,6 +25,8 @@ namespace Lisp {
     get(name: Atom): Expr {
       const result = this.inner[name] ?? this.outer?.get(name)
       if (result === undefined) {
+        console.log(this);
+
         throw new Error('undefined variable: ' + String(name))
       }
       return result as Expr
@@ -86,6 +88,8 @@ namespace Lisp {
     return [[Sym('lambda'), vars, Utils.map(expand, body)], ...<any[]>Utils.map(expand, vals)];
   }
 
+  export const readMacroTable: Record<string, (...args: any[]) => Expr> = {}
+
   export const macroTable: Record<string, (...args: Expr[]) => Expr> = { let: _let }
 
   export const read = (expr: string): Expr => {
@@ -100,7 +104,7 @@ namespace Lisp {
     const isHash    = () => expr[cursor] === '#';
     const isAlpha   = (c: string) => (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')));
     const isDigit   = (c: string) => ((c >= '0') && (c <= '9'));
-    const isSpecial = (c: string) => ((c === '.') || (c === '_'));
+    const isSpecial = (c: string) => ((c === '.') || (c === '_') || (c === '^') || (c === '<') || (c === '>'));
     const isMathOp  = (c: string) => ((c === '+') || (c === '-') || (c === '*') || (c === '/'));
     const isAlnum   = (c: string) => isAlpha(c) || isDigit(c);
     const isValid   = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash();
@@ -137,6 +141,17 @@ namespace Lisp {
       return parseComment()
     }
 
+    function parseReadMacro(): Expr {
+      if (current() in readMacroTable) {
+        const macro = readMacroTable[current()];
+        advance()
+        return macro({
+          parse, advance, current,
+        });
+      }
+      return parseQuote()
+    }
+
     function parseList(): Expr {
       if (isOpenS()) {
         open.push(cursor); advance()
@@ -155,7 +170,7 @@ namespace Lisp {
       else if (current() === ')')
         throw new Error('Unexpected ")" at cursor: ' + cursor + ', start: ' + open.pop());
 
-      return parseQuote()
+      return parseReadMacro()
     }
 
     function parse(): Expr {
@@ -330,12 +345,15 @@ namespace Utils {
   }
 
   export function mkNativeFunc(env: Lisp.Env, name: string, params: string[], cb: (args: Lisp.Expr, _eval: Function, env: Lisp.Env) => any): Lisp.Expr | Lisp.NativeFunc {
-    return new class extends Lisp.NativeFunc {
+    const func = new class extends Lisp.NativeFunc {
       public name = name;
       public call = cb;
       public env = env;
       public params = params.map(Lisp.Sym);
     };
+
+    env.set(name, func)
+    return func
   }
 }
 
@@ -346,20 +364,30 @@ namespace Runtime {
 
   export const env = new Env()
 
-  env.set('debugnf',  mkNativeFunc(env, 'debugnf',  ['x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', Utils.toString(name)); console.log(x); return []; }))
-  env.set('debugn',   mkNativeFunc(env, 'debugn',   ['x'], ([name, x]: any) => { console.log('[DEBUG-N]:', Utils.toString(name)); console.log(x); return x; }))
-  env.set('debugf',   mkNativeFunc(env, 'debugf',   ['x'], x => { console.log('[DEBUG-F]', x); return []; }))
-  env.set('debug',    mkNativeFunc(env, 'debug',    ['x'], x => { console.log('[DEBUG]', x); return x; }))
-  env.set('print',    mkNativeFunc(env, 'print',    ['x'], ([x]: any) => { console.log(toString(x)); return []; }))
-  env.set('break',    mkNativeFunc(env, 'break',    ['x'], x => { debugger; return x; }))
+  mkNativeFunc(env, 'debugnf',  ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', Utils.toString(name)); console.log(x); return []; })
+  mkNativeFunc(env, 'debugn',   ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-N]:', Utils.toString(name)); console.log(x); return x; })
+  mkNativeFunc(env, 'debugf',   ['x'], x => { console.log('[DEBUG-F]'); console.log(x); return []; })
+  mkNativeFunc(env, 'debug',    ['x'], x => { console.log('[DEBUG]'); console.log(x); return x; })
+  mkNativeFunc(env, 'printn',   ['name', 'x'], ([name, x]: any) => { console.log(name, toString(x)); return []; })
+  mkNativeFunc(env, 'print',    ['x'], ([x]: any) => { console.log(toString(x)); return []; })
+  mkNativeFunc(env, 'break',    ['x'], x => { debugger; return x; })
 
-  env.set('+', mkNativeFunc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc + val)))
-  env.set('-', mkNativeFunc(env, '-', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc - val)))
-  env.set('*', mkNativeFunc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val)))
-  env.set('/', mkNativeFunc(env, '/', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc / val)))
+  mkNativeFunc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc + val))
+  mkNativeFunc(env, '-', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc - val))
+  mkNativeFunc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val))
+  mkNativeFunc(env, '/', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc / val))
 
+  mkNativeFunc(env, 'set-macro-character', ['char', 'cb'], ([char, cb]: any, _eval, env) => {
+    Lisp.readMacroTable[toString(char)] = locals => {
+      const proc = _eval(cb, env);
+      mkNativeFunc(proc.env, 'parse',   ['parse'],   ([locals]: any) => locals.parse())
+      mkNativeFunc(proc.env, 'advance', ['advance'], ([locals]: any) => locals.advance())
+      mkNativeFunc(proc.env, 'current', ['current'], ([locals]: any) => locals.current())
+      return _eval([proc, locals, toString(char)], env)
+    }
+  })
 
-  env.set('call/cc',  mkNativeFunc(env, 'call/cc', ['retval'], ([proc]: any, _eval, env) => {
+  mkNativeFunc(env, 'call/cc', ['retval'], ([proc]: any, _eval, env) => {
       class RuntimeWarning extends Error { public retval?: any }
       let ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.")
       const throw_ = mkNativeFunc(env, 'call/cc', ['retval'], retval => {
@@ -374,7 +402,7 @@ namespace Runtime {
         if (err === ball) { return ball.retval}
         else { throw err }
       }
-  }))
+  })
 
   /*
   *
@@ -487,54 +515,72 @@ namespace Testing {
   //   (print (eval '(defun. capr (x y) (eq x y)) '((a aVar))))
   // `, Runtime.env)
 
-  Lisp.exec(`(debugn 'yppp (call/cc (lambda (throw) (eq 'm (throw 'hello)))))`, Runtime.env)
-  Lisp.exec("(print (+ '1 '1 '1))", Runtime.env)
+  // Lisp.exec(`(debugn 'yppp (call/cc (lambda (throw) (eq 'm (throw 'hello)))))`, Runtime.env)
+  // Lisp.exec("(print (+ '1 '1 '1))", Runtime.env)
 
-  Lisp.exec("(print (let ((a 3) (b 2)) (* a b b b)))", Runtime.env)
+  // Lisp.exec("(print (let ((a 3) (b 2)) (* a b b b)))", Runtime.env)
 
-  Lisp.exec("(print (eq 'x 'x))", Runtime.env)
-  Lisp.exec("(print (eq 'x 'y))", Runtime.env)
+  // Lisp.exec("(print (eq 'x 'x))", Runtime.env)
+  // Lisp.exec("(print (eq 'x 'y))", Runtime.env)
 
-  Lisp.exec("(print (list 'a 'a 'a))", Runtime.env)
-  Lisp.exec("(print (list 'a 'a (list 'a 'a)))", Runtime.env)
+  // Lisp.exec("(print (list 'a 'a 'a))", Runtime.env)
+  // Lisp.exec("(print (list 'a 'a (list 'a 'a)))", Runtime.env)
 
-  Lisp.exec("(print (eq 'x 'x))", Runtime.env)
-  Lisp.exec("(print (cond ('#t 'x)))", Runtime.env)
+  // Lisp.exec("(print (eq 'x 'x))", Runtime.env)
+  // Lisp.exec("(print (cond ('#t 'x)))", Runtime.env)
 
-  Lisp.exec("(print (evlis '(x x x) '((x cat))))", Runtime.env)
+  // Lisp.exec("(print (evlis '(x x x) '((x cat))))", Runtime.env)
 
-  Lisp.exec("(print (eval '(eq 'a 'a) '((a aVar))))", Runtime.env)
-  Lisp.exec("(print (eval '(list 'a 'a 'a) '((a aVar))))", Runtime.env)
-  Lisp.exec("(print (eval '(list 'a 'a (list 'a 'a)) '((a aVar))))", Runtime.env)
+  // Lisp.exec("(print (eval '(eq 'a 'a) '((a aVar))))", Runtime.env)
+  // Lisp.exec("(print (eval '(list 'a 'a 'a) '((a aVar))))", Runtime.env)
+  // Lisp.exec("(print (eval '(list 'a 'a (list 'a 'a)) '((a aVar))))", Runtime.env)
 
-  Lisp.exec("(print (eval '(eq a a) '((a aVar))))", Runtime.env)
-  Lisp.exec("(print (eval '(eq 'a 'a) '()))", Runtime.env)
-  Lisp.exec("(print (eval '(eq 'a 'b) '()))", Runtime.env)
+  // Lisp.exec("(print (eval '(eq a a) '((a aVar))))", Runtime.env)
+  // Lisp.exec("(print (eval '(eq 'a 'a) '()))", Runtime.env)
+  // Lisp.exec("(print (eval '(eq 'a 'b) '()))", Runtime.env)
 
-  Utils.print(Lisp.exec(`
-    (eval '((label cadr (lambda (x) (car (cdr x)))) '(fst snd)) '()))
-  `, Runtime.env))
+  // Utils.print(Lisp.exec(`
+  //   (eval '((label cadr (lambda (x) (car (cdr x)))) '(fst snd)) '()))
+  // `, Runtime.env))
 
-  Utils.print(Lisp.exec(`
-    (eval
-      '(
-        (label cadr (lambda (x) (car (cdr x))))
-        ((label swap (lambda (x)
-          (cons (car (cdr x)) (cons (car x) '()))))
+  // Utils.print(Lisp.exec(`
+  //   (eval
+  //     '(
+  //       (label cadr (lambda (x) (car (cdr x))))
+  //       ((label swap (lambda (x)
+  //         (cons (car (cdr x)) (cons (car x) '()))))
 
-        '(m b)))
-      '())
-  `, Runtime.env))
+  //       '(m b)))
+  //     '())
+  // `, Runtime.env))
 
-  Utils.debugLog(Lisp.exec(`
-    (eval
-      '(
-        (label cadr (lambda (x) (car (cdr x))))
-        ((label swap (lambda (x)
-          (list (cadr x) (car x))))
+  // Utils.debugLog(Lisp.exec(`
+  //   (eval
+  //     '(
+  //       (label cadr (lambda (x) (car (cdr x))))
+  //       ((label swap (lambda (x)
+  //         (list (cadr x) (car x))))
 
-        '(m b)))
-      '())
-  `, Runtime.env))
+  //       '(m b)))
+  //     '())
+  // `, Runtime.env))
 
+  Lisp.exec(`
+    (defun hat-quote-reader (stream char) (list 'quote (parse stream)))
+  `, Runtime.env)
+
+
+  Lisp.exec(`
+    (set-macro-character '^ 'hat-quote-reader)
+  `, Runtime.env)
+
+  Utils.debugLog(
+    Lisp.read(`
+      (eq ^a ^a)
+    `)
+  )
+
+  Lisp.exec(`
+    (print '(eq ^a ^a))
+  `, Runtime.env)
 }
