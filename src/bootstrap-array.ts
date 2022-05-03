@@ -8,7 +8,7 @@ namespace Lisp {
   export const EMPTY: Expr = [];
 
   export class Env {
-    constructor(params: Expr, args: Expr, private outer?: Env) {
+    constructor(params: Expr = [], args: Expr = [], private outer?: Env) {
       if (Utils.isArray(params) && Utils.isArray(args))
         this.inner = Object.fromEntries(params.map((p, i) => [p, args[i]]))
       else if (Utils.isAtom(params)) {
@@ -32,8 +32,6 @@ namespace Lisp {
     }
     private inner:  Record<Atom, Expr | Proc | NativeFunc>
   }
-
-  export const mkEnv = (params: Expr = [], args: Expr = [], outer?: Env) => new Env(params, args, outer);
 
   export class Proc {
     constructor(public params: Expr, public expr: Expr, public env: Env) {}
@@ -72,6 +70,17 @@ namespace Lisp {
   export const not  = (x: Expr): Expr => (x === TRUE) ? EMPTY : TRUE
   export const list = (...exprs: Expr[]): List => exprs
   // END functions
+
+  export const _let = (...args: Expr[]) => {
+    let x = cons('let', args)
+    const [bindings, body] = args
+    Utils.expect(x, args.length>1, 'Must provide arguments to "let" function')
+    Utils.expect(x, (<any[]>bindings).every(b => Utils.isArray(b) && b.length===2 && Utils.isAtom(b[0])))
+    const [vars, vals] = Utils.zip(...(<any[]>bindings))
+    return [['lambda', vars, Utils.map(expand, body)], ...Utils.map(expand, vals)];
+  }
+
+  export const macroTable: Record<string, (...args: Expr[]) => Expr> = { let: _let }
 
   export const read = (expr: string): Expr => {
     let cursor = 0, end = expr.length - 1, open: number[] = [];
@@ -184,6 +193,9 @@ namespace Lisp {
       Utils.expect(preds, Utils.isArray(preds) && preds.every(x => x.length===2), `found cond entry where (length != 2): (${(Utils.isArray(preds) ? preds.find(x => x.length!==2) : preds)})`)
       return [_def, preds]
     }
+    else if (<string>car(e) in macroTable) {
+      return expand(macroTable[<string>car(e)](...cdr(e)), topLevel)
+    }
     return e.map(x => expand(x))
   }
 
@@ -212,11 +224,11 @@ namespace Lisp {
         default: {
           const [proc, ...args] = e.map(expr => evaluate(expr, a))
           if (proc instanceof Proc) {
-            const env = mkEnv(proc.params, args, proc.env)
+            const env = new Env(proc.params, args, proc.env)
             return evaluate(proc.expr, env)
           }
           else if (proc instanceof NativeFunc) {
-            const env = mkEnv(proc.params, args, proc.env)
+            const env = new Env(proc.params, args, proc.env)
             return proc.call(args, evaluate, env)
           }
           return args
@@ -253,12 +265,15 @@ namespace Utils {
   export const isEmpty = (x: Lisp.Expr): boolean => !isAtom(x) && x?.length === 0
   export const is = (e: Lisp.Expr): boolean => e === Lisp.TRUE
 
-  export const map = (func: (m: Lisp.Expr, i: number) => Lisp.Expr, m: Lisp.Expr, __i = 0): Lisp.Expr => {
+  export const zip = (...rows: Lisp.Expr[][]) => rows[0].map((_, c) => rows.map(row => row[c]))
+
+  export const map = (func: (m: Lisp.Expr) => Lisp.Expr, m: Lisp.Expr): Lisp.Expr => {
     if (isArray(m)) {
-      return m.map(child => map(func, child, __i++))
+      return m.map(child => map(func, child))
     }
-    return func(m, __i)
+    return func(m)
   }
+
   export const find = (func: (m: Lisp.Expr, i: number) => boolean, m: Lisp.Expr, __i = 0): Lisp.Expr | undefined => {
     if (isArray(m)) {
       for (const child of m) {
@@ -306,37 +321,32 @@ namespace Utils {
 
 namespace Runtime {
 
-  export const env = Lisp.mkEnv()
+  const {cons, expand, list, Env} = Lisp
+  const {isArray, isAtom, expect, map, zip, toString, mkNativeFunc} = Utils
 
-  env.set('debugnf',  Utils.mkNativeFunc(env, 'debugnf',  ['x'], ([name, x]) => { console.log('[DEBUG-NF]:', name, x); return []; }))
-  env.set('debugn',   Utils.mkNativeFunc(env, 'debugn',   ['x'], ([name, x]) => { console.log('[DEBUG-N]:', name, x); return x; }))
-  env.set('debugf',   Utils.mkNativeFunc(env, 'debugf',   ['x'], x => { console.log('[DEBUG-F]', x); return []; }))
-  env.set('debug',    Utils.mkNativeFunc(env, 'debug',    ['x'], x => { console.log('[DEBUG]', x); return x; }))
-  env.set('print',    Utils.mkNativeFunc(env, 'print',    ['x'], x => { console.log(Utils.toString(x)); return []; }))
-  env.set('break',    Utils.mkNativeFunc(env, 'break',    ['x'], x => { debugger; return x; }))
+  export const env = new Env()
 
-  env.set('+', Utils.mkNativeFunc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc + val)))
-  env.set('-', Utils.mkNativeFunc(env, '-', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc - val)))
-  env.set('*', Utils.mkNativeFunc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val)))
-  env.set('/', Utils.mkNativeFunc(env, '/', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc / val)))
+  env.set('debugnf',  mkNativeFunc(env, 'debugnf',  ['x'], ([name, x]) => { console.log('[DEBUG-NF]:', name, x); return []; }))
+  env.set('debugn',   mkNativeFunc(env, 'debugn',   ['x'], ([name, x]) => { console.log('[DEBUG-N]:', name, x); return x; }))
+  env.set('debugf',   mkNativeFunc(env, 'debugf',   ['x'], x => { console.log('[DEBUG-F]', x); return []; }))
+  env.set('debug',    mkNativeFunc(env, 'debug',    ['x'], x => { console.log('[DEBUG]', x); return x; }))
+  env.set('print',    mkNativeFunc(env, 'print',    ['x'], x => { console.log(toString(x)); return []; }))
+  env.set('break',    mkNativeFunc(env, 'break',    ['x'], x => { debugger; return x; }))
 
-  env.set('let',  Utils.mkNativeFunc(env, 'let', ['args'], (args, _eval, env) => {
-      let x = Lisp.cons('let', args)
-      const [bindings, body] = args
-      Utils.expect(x, args.length>1, 'Must provide arguments to "let" function')
-      Utils.expect(x, (<any[]>bindings).every(b => Utils.isArray(b) && b.length===2 && Utils.isAtom(b[0])))
-      // const [vars, vals] =
-  }))
+  env.set('+', mkNativeFunc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc + val)))
+  env.set('-', mkNativeFunc(env, '-', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc - val)))
+  env.set('*', mkNativeFunc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val)))
+  env.set('/', mkNativeFunc(env, '/', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc / val)))
 
-  env.set('call/cc',  Utils.mkNativeFunc(env, 'call/cc', ['retval'], ([proc], _eval, env) => {
+  env.set('call/cc',  mkNativeFunc(env, 'call/cc', ['retval'], ([proc], _eval, env) => {
       class RuntimeWarning extends Error { public retval?: any }
       let ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.")
-      const throw_ = Utils.mkNativeFunc(env, 'call/cc', ['retval'], retval => {
+      const throw_ = mkNativeFunc(env, 'call/cc', ['retval'], retval => {
         ball.retval = retval; throw ball
       })
       try {
         if (proc instanceof Lisp.Proc) {
-          const env = Lisp.mkEnv(proc.params, [throw_ as Lisp.Expr], proc.env)
+          const env = new Env(proc.params, [throw_ as Lisp.Expr], proc.env)
           return Lisp.evaluate(proc.expr, env)
         }
       } catch(err) {
@@ -456,8 +466,10 @@ namespace Testing {
   //   (print (eval '(defun. capr (x y) (eq x y)) '((a aVar))))
   // `, Runtime.env)
 
-  Lisp.exec(`(debugn 'yppp (call/cc (lambda (throw) (eq 'm (throw 'hello)))))`, Runtime.env)
-  Lisp.exec("(print (+ '1 '1 '1))", Runtime.env)
+  // Lisp.exec(`(debugn 'yppp (call/cc (lambda (throw) (eq 'm (throw 'hello)))))`, Runtime.env)
+  // Lisp.exec("(print (+ '1 '1 '1))", Runtime.env)
+
+  Lisp.exec("(print (let ((a 'aa) (b 'bb)) (+ a b)))", Runtime.env)
 
   // Lisp.exec("(eval '(eq 'a 'a) '((a aVar)))", Runtime.env)
 
