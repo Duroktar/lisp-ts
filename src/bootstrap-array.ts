@@ -1,6 +1,8 @@
+import assert from "assert";
+
 namespace Lisp {
 
-  export type Atom = string;
+  export type Atom = string | number;
   export type List = Expr[];
   export type Expr = List | Atom;
 
@@ -49,9 +51,9 @@ namespace Lisp {
   export const quote = (expr: Expr): Expr => cadr(expr)
   export const atom = (expr: Expr): Expr => Utils.isAtom(expr) ? TRUE : EMPTY
   export const eq   = (x: Expr, y: Expr): Expr => (Utils.isAtom(x) && Utils.isAtom(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y)) ? TRUE : EMPTY
-  export const cons = (car: Expr, cdr: Expr): Expr => [car, ...Utils.expect(cdr, Utils.isArray, '2nd Argument to cons must be an array.. got: ' + cdr)]
-  export const car  = (expr: Expr): Expr => Utils.expect(expr, Utils.isArray, 'Argument to car must be an array.. got: ' + expr)[0]
-  export const cdr  = (expr: Expr): Expr => Utils.expect(expr, Utils.isArray, 'Argument to cdr must be an array.. got: ' + expr).slice(1)
+  export const cons = (car: Expr, cdr: Expr): Expr => [car, ...<any>Utils.expect(cdr, Utils.isArray, '2nd Argument to cons must be an array.. got: ' + cdr)]
+  export const car  = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isArray, 'Argument to car must be an array.. got: ' + expr)[0]
+  export const cdr  = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isArray, 'Argument to cdr must be an array.. got: ' + expr).slice(1)
   // END primitives
 
   // functions
@@ -77,7 +79,7 @@ namespace Lisp {
     Utils.expect(x, args.length>1, 'Must provide arguments to "let" function')
     Utils.expect(x, (<any[]>bindings).every(b => Utils.isArray(b) && b.length===2 && Utils.isAtom(b[0])))
     const [vars, vals] = Utils.zip(...(<any[]>bindings))
-    return [['lambda', vars, Utils.map(expand, body)], ...Utils.map(expand, vals)];
+    return [['lambda', vars, Utils.map(expand, body)], ...<any[]>Utils.map(expand, vals)];
   }
 
   export const macroTable: Record<string, (...args: Expr[]) => Expr> = { let: _let }
@@ -97,20 +99,19 @@ namespace Lisp {
     const isSpecial = (c: string) => ((c === '.') || (c === '_'));
     const isMathOp  = (c: string) => ((c === '+') || (c === '-') || (c === '*') || (c === '/'));
     const isAlnum   = (c: string) => isAlpha(c) || isDigit(c);
-    const isAtom    = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash();
+    const isValid   = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash();
     const isEOF     = () => cursor > end;
     const eatSpace  = () => { while ((isSpace() || isNewLine()) && !isEOF()) advance() }
 
     function parseAtom(): Expr {
-      if (isAtom(current())) {
-        let res: Expr[] = []
-        while (isAtom(current()) && !isEOF()) {
-          res.push(advance())
-        }
-        return res.join('');
+      let atom: string = ''
+      while (isValid(current()) && !isEOF()) {
+        atom += advance()
       }
-
-      throw new Error('Invalid atom:' + current())
+      const num = parseInt(atom);
+      if (!Number.isNaN(num))
+        return num
+      return atom;
     }
 
     function parseComment(): Expr {
@@ -162,7 +163,8 @@ namespace Lisp {
 
     return parse()
   }
-  export const expand = (e: Expr, topLevel = false): Expr => {
+  export const expand = (expr: Expr, topLevel = false): Expr => {
+    const e = expr as Expr[]
     Utils.expect(e, e.length!==0)
     if (!Utils.isArray(e)) { return e }
     else if (car(e) === 'quote') {
@@ -174,7 +176,7 @@ namespace Lisp {
       const [__, name, args, expr] = e;
       Utils.expect(args, Utils.isAtom(name))
       Utils.expect(args, Utils.isArray(args) || Utils.isAtom(args))
-      const body = expand(['lambda', args, expr])
+      const body: any = expand(['lambda', args, expr])
       Utils.expect(body, body.length>=1, `body list size should be at least 1, got: ${body.length}`)
       return ['defun', name, body]
     }
@@ -183,24 +185,25 @@ namespace Lisp {
       const [_lambda, params, expr] = e;
       const allAtoms = Utils.isArray(params) && params.every(Utils.isAtom);
       Utils.expect(params, (allAtoms || Utils.isAtom(params)), 'Invalid args')
-      const body = expand(expr);
+      const body: any = expand(expr);
       Utils.expect(body, body.length>=1, `body list size should be at least 1, got: ${body.length}`)
       return [_lambda, params, body]
     }
     else if (car(e) === 'cond') {
       const [_def, ...exprs] = e
-      const preds = exprs.map(pair => [pair[0], expand(pair[1])]);
+      const preds = exprs.map(pair => [(<any>pair)[0], expand((<any>pair)[1])]);
       Utils.expect(preds, Utils.isArray(preds) && preds.every(x => x.length===2), `found cond entry where (length != 2): (${(Utils.isArray(preds) ? preds.find(x => x.length!==2) : preds)})`)
       return [_def, preds]
     }
     else if (<string>car(e) in macroTable) {
-      return expand(macroTable[<string>car(e)](...cdr(e)), topLevel)
+      return expand(macroTable[<string>car(e)](...<any>cdr(e)), topLevel)
     }
     return e.map(x => expand(x))
   }
 
   export const evaluate = (e: Expr, a: Env): Expr => {
-    if (Utils.isAtom(e))return a.get(e)
+    if (Utils.isAtom(e)) return a.get(e)
+    else if (!Utils.isArray(e)) return e
     else {
       switch (car(e)) {
         case 'quote':   return quote(e)
@@ -285,19 +288,20 @@ namespace Utils {
       return m
   }
 
-  export const toString = (e: Lisp.Expr): string => {
+  export const toString = (expr: Lisp.Expr): string => {
+    const e: any = expr
     if (Utils.is(Lisp.atom(e))) return String(e)
-    if (Utils.is(Lisp.nil(e)))  return '()'
-    if (e?.[0] === 'quote') {
+    if (!Array.isArray(e))  return e
+    if (Lisp.car(e) === 'quote') {
       if (e.length === 2)
         return `'${toString(e[1])}`
       return `'${toString(e.slice(1))}`
     }
-    if ((<any>e) instanceof Lisp.Proc) {
+    if (e instanceof Lisp.Proc) {
       return '[Proc: anonymous]'
     }
-    if ((<any>e) instanceof Lisp.NativeFunc) {
-      let expr: Lisp.NativeFunc = e as any
+    if (e instanceof Lisp.NativeFunc) {
+      let expr: Lisp.NativeFunc = e
       return `[NativeFunc: ${expr.name}]`
     }
     if (Utils.isArray(e)) {
@@ -326,11 +330,11 @@ namespace Runtime {
 
   export const env = new Env()
 
-  env.set('debugnf',  mkNativeFunc(env, 'debugnf',  ['x'], ([name, x]) => { console.log('[DEBUG-NF]:', name, x); return []; }))
-  env.set('debugn',   mkNativeFunc(env, 'debugn',   ['x'], ([name, x]) => { console.log('[DEBUG-N]:', name, x); return x; }))
+  env.set('debugnf',  mkNativeFunc(env, 'debugnf',  ['x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', name, x); return []; }))
+  env.set('debugn',   mkNativeFunc(env, 'debugn',   ['x'], ([name, x]: any) => { console.log('[DEBUG-N]:', name, x); return x; }))
   env.set('debugf',   mkNativeFunc(env, 'debugf',   ['x'], x => { console.log('[DEBUG-F]', x); return []; }))
   env.set('debug',    mkNativeFunc(env, 'debug',    ['x'], x => { console.log('[DEBUG]', x); return x; }))
-  env.set('print',    mkNativeFunc(env, 'print',    ['x'], x => { console.log(toString(x)); return []; }))
+  env.set('print',    mkNativeFunc(env, 'print',    ['x'], ([x]: any) => { console.log(toString(x)); return []; }))
   env.set('break',    mkNativeFunc(env, 'break',    ['x'], x => { debugger; return x; }))
 
   env.set('+', mkNativeFunc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc + val)))
@@ -338,7 +342,7 @@ namespace Runtime {
   env.set('*', mkNativeFunc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val)))
   env.set('/', mkNativeFunc(env, '/', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc / val)))
 
-  env.set('call/cc',  mkNativeFunc(env, 'call/cc', ['retval'], ([proc], _eval, env) => {
+  env.set('call/cc',  mkNativeFunc(env, 'call/cc', ['retval'], ([proc]: any, _eval, env) => {
       class RuntimeWarning extends Error { public retval?: any }
       let ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.")
       const throw_ = mkNativeFunc(env, 'call/cc', ['retval'], retval => {
@@ -469,7 +473,8 @@ namespace Testing {
   // Lisp.exec(`(debugn 'yppp (call/cc (lambda (throw) (eq 'm (throw 'hello)))))`, Runtime.env)
   // Lisp.exec("(print (+ '1 '1 '1))", Runtime.env)
 
-  Lisp.exec("(print (let ((a 'aa) (b 'bb)) (+ a b)))", Runtime.env)
+  Lisp.exec("(print (let ((a 3) (b 2)) (* a b b b)))", Runtime.env)
+  Lisp.exec("(print (eq 'x 'y))", Runtime.env)
 
   // Lisp.exec("(eval '(eq 'a 'a) '((a aVar)))", Runtime.env)
 
