@@ -6,7 +6,7 @@
   "scripts": {
     "build:watch": "ttsc --watch src/bootstrap.ts",
     "build": "ttsc src/bootstrap.ts",
-    "test": "ts-node src/test.ts",
+    "test": "jest",
     "start": "ts-node src/bootstrap.ts"
   },
   "devDependencies": {
@@ -14,12 +14,15 @@
     "@types/chai": "^4.3.0",
     "@types/commander": "^2.12.2",
     "@types/diff": "^5.0.2",
+    "@types/jest": "^27.5.0",
     "@types/node": "^17.0.23",
     "chai": "^4.3.6",
     "colors": "^1.4.0",
     "commander": "^9.1.0",
     "diff": "^5.0.0",
+    "jest": "^28.0.3",
     "reflect-metadata": "^0.1.13",
+    "ts-jest": "^28.0.1",
     "ts-node": "^10.7.0",
     "tslib": "^2.3.1",
     "ttypescript": "^1.5.13",

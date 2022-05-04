@@ -1,5 +1,5 @@
 
-namespace Lisp {
+export namespace Lisp {
 
   export const Sym = Symbol.for
 
@@ -57,6 +57,9 @@ namespace Lisp {
   export const car  = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isArray, 'Argument to car must be an array..')[0]
   export const cdr  = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isArray, 'Argument to cdr must be an array..').slice(1)
   // END Utils.toString(primitives)
+
+  // export const compose = (...fns: Function[]) => (arg: any) => fns.reduceRight((acc, fn) => fn(acc), arg)
+  // export const cadr    = compose(car, cdr)
 
   // functions
   export const cadr    = (expr: Expr): Expr => car(cdr(expr))
@@ -328,7 +331,7 @@ namespace Lisp {
       // throw new Error('Fallthrough COND !!!')
       return c
     }
-    if (Utils.is(evaluate(caar(c), a))) {
+    if (Utils.isT(evaluate(caar(c), a))) {
       return evaluate(cadar(c), a)
     }
     return evalCond(cdr(c), a)
@@ -339,12 +342,8 @@ namespace Lisp {
   }
 }
 
-namespace Utils {
+export namespace Utils {
 
-  export const compose = (...fns: [...fns: Function[], arg: any]) => fns.reduceRight((acc, fn) => fn(acc), fns.pop())
-  export const debugLog = console.log
-
-  export const strict = <T>(o: T | undefined): T => { if (o === undefined) throw new Error('Strict! (Returned undefined)'); else return o as T; }
   export const expect = <E, P extends boolean | ((e: E) => boolean)>(e: E, p: P, msg = ''): E => {
     if (!((typeof p === 'boolean') ? p : p(e))) {
       throw new Error(msg || `${toString(e as any)}: expect error`);
@@ -355,7 +354,7 @@ namespace Utils {
 
   export const isPair = (x: Lisp.Expr) => !isSym(x) && !isEmpty(x)
   export const isArray = (x: Lisp.Expr): x is Lisp.Expr[] => !isSym(x) && Array.isArray(x)
-  export const isAtom = (x: Lisp.Expr): x is Lisp.Atom => typeof x === 'string' || isSym(x)
+  export const isAtom = (x: Lisp.Expr): x is Lisp.Atom => isSym(x)
   export const isSym = (x: Lisp.Expr): x is symbol => typeof x === 'symbol'
   export const isEmpty = (x: Lisp.Expr): boolean => isArray(x) && x.length === 0
   export const isCallable = (x: any): x is Lisp.Proc | Lisp.NativeFunc => isProc(x) && isNativeFn(x)
@@ -363,7 +362,7 @@ namespace Utils {
   export const isNativeFn = (x: any): x is Lisp.NativeFunc => x instanceof Lisp.NativeFunc
   export const toLispBool = (e: boolean): Lisp.Expr => e ? Lisp.TRUE : Lisp.EMPTY
 
-  export const is = (e: Lisp.Expr): boolean => e === Lisp.TRUE
+  export const isT = (e: Lisp.Expr): boolean => e === Lisp.TRUE
 
   export const zip = (...rows: Lisp.Expr[][]) => rows[0].map((_, c) => rows.map(row => row[c]))
 
@@ -373,7 +372,6 @@ namespace Utils {
     }
     return func(m)
   }
-
   export const find = (func: (m: Lisp.Expr, i: number) => boolean, m: Lisp.Expr, __i = 0): Lisp.Expr | undefined => {
     if (isArray(m)) {
       for (const child of m) {
@@ -388,7 +386,7 @@ namespace Utils {
   export const toString = (expr: Lisp.Expr): string => {
     const e: any = expr
     if (typeof e === 'symbol') return e.description!
-    if (Utils.is(Lisp.atom(e))) return String(e)
+    if (Utils.isT(Lisp.atom(e))) return String(e)
     if (!Array.isArray(e))  return e
     if (Lisp.car(e) === 'quote') {
       if (e.length === 2)
@@ -424,13 +422,14 @@ namespace Utils {
   }
 }
 
-namespace Runtime {
+export namespace Runtime {
 
   const {cons, expand, list, Env} = Lisp
   const {isArray, isAtom, expect, map, zip, toString, mkNativeFunc} = Utils
 
   export const env = new Env()
   env.set('#t', '#t')
+  env.set('#f', '#f')
 
   mkNativeFunc(env, 'debugnf',  ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', Utils.toString(name)); console.log(x); return []; })
   mkNativeFunc(env, 'debugn',   ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-N]:', Utils.toString(name)); console.log(x); return x; })
@@ -472,7 +471,7 @@ namespace Runtime {
           return Lisp.evaluate(proc.expr, env)
         }
       } catch(err) {
-        if (err === ball) { return ball.retval}
+        if (err === ball) { return ball.retval }
         else { throw err }
       }
   })
@@ -505,6 +504,15 @@ namespace Runtime {
 
   /*
   *
+  *  macros
+  *
+  */
+  Lisp.exec(
+    "(define-macro if (c t e) `(cond (,c ,t) ('#t ,e)))"
+  , env)
+
+  /*
+  *
   *  functions
   *
   */
@@ -515,216 +523,22 @@ namespace Runtime {
   Lisp.exec(`(defun caddar (x) (car (cdr (cdr (car x)))))`, env)
   Lisp.exec(`(defun list x x)`, env)
 
-  // Lisp.exec(`
-  //   (defun null. (x)
-  //     (eq x '()))
-  // `, env)
-
-  // Lisp.exec(`
-  //   (defun and. (x y)
-  //     (cond
-  //       (x (cond (y '#t) ('#t '()) ) )
-  //       ('#t '())))
-  // `, env)
-
-  // Lisp.exec(`
-  //   (defun not. (x)
-  //     (cond
-  //       (x '())
-  //       ('#t '#t)))`
-  // , env)
-
-  // Lisp.exec(`
-  //   (defun append. (x y)
-  //     (cond ((null. x) y)
-  //           ('#t (cons (car x) (append. (cdr x) y)))))`
-  // , env)
-
-  // Lisp.exec(`
-  //   (defun pair. (x y)
-  //     (cond ((and. (null. x) (null. y)) '())
-  //           ((and. (not. (atom x)) (not. (atom y)))
-  //             (cons (list  (car x) (car y))
-  //                   (pair. (cdr x) (cdr y))))))`
-  // , env)
-
-  // Lisp.exec(`
-  //   (defun assoc. (x y)
-  //     (cond ((eq (caar y) x) (cadar y))
-  //           ((null. (cdr y)) '())
-  //           ('#t (assoc. x (cdr y)))))`
-  // , env)
-}
-
-// namespace MetaEval {
-
-//   /*
-//   *
-//   *  metacircular evaluator
-//   *
-//   */
-//   Lisp.exec(`(
-//     (defun eval (e a)
-//       (cond
-//         ((atom e) (assoc. e a))
-//         ((atom (car e))
-//           (cond
-//             ((eq (car e) 'quote) (cadr e))
-//             ((eq (car e) 'atom) (atom   (eval (cadr  e) a)))
-//             ((eq (car e) 'eq)   (eq     (eval (cadr  e) a)
-//                                         (eval (caddr e) a)))
-//             ((eq (car e) 'car)  (car    (eval (cadr  e) a)))
-//             ((eq (car e) 'cdr)  (cdr    (eval (cadr  e) a)))
-//             ((eq (car e) 'cons) (cons   (eval (cadr  e) a)
-//                                         (eval (caddr e) a)))
-//             ((eq (car e) 'cond) (evcon (cdr e) a))
-//             ((eq (car e) 'list) (evlis (cdr e) a))
-//             ('#t (eval (cons (assoc. (car e) a)
-//                                      (cdr e))
-//                         a))))
-
-//         ((eq (caar e) 'label)
-//           (eval (cons (caddar e) (cdr e))
-//                 (cons (list (cadar e) (car e)) a)))
-
-//         ((eq (caar e) 'lambda)
-//           (eval (caddar e)
-//                 (append. (pair. (cadar e) (evlis (cdr e) a))
-//                           a)))))
-
-//     (defun evcon (c a)
-//       (cond
-//         ((eval (caar c) a) (eval (cadar c) a))
-//         ('#t               (evcon (cdr c) a))))
-
-//     (defun evlis (m a)
-//       (cond ((null. m) '())
-//             ('#t (cons (eval  (car m) a)
-//                        (evlis (cdr m) a)))))
-//   )`
-//   , Runtime.env)
-// }
-
-namespace Testing {
-
-  // Lisp.exec(`
-  //   ;    (defun cadr         (x) (car (cdr x)))
-  //   ; -> (label cadr (lambda (x) (car (cdr x))))
-  //   (print (eval '(defun. capr (x y) (eq x y)) '((a aVar))))
-  // `, Runtime.env)
-
-  Lisp.exec(`(debugn 'yppp (call/cc (lambda (throw) (eq 'm (throw 'hello)))))`, Runtime.env)
-  Lisp.exec("(print (+ '1 '1 '1))", Runtime.env)
-
-  Lisp.exec("(print (let ((a 3) (b 2)) (* a b b b)))", Runtime.env)
-
-  Lisp.exec("(print (eq 'x 'x))", Runtime.env)
-  Lisp.exec("(print (eq 'x 'y))", Runtime.env)
-
-  Lisp.exec("(print (list 'a 'a 'a))", Runtime.env)
-  Lisp.exec("(print (list 'a 'a (list 'a 'a)))", Runtime.env)
-
-  Lisp.exec("(print (eq 'x 'x))", Runtime.env)
-  Lisp.exec("(print (cond ('#t 'x)))", Runtime.env)
-
-  // Lisp.exec("(print (evlis '(x x x) '((x cat))))", Runtime.env)
-
-  // Lisp.exec("(print (eval '(eq 'a 'a) '((a aVar))))", Runtime.env)
-  // Lisp.exec("(print (eval '(list 'a 'a 'a) '((a aVar))))", Runtime.env)
-  // Lisp.exec("(print (eval '(list 'a 'a (list 'a 'a)) '((a aVar))))", Runtime.env)
-
-  // Lisp.exec("(print (eval '(eq a a) '((a aVar))))", Runtime.env)
-  // Lisp.exec("(print (eval '(eq 'a 'a) '()))", Runtime.env)
-  // Lisp.exec("(print (eval '(eq 'a 'b) '()))", Runtime.env)
-
-  // Utils.print(Lisp.exec(`
-  //   (eval '((label cadr (lambda (x) (car (cdr x)))) '(fst snd)) '()))
-  // `, Runtime.env))
-
-  // Utils.print(Lisp.exec(`
-  //   (eval
-  //     '(
-  //       (label cadr (lambda (x) (car (cdr x))))
-  //       ((label swap (lambda (x)
-  //         (cons (car (cdr x)) (cons (car x) '()))))
-
-  //       '(m b)))
-  //     '())
-  // `, Runtime.env))
-
-  // Utils.debugLog(Lisp.exec(`
-  //   (eval
-  //     '(
-  //       (label cadr (lambda (x) (car (cdr x))))
-  //       ((label swap (lambda (x)
-  //         (list (cadr x) (car x))))
-
-  //       '(m b)))
-  //     '())
-  // `, Runtime.env))
-
-  // Utils.debugLog(
-  //   Lisp.read(`
-  //     (eq ^a ^a)
-  //   `)
-  // )
-
-  // Lisp.exec(`
-  //   (print (eq ^a ^a))
-  // `, Runtime.env)
-
   Lisp.exec(`
-    (print 3)
-  `, Runtime.env)
+    (defun eval-expr (expr env)
+      (cond
+        ((atom expr) (env expr))
+        ((eq (car expr) 'lambda)
+          (lambda (arg)
+            (eval-expr caddr (lambda (y)
+                              (if (eq (cadr expr) y)
+                                  arg
+                                  (env y))
+              )))))
+        ('#t (
+          (eval-expr (car expr) env)
+          (eval-expr (cadr expr) env)))
+      ))
+  `, env)
 
-  Lisp.exec(
-    "(define-macro if (c t e) `(cond (,c ,t) ('#t ,e)))"
-  , Runtime.env)
-
-  Lisp.exec(`
-    (print (macroexpand '(if '(eq a b) 3 5)))
-  `, Runtime.env)
-
-  Lisp.exec(`
-    (print (macroexpand '(let
-      ((x 'a) (y 'a))
-      (print (if (eq x x) 55 88))
-    )))
-  `, Runtime.env)
-
-  Lisp.exec(`
-    (define-macro is () '(= x y))
-  `, Runtime.env)
-
-  Lisp.exec(`
-    (macroexpand '(is 2 3))
-  `, Runtime.env)
-
-  Lisp.exec(`
-    (let
-      ((x 3) (y 3))
-      (print (is))
-    )
-  `, Runtime.env)
-
-  Lisp.exec(`
-    (let
-      ((x 'a) (y 'a))
-      (print (is))
-    )
-  `, Runtime.env)
-
-  Lisp.exec(`
-    (let
-      ((x 'a) (y 'a))
-      (print (if (eq x y) 55 88))
-    )
-  `, Runtime.env)
-
-  Lisp.exec(`
-    (let
-      ((x 'a) (y 'a))
-      (print (if (eq x 5) 55 88))
-    )
-  `, Runtime.env)
+  Lisp.exec(`(print (eval-expr '((lambda (x y) y) (3 5)) (lambda (y) y)))`, env)
 }
