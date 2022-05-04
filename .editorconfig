@@ -11,6 +11,10 @@ charset = utf-8
 trim_trailing_whitespace = false
 insert_final_newline = false
 
+[*.c]
+indent_size = 2
+trim_trailing_whitespace = true
+
 [*.cl]
 indent_size = 2
 trim_trailing_whitespace = true
