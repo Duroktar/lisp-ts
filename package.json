@@ -7,7 +7,7 @@
     "build:watch": "ttsc --watch src/bootstrap.ts",
     "build": "ttsc src/bootstrap.ts",
     "test": "ts-node src/test.ts",
-    "start": "ts-node src/bootstrap-array.ts"
+    "start": "ts-node src/bootstrap.ts"
   },
   "devDependencies": {
     "@trabpukcip/inject": "^0.0.12",
