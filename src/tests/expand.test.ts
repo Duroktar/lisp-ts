@@ -1,11 +1,13 @@
-import { Lisp, Runtime, Utils } from "../bootstrap";
+import { Lisp } from "../lib/lisp";
+import * as Runtime from "../globals";
+import { toString } from "../utils";
 
-test('(expand) (let ...) = (lambda ...)', () => {
+test('(expand) (let ...) = (λ ...)', () => {
   expect(
-    Utils.toString(Lisp.expand(Lisp.read(
+    toString(Lisp.expand(Lisp.read(
       "(let ((x 'a) (y 'a)) (eq x y))"
     )))).toBe(
-      "((lambda (x y) (eq x y)) (quote a) (quote a))"
+      "((λ (x y) (eq x y)) (quote a) (quote a))"
     );
 
   Lisp.exec(`

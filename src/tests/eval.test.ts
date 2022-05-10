@@ -1,4 +1,5 @@
-import { Lisp, Runtime } from "../bootstrap";
+import { Lisp } from "../lib/lisp";
+import * as Runtime from "../globals";
 
 describe('evaluate works', () => {
   test('(eval) testing (+ .. n)', () => {

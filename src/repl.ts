@@ -1,15 +1,18 @@
-import colors from 'colors'
-import getPath from 'platform-folders';
-import repl from 'pretty-repl'
-import { Recoverable } from 'repl'
 import { highlight } from 'cli-highlight';
-import { Errors, Lisp, Runtime, Utils } from './bootstrap';
-import path, { join } from 'path';
+import colors from 'colors';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import path, { join } from 'path';
+import getPath from 'platform-folders';
+import repl from 'pretty-repl';
+import { Recoverable } from 'repl';
+import * as Errors from "./lib/errors";
+import { Lisp } from "./lib/lisp";
+import * as Runtime from "./globals";
+import * as Utils from "./utils";
 
 const APPDATA = Utils.assert(getPath('appdata'), 'Error looking up appdata directory!');
 
-export namespace Repl {
+namespace Repl {
 
   const LANGUAGE_ID = 'scheme';
   const LANGUAGE_VERSION = '1.0';

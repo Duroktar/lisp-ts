@@ -1,14 +1,14 @@
 {
   "name": "lisp-ts",
   "version": "1.0.0",
-  "main": "dist/bootstrap.js",
+  "main": "dist/lisp.js",
   "license": "MIT",
   "scripts": {
-    "build:watch": "ttsc --watch src/bootstrap.ts",
-    "build": "ttsc src/bootstrap.ts",
+    "build:watch": "ttsc --watch src/start.ts",
+    "build": "ttsc src/start.ts",
     "repl": "ts-node src/repl.ts",
     "test": "jest",
-    "start": "ts-node src/bootstrap.ts"
+    "start": "ts-node src/start.ts"
   },
   "devDependencies": {
     "@trabpukcip/inject": "^0.0.12",

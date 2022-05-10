@@ -1,8 +1,9 @@
-import { Lisp, Utils } from "../bootstrap";
+import { Lisp } from "../lib/lisp";
+import { toString } from "../utils";
 
 test("(read) (eq 'x 'y) => (eq (quote x) (quote y))", () => {
   expect(
-    Utils.toString(Lisp.read(
+    toString(Lisp.read(
       "(eq 'x 'y)"
     ))).toBe(
       "(eq (quote x) (quote y))"
