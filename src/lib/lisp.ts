@@ -17,31 +17,35 @@ export namespace Lisp {
     CDR: Sym('cdr'),
     COND: Sym('cond'),
     CONS: Sym('cons'),
+    DEFINE: Sym('define'),
     DEFINEMACRO: Sym('define-macro'),
     DEFUN: Sym('defun'),
     DO: Sym('do'),
+    IF: Sym('if'),
     EQ: Sym('eq'),
     LAMBDA: Sym('lambda'),
     LET: Sym('let'),
+    SET: Sym('set!'),
     QUASIQUOTE: Sym('quasiquote'),
     QUOTE: Sym('quote'),
     UNQUOTE: Sym('unquote'),
-    UNQUOTESPLICING: Sym('unquotesplicing'),
+    UNQUOTESPLICING: Sym('unquote-splicing'),
   };
   // END symbols
 
   // constants
-  export const TRUE: Atom = Sym('#t');
   export const EMPTY: Expr = [];
+  export const TRUE:  Atom = Sym('#t');
+  export const FALSE: Atom = Sym('#f');
   // END constants
 
   // primitives (7)
   export const quote = (expr: Expr): Expr => cadr(expr);
   export const atom = (expr: Expr): Expr => Utils.toL(Utils.isAtom(expr));
   export const eq = (x: Expr, y: Expr): Expr => Utils.toL(Utils.isSym(x) && Utils.isSym(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y));
-  export const cons = (car: Expr, cdr: Expr): Expr => [car, ...<any>Utils.expect(cdr, Utils.isArray, '2nd Argument to cons must be an array...')];
-  export const car = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isArray, 'Argument to car must be an array..')[0];
-  export const cdr = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isArray, 'Argument to cdr must be an array..').slice(1);
+  export const cons = (car: Expr, cdr: Expr): Expr => [car, ...<any>Utils.expect(cdr, Utils.isList, '2nd Argument to cons must be an array...')];
+  export const car = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isList, 'Argument to car must be an array..')[0];
+  export const cdr = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
   // END primitives
 
   // export const compose = (...fns: Function[]) => (arg: any) => fns.reduceRight((acc, fn) => fn(acc), arg)
@@ -58,11 +62,6 @@ export namespace Lisp {
   export const cadddr  = (expr: Expr): Expr => car(cdr(cdr(cdr(expr))));
   export const cadadr  = (expr: Expr): Expr => car(cdr(car(cdr(expr))));
   export const cadddar = (expr: Expr): Expr => car(cdr(cdr(cdr(car(expr)))));
-
-  export const nil = (x: Expr): Expr => not(atom(x)) && eq(x, EMPTY);
-  export const not = (x: Expr): Expr => (x === TRUE) ? EMPTY : TRUE;
-
-  export const list = (...exprs: Expr[]): List => exprs;
 
   export const _do = (args: Expr[], env: Env) => {
     /*
@@ -155,13 +154,27 @@ export namespace Lisp {
     return result;
   }
 
-  export function _let(...args: Expr[]) {
-    const x = cons(SymTable.LET, args);
-    Utils.expect(x, args.length > 1, 'Must provide arguments to "let" macro');
-    const [bindings, body] = args;
-    Utils.expect(x, Utils.isArray(bindings) && bindings.every(b => Utils.isArray(b) && b.length === 2 && Utils.isSym(car(b))));
+  export function _let(...args: Expr[]): any {
+    Utils.expect(args, args.length >= 1, 'Must provide arguments to "let" macro');
+    if (Utils.isAtom(car(args))) {
+      const name = car(args);
+      const [bindings, body] = cdr(args) as any
+      const [parms, vals]: any = Utils.zip(...bindings as any) || [[], []];
+      const lambda = [SymTable.LAMBDA, parms, body];
+      const outer = [SymTable.LAMBDA, [],
+        [SymTable.DEFINE, name, lambda],
+        [name, ...vals],
+      ];
+      return [outer]
+    }
+    const [bindings, ...body] = args;
+    Utils.expect(args, Utils.isList(bindings) && bindings.every(b => Utils.isList(b) && b.length === 2 && Utils.isSym(car(b))));
     const [vars, vals] = Utils.zip(...bindings as any);
-    return [[SymTable.LAMBDA, vars, Utils.map(expand, body)], ...Utils.map(expand, vals) as any];
+    Utils.expect(args, (vars.length === new Set(vars).size), 'let bindings must be unique');
+    const lambda = [SymTable.LAMBDA, vars, ...expand(body) as any];
+    // const l = [SymTable.LAMBDA, vars, body];
+    const rv = [lambda].concat(<any>vals);
+    return rv;
   }
 
   export const readMacroTable: Record<string, (...args: any[]) => Expr> = {};
@@ -331,8 +344,8 @@ export namespace Lisp {
 
   export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr => {
     const e = expr as Expr[];
-    Utils.expect(e, !Utils.isEmpty(e), "Can't expand empty list");
-    if (!Utils.isArray(e)) { return e; }
+    if (!Utils.isList(e)) { return e; }
+    if (Utils.isEmpty(e)) { return e; }
     if (SymTable.QUOTE === car(e)) {
       Utils.expect(e, e.length === 2);
       return e;
@@ -340,19 +353,20 @@ export namespace Lisp {
     else if (SymTable.COND === car(e)) {
       const [_def, ...exprs] = e;
       const preds = exprs.map(pair => [(<any>pair)[0], expand((<any>pair)[1], false, env)]);
-      Utils.expect(preds, Utils.isArray(preds) && preds.every(x => x.length === 2), `found cond entry where (length != 2): (${(Utils.isArray(preds) ? preds.find(x => x.length !== 2) : preds)})`);
+      Utils.expect(preds, Utils.isList(preds) && preds.every(x => x.length === 2 && x.every(e => Utils.isNone(e) === false)), `found invalid cond entry where (length != 2): (${(Utils.isList(preds) ? preds.find(x => x.length !== 2) : preds)})`);
       return [_def, preds];
     }
     else if (SymTable.BEGIN === car(e)) {
       const [_begin, ...exprs] = e;
       if (Utils.isEmpty(exprs))
         return [];
-      return [_begin, exprs.map(x => expand(x, topLevel, env))];
+      return [_begin, ...exprs.map(x => expand(x, topLevel, env))];
     }
     else if (SymTable.DEFUN === car(e) || SymTable.DEFINEMACRO === car(e)) {
       Utils.expect(e, e.length >= 3);
       const [_def, name, args, body] = e;
-      Utils.expect(args, Utils.isSym(name) && (Utils.isArray(args) || Utils.isSym(args)));
+      Utils.expect(e, Utils.isSym(name));
+      Utils.expect(e, Utils.isList(args) || Utils.isSym(args));
       const expr: List = expand([SymTable.LAMBDA, args, body], false, env) as any;
       Utils.expect(expr, expr.length >= 1, `body list size should be at least 1, got: ${expr.length}`);
       if (_def === SymTable.DEFINEMACRO) {
@@ -366,13 +380,13 @@ export namespace Lisp {
       return [_def, name, expr];
     }
     else if (SymTable.LAMBDA === car(e)) {
-      Utils.expect(e, e.length === 3);
-      const [_lambda, params, expr] = e;
-      const allAtoms = Utils.isArray(params) && params.every(Utils.isSym);
-      Utils.expect(params, (allAtoms || Utils.isSym(params)), 'Invalid args');
-      const body: any = Utils.isArray(expr) ? expr : [SymTable.BEGIN, expr];
-      Utils.expect(body, (<any>body).length >= 1, `body list size should be at least 1, got: ${body.length}`);
+      const [_lambda, params, ...expression] = e;
+      const allAtoms = Utils.isList(params) && params.every(Utils.isSym);
+      Utils.expect(e, (allAtoms || Utils.isSym(params)), 'Invalid args');
+      Utils.expect(e, expression.length >= 1, `lambda expression empty`);
+      const body: any = expression.length===1 ? car(expression) : [SymTable.BEGIN, ...expression];
       return [_lambda, params, expand(body, false, env)];
+      // return [_lambda, params, expand(body, false, env)];
     }
     else if (SymTable.QUASIQUOTE === car(e)) {
       Utils.expect(e, e.length === 2);
@@ -385,7 +399,8 @@ export namespace Lisp {
         const args = (<List>cdr(e)).map(expr => expand(expr, topLevel, env));
         const a = new Env(proc.params, args, proc.env);
         const rv = evaluate(proc.expr, a);
-        return expand(rv, topLevel, a);
+        const exp = expand(rv, topLevel, a);
+        return exp;
       }
       return expand(proc(...<List>cdr(e)), topLevel, env);
     }
@@ -396,11 +411,11 @@ export namespace Lisp {
       return [SymTable.QUOTE, x];
     Utils.expect(x, x !== SymTable.UNQUOTESPLICING, "can't slice here");
     if (car(x) === SymTable.UNQUOTE) {
-      Utils.expect(x, Utils.isArray(x) && x.length === 2);
+      Utils.expect(x, Utils.isList(x) && x.length === 2);
       return cadr(x);
     }
     if (Utils.isPair(car(x)) && caar(x) === SymTable.UNQUOTESPLICING) {
-      Utils.expect(car(x), Utils.isArray(car(x)) && (<List>car(x)).length === 2);
+      Utils.expect(car(x), Utils.isList(car(x)) && (<List>car(x)).length === 2);
       return [SymTable.APPEND, cdar(x), expandQuasiquote(cdr(x))];
     }
     else {
@@ -409,52 +424,69 @@ export namespace Lisp {
   };
 
   export const evaluate = (e: Expr, a: Env): Expr => {
-    if (Utils.isSym(e))
-      return a.get(Utils.toString(e)) as Expr;
-    else if (!Utils.isArray(e)) {
-      if (Utils.isString(e))
-        return JSON.parse(e);
-      if (Utils.isNum(e))
-        return e;
+    if (Utils.isSym(e)) return a.get(Utils.toString(e)) as Expr;
+    else if (!Utils.isList(e)) {
+      if (Utils.isString(e)) return JSON.parse(e);
+      if (Utils.isNum(e)) return e;
       throw new Error(`unknown thingy: ${Utils.toString(e, true)}`);
-    }
-    else {
+    } else {
       switch (car(e)) {
-        case SymTable.QUOTE: return quote(e);
-        case SymTable.ATOM: return atom(evaluate(cadr(e), a));
-        case SymTable.EQ: return eq(evaluate(cadr(e), a),
-          evaluate(caddr(e), a));
-        case SymTable.CAR: return car(evaluate(cadr(e), a));
-        case SymTable.CDR: return cdr(evaluate(cadr(e), a));
-        case SymTable.CONS: return cons(evaluate(cadr(e), a),
-          evaluate(caddr(e), a));
-        case SymTable.COND: return evalCond(cadr(e), a);
-        case SymTable.LAMBDA: {
-          return new Proc(cadr(e), caddr(e), a) as any;
-        }
-        case SymTable.DEFUN: {
-          const callee: Proc = evaluate(caddr(e), a) as any;
-          callee.name = Utils.toString(cadr(e));
-          a.set(callee.name, callee);
-          return callee as any;
-        }
-        case SymTable.BEGIN: {
-          return (<List>cdr(e))
-            .reduce((_, expr) => evaluate(expr, a), cadr(e));
-        }
-        case SymTable.DO: {
-          return _do(<any>cdr(e), a);
-        }
-        default: {
-          const [proc, ...args] = e.map(expr => evaluate(expr, a));
-          if (Utils.isCallable(proc)) {
-            return proc.call(args);
-          }
-          proc;
-          return args;
+      case SymTable.QUOTE: return quote(e);
+      case SymTable.ATOM: return atom(evaluate(cadr(e), a));
+      case SymTable.EQ: return eq(evaluate(cadr(e), a),
+                                  evaluate(caddr(e), a));
+      case SymTable.CAR: return car(evaluate(cadr(e), a));
+      case SymTable.CDR: return cdr(evaluate(cadr(e), a));
+      case SymTable.CONS: return cons(evaluate(cadr(e), a),
+                                      evaluate(caddr(e), a));
+      case SymTable.COND: return evalCond(cadr(e), a);
+      case SymTable.LAMBDA: {
+        return new Proc(cadr(e), caddr(e), a) as any;
+      }
+      case SymTable.DEFUN: {
+        const callee: Proc = evaluate(caddr(e), a) as any;
+        callee.name = Utils.toString(cadr(e));
+        a.set(callee.name, callee);
+        return callee as any;
+      }
+      case SymTable.DEFINE: {
+        const [_define, variable, expr] = e
+        const name = Utils.toString(variable);
+        const value = evaluate(expr, a);
+        a.set(name, value);
+        return value;
+      }
+      case SymTable.BEGIN: {
+        return (<List>cdr(e))
+          .reduce((_, expr) => evaluate(expr, a), cadr(e));
+      }
+      case SymTable.DO: {
+        return _do(<any>cdr(e), a);
+      }
+      case SymTable.IF: {
+        const [_if, cond, then_, else_] = e
+        const c = evaluate(cond, a);
+        if (Utils.isT(c)){
+          return evaluate(then_, a);
+        } else {
+          return evaluate(else_ ?? EMPTY, a);
         }
       }
-    }
+      case SymTable.SET: {
+        const [_set, variable, value] = e;
+        Utils.expect(e, Utils.isSym(variable), 'First arg to set! must be a symbol');
+        const r = evaluate(value, a);
+        a.set(Utils.toString(variable), r)
+        return []
+      }
+      default: {
+        const [proc, ...args] = e.map(expr => evaluate(expr, a));
+        if (Utils.isCallable(proc)) {
+          return proc.call(args);
+        }
+        return args;
+      }
+    }}
   };
   export const evalCond = (c: Expr, a: Env): Expr => {
     if (Utils.isEmpty(c)) {

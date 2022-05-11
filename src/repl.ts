@@ -7,10 +7,10 @@ import repl from 'pretty-repl';
 import { Recoverable } from 'repl';
 import * as Errors from "./lib/errors";
 import { Lisp } from "./lib/lisp";
-import * as Runtime from "./globals";
+import { env } from "./globals";
 import * as Utils from "./utils";
 
-const APPDATA = Utils.assert(getPath('appdata'), 'Error looking up appdata directory!');
+const APPDATA = Utils.exists(getPath('appdata'), 'Error looking up appdata directory!');
 
 namespace Repl {
 
@@ -31,8 +31,8 @@ namespace Repl {
 
     function _eval(cmd: string, context: any, filename: string, callback: any) {
       try {
-        const x = Lisp.parse(cmd, Runtime.env)
-        const val = Lisp.evaluate(x, Runtime.env)
+        const x = Lisp.parse(cmd, env)
+        const val = Lisp.evaluate(x, env)
         callback(null, Utils.toString(val))
       } catch (err) {
         errorHandler(err, callback)
@@ -57,6 +57,8 @@ namespace Repl {
     function errorHandler(err: unknown, callback: any): any {
       if (err instanceof Error) {
         if (err instanceof Errors.UndefinedVariableError) {
+          if (err.message.endsWith('undefined variable: undefined'))
+            return callback(null)
           return callback(null, err.message)
         }
         if (err instanceof Errors.MissingParenthesisError) {

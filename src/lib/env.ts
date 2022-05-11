@@ -5,7 +5,7 @@ import * as Utils from "../utils";
 
 export class Env {
   constructor(params: Expr = [], args: Expr = [], private outer?: Env) {
-    if (Utils.isArray(params) && Utils.isArray(args) && params.every(Utils.isSym))
+    if (Utils.isList(params) && Utils.isList(args) && params.every(Utils.isSym))
       this.inner = Object.fromEntries(params.map((p, i) => [p.description!, args[i]]));
     else if (Utils.isSym(params)) {
       this.inner = { [params.description!]: args };
