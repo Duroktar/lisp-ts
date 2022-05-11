@@ -78,66 +78,17 @@ import { print, toString } from "./utils";
 //   process.exit(1)
 // }
 
+
+
 // Lisp.exec(`
 //   (do ((i 0 (+ i 2)))
 //     ((>= i 5) (print i) (print "Done!"))
 //   (print i))
 // `, env);
 
-Lisp.exec(`
-  (define counter 10)
-`, env);
-
-// print(Lisp.parse(`
-//   (while (> counter 0)
-//     (display counter)
-//     (newline)
-//     (set! counter (- counter 1)))
-// `, env));
-
-// Lisp.exec(`
-//   (while (> counter 0)
-//     (display counter)
-//     (set! counter (- counter 1)))
-// `, env)
-
-// Lisp.exec(`
-//   ((lambda () (cond
-//     ((> counter 0) (begin
-//         (display counter)
-//         (set! counter (- counter 1))
-//         (display counter)))
-//   )) '())
-// `, env)
-
-// Lisp.exec(`
-// (let ((loop (lambda () (cond
-//   ((> counter 0) (begin
-//       (display counter)
-//       (set! counter (- counter 1))
-//       (display 'Doner)))
-// )))) (loop))
-// `, env)
-
-// print(Lisp.parse(`
-// (let ((loop (lambda () (cond
-//   ((> counter 0) (begin
-//       (display counter)
-//       (set! counter (- counter 1))
-//       (display 'Doner)))
-// )))) (loop))
-// `, env))
-
 // Lisp.exec(`
 //   (let ((i 55) (k 55)) (display (+ i k)))
 // `, env)
-
-// print(Lisp.parse(`
-//   (let my-loop ((x 1))
-//       (if (> x 10)
-//         (print "We're done!")
-//         (my-loop (+ x 1))))
-// `, env))
 
 // Lisp.exec(`
 //   (let my-loop ((x 1))
@@ -147,30 +98,70 @@ Lisp.exec(`
 // `, env)
 
 // Lisp.exec(`
-//   (define add4 ((lambda (x) ((lambda (y) (+ x y)))) 4))
+//   (define add4
+//     (let ((x 4))
+//       (lambda (y) (+ x y))))
 // `, env)
 
-const EXPECTED = '(define add4 ((lambda (x) (lambda (y) (+ x y))) 4))';
-const ACTUAL = toString(Lisp.parse(`
-(define add4
-  (let ((x 4))
-    (lambda (y) (+ x y))))
-`, env), false, 'lambda');
+// Lisp.exec(`
+//   (printn "result:" (add4 6))
+// `, env)
 
-console.log('EXPECT:')
-console.log(EXPECTED)
+// print(Lisp.parse(`
+//   (while (> counter 0)
+//     (display counter)
+//     (set! counter (- counter 1)))
+// `, env))
 
-console.log('ACTUAL:')
-print(ACTUAL)
+// Lisp.exec(`
+//   (+ 1 1)
+// `, env)
 
-console.log('IS TRUE???', ACTUAL === EXPECTED)
+// Lisp.exec(`
+//   (let my-loop ((x 1))
+//     (if (> x 10)
+//       (print "We're done!")
+//       (my-loop (printr (+ x 1)))))
+// `, env)
+
+// Lisp.exec(`
+//   (define counter 10)
+// `, env);
+
+// print(Lisp.parse(`
+//   (while (> counter 0)
+//     (display counter)
+//     (set! counter (sub1 counter)))
+// `, env))
+
+// Lisp.exec(`
+//   (while (> counter 0)
+//     (display counter)
+//     (set! counter (sub1 counter)))
+// `, env)
 
 Lisp.exec(`
-  (define add4
-    (let ((x 4))
-      (lambda (y) (+ x y))))
+  (print (cond
+    ((> 1 10)   "We're done!")
+    (else       (+ 1 1))))
 `, env)
 
-Lisp.exec(`
-  (printn "result:" (add4 6))
-`, env)
+// Lisp.exec(`
+//   (let my-loop ((x 1))
+//     (cond ((> x 10) (print "We're done!"))
+//           (else (my-loop (printr (+ x 1))))))
+// `, env)
+
+// Lisp.exec(`
+//   (let fac ((n 10))
+//     (if (zero? n)
+//         1
+//         (* n (fac (sub1 n)))))
+// `, env)
+
+// print(Lisp.parse(`
+//   (let fac ((n 10))
+//     (if (zero? n)
+//         1
+//         (* n (fac (sub1 n)))))
+// `, env))

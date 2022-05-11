@@ -21,7 +21,7 @@ mkNativeFunc(env, 'debugf', ['x'], x => { console.log('[DEBUG-F]'); console.log(
 mkNativeFunc(env, 'debug', ['x'], x => { console.log('[DEBUG]'); console.log(x); return x; });
 mkNativeFunc(env, 'printn', ['name', 'x'], ([name, x]: any) => { console.log(name, toString(x)); return []; });
 mkNativeFunc(env, 'printl', ['x'], ([name, x]: any) => { console.log(name, toString(x)); return []; });
-mkNativeFunc(env, 'printd', ['x'], ([x]: any) => { print(x); return x});
+mkNativeFunc(env, 'printr', ['x'], ([x]: any) => { print(x); return x});
 mkNativeFunc(env, 'print', ['x'], ([x]: any) => { print(x); });
 mkNativeFunc(env, 'inspect', ['x'], ([x]: any) => { return toString(x, true); });
 mkNativeFunc(env, 'display', ['x'], ([x]: any) => { print(x, false, 'lambda'); });
@@ -279,8 +279,10 @@ mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
 */
 Lisp.exec(`
   (define-macro while (condition body)
-    \`(let ((loop (lambda () (cond
-              (,condition (begin ,body) (loop))))))))
+    \`(let loop ()
+          (cond (,condition
+              (begin ,body)
+              (loop)))))
 `, env);
 
 // Lisp.exec(
@@ -360,3 +362,5 @@ Lisp.exec(`
           ((null? (cdr y)) '())
           (else (assoc x (cdr y)))))`
 , env)
+
+Lisp.exec(`(defun sub1 (x) (- x 1))`, env)

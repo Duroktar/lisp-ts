@@ -24,5 +24,8 @@ export class Env {
   set(name: Atom, value: Expr | Proc | NativeFunc): void {
     this.inner[name] = value;
   }
+  has(name: Atom): boolean {
+    return this.inner[name] !== undefined;
+  }
   private inner: Record<Atom, Expr | Proc | NativeFunc>;
 }

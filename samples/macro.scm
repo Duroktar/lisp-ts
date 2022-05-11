@@ -1,6 +1,17 @@
 (define-macro while (condition body)
-  \`(let ((loop (lambda () (cond
-            (,condition (begin ,body) (loop))))))))
+    `(let loop ()
+        (cond (,condition
+            (begin ,body)
+            (loop)))))
+
+((let loop ((x 1))
+  (cond ((> x 10)   (print "We're done!"))
+        (else       (loop (+ x 1))))))
+
+(cond
+    ((> 1 10)   "We're done!")
+    (else       (+ 1 1)))
+
 
 (let ((loop (lambda () (cond
     ((> counter 0) (begin
@@ -53,14 +64,14 @@
 ; before:
 (let my-loop ((x 1))
   (if (> x 10)
-    (write "We're done!")
+    (print "We're done!")
     (my-loop (+ x 1))))
 
 ; after:
 ((lambda ()
     (define my-loop (lambda (x)
                         (if (> x 10)
-                            (write "We're done!")
+                            (print "We're done!")
                             (my-loop (+ x 1)))))
     (my-loop 1)))
 
@@ -85,3 +96,23 @@
     (lambda (y) (+ x y))))
 
 (define add4 ((lambda (x) (lambda (y) (+ x y))) 4))
+
+
+((lambda ()
+    (begin
+        (define loop (lambda ()
+            (cond (((
+                (> counter 0) ((begin (display counter)) (loop))
+            ) ())))))
+        (loop))))
+
+
+
+(cond 
+    ((> 1 10)   "We're done!")
+    (else       (+ 1 1)))
+
+(let fac ([n 10])
+    (if (zero? n)
+        1
+        (* n (fac (sub1 n)))))
