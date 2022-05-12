@@ -1,6 +1,6 @@
 # lisp-ts (tscheme)
 
-## Usage
+## Install
 
 ```sh
 
@@ -10,3 +10,7 @@ yarn i
 yarn repl
 
 ```
+
+## Example
+
+![tscheme-demo](assets/tscheme.png)
