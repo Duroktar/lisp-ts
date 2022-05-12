@@ -43,6 +43,9 @@ mkNativeFunc(env, 'load', ['file', 'topLevel?'], ([file, topLevel = true]: any, 
   executeFile(join(<string>env.get('cwd'), file), topLevel ? env : a)
 });
 
+mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => toL(a === b));
+mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => toL(a === b));
+mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => toL(toString(a) === toString(b)));
 mkNativeFunc(env, 'append', ['list', '...'], ([args]: any) => args.reduce((acc: any, val: any) => acc.concat(val)));
 mkNativeFunc(env, 'length', ['list'], ([list]: any) => isList(list) && list.length);
 mkNativeFunc(env, 'reverse', ['list'], ([list]: any) => isList(list) && [...list].reverse());
@@ -110,7 +113,8 @@ mkNativeFunc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any)
 mkNativeFunc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val, 1));
 mkNativeFunc(env, '-', ['args'], (args: any) => {
   assert(args.length > 0, "procedure requires at least one argument: (-)")
-  return args.reduce((acc: any, val: any) => acc - val)
+  if (args.length === 1) return -args[0]
+  else return args.reduce((acc: any, val: any) => acc - val)
 });
 mkNativeFunc(env, '/', ['args'], (args: any) => {
   assert(args.length > 0, "procedure requires at least one argument: (/)")
@@ -157,49 +161,50 @@ mkNativeFunc(env, 'string-set', ['string', 'k', 'char'], ([string, k, char]: any
 });
 mkNativeFunc(env, 'string=?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1 === string2
+  return toL(string1 === string2)
 });
 mkNativeFunc(env, 'string-ci=?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
   if (string1.length !== string2.length)
-    return false
+    return toL(false)
   for (let i = 0; i < string1.length; i++) {
     if ((<string>string1[i]).toLowerCase() === string2[i].toLowerCase())
       continue
-    return false
+    return toL(false)
   }
+  return toL(true)
 });
 mkNativeFunc(env, 'string<?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1 < string2
+  return toL(string1 < string2)
 });
 mkNativeFunc(env, 'string>?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1 > string2
+  return toL(string1 > string2)
 });
 mkNativeFunc(env, 'string<=?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1 <= string2
+  return toL(string1 <= string2)
 });
 mkNativeFunc(env, 'string>=?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1 >= string2
+  return toL(string1 >= string2)
 });
 mkNativeFunc(env, 'string-ci<?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1.toLowerCase() < string2.toLowerCase()
+  return toL(string1.toLowerCase() < string2.toLowerCase())
 });
 mkNativeFunc(env, 'string-ci>?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1.toLowerCase() > string2.toLowerCase()
+  return toL(string1.toLowerCase() > string2.toLowerCase())
 });
 mkNativeFunc(env, 'string-ci<=?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1.toLowerCase() <= string2.toLowerCase()
+  return toL(string1.toLowerCase() <= string2.toLowerCase())
 });
 mkNativeFunc(env, 'string-ci>=?', ['string1', 'string2'], ([string1, string2]: any) => {
   assert(isString(string1) && isString(string2))
-  return string1.toLowerCase() >= string2.toLowerCase()
+  return toL(string1.toLowerCase() >= string2.toLowerCase())
 });
 mkNativeFunc(env, 'substring', ['string', 'start', 'end'], ([string, start, end]: any) => {
   assert(isString(string) && string.length >= start && string.length >= end && start < end)
@@ -221,11 +226,21 @@ mkNativeFunc(env, 'string-copy', ['string'], ([string]: any) => {
   assert(isString(string))
   return String(string)
 });
-mkNativeFunc(env, 'string-fill', ['string'], ([string, char]: any) => {
+mkNativeFunc(env, 'string-fill', ['string', 'char'], ([string, char]: any) => {
   assert(isString(string))
   assert(isChar(char))
   string.replaceAll(/.*/, char)
-  return []
+  return string
+});
+mkNativeFunc(env, 'string-pad-end', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
+  assert(isString(string));
+  assert(isNum(maxLength));
+  return (string as string).padEnd(maxLength, fillString);
+});
+mkNativeFunc(env, 'string-pad-start', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
+  assert(isString(string));
+  assert(isNum(maxLength));
+  return (string as string).padStart(maxLength, fillString);
 });
 mkNativeFunc(env, 'procedure?', ['obj'], ([obj]: any) => {
   return toL(isCallable(obj))
@@ -268,6 +283,21 @@ mkNativeFunc(env, 'call/cc', ['throw'], ([proc]: any, env) => {
     else {
       throw err;
     }
+  }
+});
+
+mkNativeFunc(env, 'try', ['callable'], ([callable]: any) => {
+  try {
+    if (isCallable(callable)) {
+      return [Lisp.TRUE, callable.call([])];
+    }
+    return [Lisp.FALSE, ['InvalidCallableExpression']]
+  } catch (err) {
+    if (err instanceof Error)
+      return [Lisp.FALSE, [err.message]];
+    if (typeof err === 'string')
+      return [Lisp.FALSE, [err]];
+    return [Lisp.FALSE, ['UnknownError']];
   }
 });
 

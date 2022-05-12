@@ -217,6 +217,7 @@ export namespace Lisp {
     const isSpace = () => text[cursor] === ' ';
     const isNewLine = () => text[cursor] === '\n';
     const isHash = () => text[cursor] === '#';
+    const isSemi = () => text[cursor] === ';';
     const isEscape = () => text[cursor] === '\\';
     const isAlpha = (c: string) => (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')));
     const isDigit = (c: string) => ((c >= '0') && (c <= '9'));
@@ -226,10 +227,18 @@ export namespace Lisp {
     const isValid = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash() || isEscape();
     const isEOF = () => cursor > end;
 
-    const eatSpace = () => {
-      while ((isSpace() || isNewLine()) && !isEOF())
-        advance();
+    const consumeIgnored = () => {
+      while ((isSemi() || isSpace() || isNewLine()) && !isEOF()) {
+        if (isSemi() === false) advance();
+        else advanceAndConsumeToEndOfLine()
+      }
     };
+
+    const advanceAndConsumeToEndOfLine = () => {
+      advance();
+      while (!isNewLine() && !isEOF())
+        advance();
+    }
 
     const toLisp = (funcs: Record<string, any>) => Object.entries(funcs).reduce((acc: any, [key, val]: any) => { acc[key] = (...args: any[]) => val(...args) ? TRUE : EMPTY; return acc; }, {} as Record<string, any>);
 
@@ -259,7 +268,7 @@ export namespace Lisp {
       [isOpenP, isCloseP]
     ];
 
-    const readMacroLocals = { parse, advance, current, eatSpace, ...toLisp({ isEOF, isSpace, isNewLine }) };
+    const readMacroLocals = { parse, advance, current, eatSpace: consumeIgnored, ...toLisp({ isEOF, isSpace, isNewLine }) };
 
     const error = (start: Errors.Position, message?: string): Errors.FormatErrorOptions => {
       return { end: { line, col, cursor }, message, start };
@@ -268,25 +277,18 @@ export namespace Lisp {
     function parseAtom(): Expr {
       let atom: string = '';
       do {
-        if (isEscape()) {
+        if (isEscape())
           advance();
-        }
         atom += advance();
       } while (isValid(current()) && !isEOF());
       const num = parseInt(atom);
       if (Number.isNaN(num) === false)
         return num;
-      return Symbol.for(atom);
-    }
-
-    function parseComment(): Expr {
-      if (current() === ";") {
-        advance();
-        while (!isNewLine() && !isEOF())
-          advance();
-        return parse();
+      if (atom === 'undefined') {
+        debugger
+        return atom
       }
-      return parseAtom();
+      return Symbol.for(atom);
     }
 
     function parseQuote(): Expr {
@@ -306,7 +308,7 @@ export namespace Lisp {
         }
         return [SymTable.UNQUOTE, parse()];
       }
-      return parseComment();
+      return parseAtom();
     }
 
     function parseReadMacro(): Expr {
@@ -348,17 +350,17 @@ export namespace Lisp {
     }
 
     function parse(): Expr {
-      eatSpace();
-      const exprs = parseList();
-      eatSpace();
-      return exprs;
+      consumeIgnored();
+      const expr = parseList();
+      consumeIgnored();
+      return expr;
     }
 
     function parseProgram(): Expr {
       const res: List = []
 
-      do { res.push(parse()) }
       while (isEOF() === false)
+      { res.push(parse()) }
 
       if (res.length === 1)
         return res[0]
