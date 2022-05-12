@@ -29,7 +29,7 @@ export const expect = <E, P extends boolean | ((e: E) => boolean)>(e: E, p: P, m
   }
 };
 
-export const isPair = (x: unknown) => !isSym(x) && !isEmpty(x);
+export const isPair = (x: unknown) => isList(x) && !isEmpty(x);
 export const isList = (x: unknown): x is List => !isSym(x) && Array.isArray(x);
 export const isAtom = (x: unknown): x is Atom => isSym(x);
 export const isSym = (x: unknown): x is symbol => typeof x === 'symbol';

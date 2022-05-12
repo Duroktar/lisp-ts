@@ -3,32 +3,32 @@ import * as Runtime from "./globals";
 
 export namespace MetaEval {
 
-  Lisp.exec(`
+  Lisp.execute(`
     (defun null. (x)
       (eq x '()))
   `, Runtime.env)
 
-  Lisp.exec(`
+  Lisp.execute(`
     (defun and. (x y)
       (cond
         (x (cond (y '#t) ('#t '()) ) )
         ('#t '())))
   `, Runtime.env)
 
-  Lisp.exec(`
+  Lisp.execute(`
     (defun not. (x)
       (cond
         (x '())
         ('#t '#t)))`
   , Runtime.env)
 
-  Lisp.exec(`
+  Lisp.execute(`
     (defun append. (x y)
       (cond ((null. x) y)
             ('#t (cons (car x) (append. (cdr x) y)))))`
   , Runtime.env)
 
-  Lisp.exec(`
+  Lisp.execute(`
     (defun pair. (x y)
       (cond ((and. (null. x) (null. y)) '())
             ((and. (not. (atom x)) (not. (atom y)))
@@ -36,7 +36,7 @@ export namespace MetaEval {
                     (pair. (cdr x) (cdr y))))))`
   , Runtime.env)
 
-  Lisp.exec(`
+  Lisp.execute(`
     (defun assoc. (x y)
       (cond ((eq (caar y) x) (cadar y))
             ((null. (cdr y)) '())
@@ -48,7 +48,7 @@ export namespace MetaEval {
   *  metacircular evaluator
   *
   */
-  Lisp.exec(`(
+  Lisp.execute(`(
     (defun eval (e a)
       (cond
         ((atom e) (assoc. e a))

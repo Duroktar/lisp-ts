@@ -4,6 +4,8 @@ import * as Errors from "./lib/errors";
 import { Lisp } from "./lib/lisp";
 import { Expr, List } from "./lib/terms";
 import { assert, isList, isCallable, isEmpty, isNone, isNum, mkNativeFunc, print, toL, toString, isSym, isString, isChar } from "./utils";
+import { executeFile } from "./load";
+import { join } from "path";
 
 export const env = new Env();
 
@@ -12,22 +14,34 @@ env.set('#f', Lisp.FALSE);
 
 env.set('else', Lisp.TRUE);
 env.set('otherwise', Lisp.TRUE);
+env.set('cwd', process.cwd());
+
 mkNativeFunc(env, 'car', ['args'], (args: any) => Lisp.car(args));
 mkNativeFunc(env, 'cdr', ['args'], (args: any) => Lisp.cdr(args));
 
-mkNativeFunc(env, 'debugnf', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', toString(name)); console.log(x); return []; });
+mkNativeFunc(env, 'locals', [], (_, a) => { return a; });
+mkNativeFunc(env, 'env', [], () => { return env; });
+mkNativeFunc(env, 'env->size', [], () => { return env.size(); });
+mkNativeFunc(env, 'env->keys', [], () => { return env.keys(); });
+mkNativeFunc(env, 'env->values', [], () => { return env.values(); });
+mkNativeFunc(env, 'env->entries', [], () => { return env.entries(); });
+mkNativeFunc(env, 'debugnf', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', toString(name)); console.log(x); });
 mkNativeFunc(env, 'debugn', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-N]:', toString(name)); console.log(x); return x; });
-mkNativeFunc(env, 'debugf', ['x'], x => { console.log('[DEBUG-F]'); console.log(x); return []; });
+mkNativeFunc(env, 'debugf', ['x'], x => { console.log('[DEBUG-F]'); console.log(x); });
 mkNativeFunc(env, 'debug', ['x'], x => { console.log('[DEBUG]'); console.log(x); return x; });
-mkNativeFunc(env, 'printn', ['name', 'x'], ([name, x]: any) => { console.log(name, toString(x)); return []; });
-mkNativeFunc(env, 'printl', ['x'], ([name, x]: any) => { console.log(name, toString(x)); return []; });
+mkNativeFunc(env, 'printn', ['name', 'x'], ([name, x]: any) => { console.log(toString(name), toString(x)); });
 mkNativeFunc(env, 'printr', ['x'], ([x]: any) => { print(x); return x});
-mkNativeFunc(env, 'print', ['x'], ([x]: any) => { print(x); });
+mkNativeFunc(env, 'print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: any) => toString(x))); });
+mkNativeFunc(env, 'newline', [], () => { console.log(); });
 mkNativeFunc(env, 'inspect', ['x'], ([x]: any) => { return toString(x, true); });
 mkNativeFunc(env, 'display', ['x'], ([x]: any) => { print(x, false, 'lambda'); });
 mkNativeFunc(env, 'break', ['x'], x => { debugger; return x; });
 
 mkNativeFunc(env, 'gensym', [], () => Symbol());
+
+mkNativeFunc(env, 'load', ['file', 'topLevel?'], ([file, topLevel = true]: any, a) => {
+  executeFile(join(<string>env.get('cwd'), file), topLevel ? env : a)
+});
 
 mkNativeFunc(env, 'append', ['list', '...'], ([args]: any) => args.reduce((acc: any, val: any) => acc.concat(val)));
 mkNativeFunc(env, 'length', ['list'], ([list]: any) => isList(list) && list.length);
@@ -108,7 +122,7 @@ mkNativeFunc(env, '<', ['args'], (args: any) => args.reduce((acc: any, val: any)
 mkNativeFunc(env, '>=', ['args'], ([l, r]: any) => toL(l >= r));
 mkNativeFunc(env, '<=', ['args'], ([l, r]: any) => toL(l <= r));
 
-mkNativeFunc(env, 'zero?', ['n'], ([n]: any) => n === 0);
+mkNativeFunc(env, 'zero?', ['n'], ([n]: any) => toL(n === 0));
 mkNativeFunc(env, 'number?', ['n'], ([n]: any) => toL(isNum(n)));
 mkNativeFunc(env, 'positive?', ['n'], ([n]: any) => toL(isNum(n) && n > 0));
 mkNativeFunc(env, 'negative?', ['n'], ([n]: any) => toL(isNum(n) && n < 0));
@@ -277,13 +291,14 @@ mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
 *  macros
 *
 */
-Lisp.exec(`
+Lisp.execute(`
   (define-macro while (condition body)
     \`(let loop ()
           (cond (,condition
               (begin ,body)
               (loop)))))
 `, env);
+
 
 // Lisp.exec(
 //   `(define-macro lcomp (expression for var in list conditional conditional-test)
@@ -310,57 +325,57 @@ Lisp.exec(`
 *  functions
 *
 */
-Lisp.exec(`(defun caar   (x) (car (car x)))`, env);
-Lisp.exec(`(defun cadr   (x) (car (cdr x)))`, env);
-Lisp.exec(`(defun cdar   (x) (cdr (car x)))`, env);
-Lisp.exec(`(defun cddr   (x) (cdr (cdr x)))`, env);
+Lisp.execute(`(defun caar   (x) (car (car x)))`, env);
+Lisp.execute(`(defun cadr   (x) (car (cdr x)))`, env);
+Lisp.execute(`(defun cdar   (x) (cdr (car x)))`, env);
+Lisp.execute(`(defun cddr   (x) (cdr (cdr x)))`, env);
 
-Lisp.exec(`(defun caaar  (x) (car (car (car x))))`, env);
-Lisp.exec(`(defun caadr  (x) (car (car (cdr x))))`, env);
-Lisp.exec(`(defun cadar  (x) (car (cdr (car x))))`, env);
-Lisp.exec(`(defun caddr  (x) (car (cdr (cdr x))))`, env);
-Lisp.exec(`(defun cdaar  (x) (cdr (car (car x))))`, env);
-Lisp.exec(`(defun cdadr  (x) (cdr (car (cdr x))))`, env);
-Lisp.exec(`(defun cddar  (x) (cdr (cdr (car x))))`, env);
-Lisp.exec(`(defun cdddr  (x) (cdr (cdr (cdr x))))`, env);
+Lisp.execute(`(defun caaar  (x) (car (car (car x))))`, env);
+Lisp.execute(`(defun caadr  (x) (car (car (cdr x))))`, env);
+Lisp.execute(`(defun cadar  (x) (car (cdr (car x))))`, env);
+Lisp.execute(`(defun caddr  (x) (car (cdr (cdr x))))`, env);
+Lisp.execute(`(defun cdaar  (x) (cdr (car (car x))))`, env);
+Lisp.execute(`(defun cdadr  (x) (cdr (car (cdr x))))`, env);
+Lisp.execute(`(defun cddar  (x) (cdr (cdr (car x))))`, env);
+Lisp.execute(`(defun cdddr  (x) (cdr (cdr (cdr x))))`, env);
 
-Lisp.exec(`(defun caaaar (x) (car (car (car (car x)))))`, env);
-Lisp.exec(`(defun caaadr (x) (car (car (car (cdr x)))))`, env);
-Lisp.exec(`(defun caadar (x) (car (car (cdr (car x)))))`, env);
-Lisp.exec(`(defun caaddr (x) (car (car (cdr (cdr x)))))`, env);
-Lisp.exec(`(defun cadaar (x) (car (cdr (car (car x)))))`, env);
-Lisp.exec(`(defun cadadr (x) (car (cdr (car (cdr x)))))`, env);
-Lisp.exec(`(defun caddar (x) (car (cdr (cdr (car x)))))`, env);
-Lisp.exec(`(defun cadddr (x) (car (cdr (cdr (cdr x)))))`, env);
+Lisp.execute(`(defun caaaar (x) (car (car (car (car x)))))`, env);
+Lisp.execute(`(defun caaadr (x) (car (car (car (cdr x)))))`, env);
+Lisp.execute(`(defun caadar (x) (car (car (cdr (car x)))))`, env);
+Lisp.execute(`(defun caaddr (x) (car (car (cdr (cdr x)))))`, env);
+Lisp.execute(`(defun cadaar (x) (car (cdr (car (car x)))))`, env);
+Lisp.execute(`(defun cadadr (x) (car (cdr (car (cdr x)))))`, env);
+Lisp.execute(`(defun caddar (x) (car (cdr (cdr (car x)))))`, env);
+Lisp.execute(`(defun cadddr (x) (car (cdr (cdr (cdr x)))))`, env);
 
-Lisp.exec(`(defun cdaaar (x) (cdr (car (car (car x)))))`, env);
-Lisp.exec(`(defun cdaadr (x) (cdr (car (car (cdr x)))))`, env);
-Lisp.exec(`(defun cdadar (x) (cdr (car (cdr (car x)))))`, env);
-Lisp.exec(`(defun cdaddr (x) (cdr (car (cdr (cdr x)))))`, env);
-Lisp.exec(`(defun cddaar (x) (cdr (cdr (car (car x)))))`, env);
-Lisp.exec(`(defun cddadr (x) (cdr (cdr (car (cdr x)))))`, env);
-Lisp.exec(`(defun cdddar (x) (cdr (cdr (cdr (car x)))))`, env);
-Lisp.exec(`(defun cddddr (x) (cdr (cdr (cdr (cdr x)))))`, env);
+Lisp.execute(`(defun cdaaar (x) (cdr (car (car (car x)))))`, env);
+Lisp.execute(`(defun cdaadr (x) (cdr (car (car (cdr x)))))`, env);
+Lisp.execute(`(defun cdadar (x) (cdr (car (cdr (car x)))))`, env);
+Lisp.execute(`(defun cdaddr (x) (cdr (car (cdr (cdr x)))))`, env);
+Lisp.execute(`(defun cddaar (x) (cdr (cdr (car (car x)))))`, env);
+Lisp.execute(`(defun cddadr (x) (cdr (cdr (car (cdr x)))))`, env);
+Lisp.execute(`(defun cdddar (x) (cdr (cdr (cdr (car x)))))`, env);
+Lisp.execute(`(defun cddddr (x) (cdr (cdr (cdr (cdr x)))))`, env);
 
-Lisp.exec(`(defun list x x)`, env);
+Lisp.execute(`(defun list x x)`, env);
 
-Lisp.exec(`
+Lisp.execute(`
   (defun assq (x y)
     (cond ((eq? (caar y) x) (cadar y))
           ((null? (cdr y)) '())
           (else (assq x (cdr y)))))`
 , env)
-Lisp.exec(`
+Lisp.execute(`
   (defun assv (x y)
     (cond ((eqv? (caar y) x) (cadar y))
           ((null? (cdr y)) '())
           (else (assv x (cdr y)))))`
 , env)
-Lisp.exec(`
+Lisp.execute(`
   (defun assoc (x y)
     (cond ((equal? (caar y) x) (cadar y))
           ((null? (cdr y)) '())
           (else (assoc x (cdr y)))))`
 , env)
 
-Lisp.exec(`(defun sub1 (x) (- x 1))`, env)
+Lisp.execute(`(defun sub1 (x) (- x 1))`, env)

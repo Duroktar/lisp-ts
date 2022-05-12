@@ -8,6 +8,7 @@
     "build": "ttsc src/start.ts",
     "repl": "ts-node src/repl.ts",
     "test": "jest",
+    "test:lisp": "ts-node src/test.ts",
     "start": "ts-node src/start.ts"
   },
   "devDependencies": {

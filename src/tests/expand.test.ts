@@ -10,14 +10,14 @@ test('(expand) (let ...) = (λ ...)', () => {
       "((λ (x y) (eq x y)) (quote a) (quote a))"
     );
 
-  Lisp.exec(`
+  Lisp.execute(`
     (let
       ((x 'a) (y 'a))
       (if (eq x y) 55 88)
     )
   `, Runtime.env)
 
-  Lisp.exec(`
+  Lisp.execute(`
     (let
       ((x 'a) (y 'a))
       (if (eq x 5) 55 88)

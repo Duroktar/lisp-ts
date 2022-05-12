@@ -49,7 +49,7 @@ namespace Repl {
           return colors.dim('undefined')
         default:
           return output.startsWith('Error: ')
-            ? '\n' + output
+            ? output
             : colorizer(output)
       }
     }

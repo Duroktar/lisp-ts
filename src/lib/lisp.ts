@@ -4,6 +4,7 @@ import * as Errors from "./errors";
 import { Proc } from "./proc";
 import { Atom, Expr, List } from "./terms";
 import * as Utils from "../utils";
+import { Predicate } from "../types";
 
 export namespace Lisp {
 
@@ -209,6 +210,10 @@ export namespace Lisp {
     const isDblQt = () => text[cursor] === '"';
     const isOpenS = () => text[cursor] === '(';
     const isCloseS = () => text[cursor] === ')';
+    const isOpenM = () => text[cursor] === '[';
+    const isCloseM = () => text[cursor] === ']';
+    const isOpenP = () => text[cursor] === '{';
+    const isCloseP = () => text[cursor] === '}';
     const isSpace = () => text[cursor] === ' ';
     const isNewLine = () => text[cursor] === '\n';
     const isHash = () => text[cursor] === '#';
@@ -227,6 +232,32 @@ export namespace Lisp {
     };
 
     const toLisp = (funcs: Record<string, any>) => Object.entries(funcs).reduce((acc: any, [key, val]: any) => { acc[key] = (...args: any[]) => val(...args) ? TRUE : EMPTY; return acc; }, {} as Record<string, any>);
+
+    const parseDelimitedList = (open: Predicate, close: Predicate): Expr | undefined => {
+      if (open()) {
+        const open = { col, line, cursor };
+        advance();
+
+        const exprs: Expr[] = [];
+        while (!close() && !isEOF()) {
+          exprs.push(parse());
+        }
+
+        if (close()) { advance(); }
+        else
+          throw new Errors.MissingParenthesisError(text, error(open));
+
+        return exprs;
+      }
+
+      else if (current() === ')')
+        throw new Errors.UnexpectedParenthesisError(text, error({ col, line, cursor }));
+    }
+    const listDelimiterPredicates = [
+      [isOpenS, isCloseS],
+      [isOpenM, isCloseM],
+      [isOpenP, isCloseP]
+    ];
 
     const readMacroLocals = { parse, advance, current, eatSpace, ...toLisp({ isEOF, isSpace, isNewLine }) };
 
@@ -309,25 +340,10 @@ export namespace Lisp {
     }
 
     function parseList(): Expr {
-      if (isOpenS()) {
-        const open = { col, line, cursor };
-        advance();
-
-        const exprs: Expr[] = [];
-        while (!isCloseS() && !isEOF()) {
-          exprs.push(parse());
-        }
-
-        if (isCloseS()) { advance(); }
-        else
-          throw new Errors.MissingParenthesisError(text, error(open));
-
-        return exprs;
+      for (let [open, close] of listDelimiterPredicates) {
+        const result = parseDelimitedList(open, close)
+        if (result) return result;
       }
-
-      else if (current() === ')')
-        throw new Errors.UnexpectedParenthesisError(text, error({ col, line, cursor }));
-
       return parseString();
     }
 
@@ -338,7 +354,19 @@ export namespace Lisp {
       return exprs;
     }
 
-    return parse();
+    function parseProgram(): Expr {
+      const res: List = []
+
+      do { res.push(parse()) }
+      while (isEOF() === false)
+
+      if (res.length === 1)
+        return res[0]
+
+      return [SymTable.BEGIN, ...res];
+    }
+
+    return parseProgram();
   };
 
   export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr => {
@@ -366,7 +394,14 @@ export namespace Lisp {
         return [];
       return [_begin, ...exprs.map(x => expand(x, topLevel, env))];
     }
-    else if (SymTable.DEFUN === car(e) || SymTable.DEFINEMACRO === car(e)) {
+    else if (SymTable.DEFINE === car(e)) {
+      const [_def, name, args, ...body] = e;
+      if (Utils.isEmpty(body)) {
+        return [_def, name, args]
+      }
+      return expand([SymTable.DEFUN, name, args, ...body], false, env);
+    }
+    else if ([SymTable.DEFUN, SymTable.DEFINEMACRO].includes(<any>car(e))) {
       Utils.expect(e, e.length >= 3);
       const [_def, name, args, body] = e;
       Utils.expect(e, Utils.isSym(name));
@@ -430,6 +465,7 @@ export namespace Lisp {
   };
 
   export const evaluate = (e: Expr, a: Env): Expr => {
+    // console.log('evaluating:', Utils.toString(e))
     if (Utils.isSym(e)) return a.get(Utils.toString(e)) as Expr;
     else if (!Utils.isList(e)) {
       if (Utils.isString(e)) return JSON.parse(e);
@@ -449,26 +485,20 @@ export namespace Lisp {
       case SymTable.LAMBDA: {
         return new Proc(cadr(e), caddr(e), a) as any;
       }
+      case SymTable.DEFINE:
       case SymTable.DEFUN: {
-        const callee: Proc = evaluate(caddr(e), a) as any;
-        callee.name = Utils.toString(cadr(e));
-        a.set(callee.name, callee);
-        return callee as any;
-      }
-      case SymTable.DEFINE: {
-        const [_define, variable, expr] = e
+        const [_def, variable, expr] = e
         const name = Utils.toString(variable);
         const value = evaluate(expr, a);
+        if (Utils.isProc(value)) {
+          value.name = name;
+        }
         a.set(name, value);
         return value;
       }
       case SymTable.BEGIN: {
         const [_begin, ...exprs] = e
-          // const xs = <List>cadr(e);
-          // const xs = <List>cdr(e);
-          const xs = exprs;
-          const rv = xs
-            .reduce((_, expr) => evaluate(expr, a), cadr(e));
+        const rv = exprs.reduce((_, expr) => evaluate(expr, a), []);
         return rv;
       }
       case SymTable.DO: {
@@ -489,14 +519,17 @@ export namespace Lisp {
         const r = evaluate(value, a);
         const name = Utils.toString(variable);
         Utils.expect(e, a.has(name), 'Variable must be bound')
-        a.set(name, r)
+        a.find(name)!.set(name, r)
         return []
       }
       default: {
         const [proc, ...args] = e.map(expr => evaluate(expr, a));
         if (Utils.isCallable(proc)) {
+          const c = Utils.toString(car(e));
+          // console.log(`calling: ${proc.name} ${proc.name === c ? '' : c}`)
           return proc.call(args);
         }
+        // console.log('evaluating list')
         return args;
       }
     }}
@@ -514,7 +547,7 @@ export namespace Lisp {
   export const parse = (code: string, a: Env): Expr => {
     return expand(read(code), true, a);
   };
-  export const exec = (code: string, a: Env): Expr => {
+  export const execute = (code: string, a: Env): Expr => {
     return evaluate(parse(code, a), a);
   };
 }

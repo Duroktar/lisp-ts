@@ -1,7 +1,7 @@
 
 import { env } from "./globals";
 import { Lisp } from "./lib/lisp";
-import { print, toString } from "./utils";
+// import { executeFile } from "./load";
 // import { print } from "./utils";
 
 // Lisp.exec(`
@@ -140,11 +140,11 @@ import { print, toString } from "./utils";
 //     (set! counter (sub1 counter)))
 // `, env)
 
-Lisp.exec(`
-  (print (cond
-    ((> 1 10)   "We're done!")
-    (else       (+ 1 1))))
-`, env)
+// Lisp.exec(`
+//   (print (cond
+//     ((> 1 10)   "We're done!")
+//     (else       (+ 1 1))))
+// `, env)
 
 // Lisp.exec(`
 //   (let my-loop ((x 1))
@@ -165,3 +165,6 @@ Lisp.exec(`
 //         1
 //         (* n (fac (sub1 n)))))
 // `, env))
+
+Lisp.execute('(load "samples/fac.scm")', env)
+Lisp.execute('(print (fac 12))', env)
