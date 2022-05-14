@@ -1,5 +1,6 @@
 import { Expr } from "./terms";
 import * as Utils from "../utils";
+import { Position } from "../types";
 
 export class InvalidEnvArgumentsError extends Error {
   constructor(
@@ -40,12 +41,6 @@ export class MalformedStringError extends Error {
   }
   public formattedError: string;
 }
-
-export type Position = {
-  line: number;
-  col: number;
-  cursor: number;
-};
 
 export type FormatErrorOptions = {
   message?: string;

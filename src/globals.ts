@@ -1,20 +1,27 @@
-import { gcd, lcm } from "./math";
-import { Env } from "./lib/env";
-import * as Errors from "./lib/errors";
-import { Lisp } from "./lib/lisp";
-import { Expr, List } from "./lib/terms";
-import { assert, isList, isCallable, isEmpty, isNone, isNum, mkNativeFunc, print, toL, toString, isSym, isString, isChar } from "./utils";
-import { executeFile } from "./load";
 import { join } from "path";
+import { FALSE, TRUE } from "./lib/const";
+import { Env } from "./lib/env";
+import * as Errors from "./lib/error";
+import { evaluate } from "./lib/eval";
+import { expand } from "./lib/expand";
+import * as Lisp from "./lib/lisp";
+import { readMacroTable } from "./lib/macro";
+import { Sym } from "./lib/sym";
+import { Expr, List } from "./lib/terms";
+import { executeFile } from "./load";
+import { gcd, lcm } from "./math";
+import * as Util from "./utils";
 
 export const env = new Env();
 
-env.set('#t', Lisp.TRUE);
-env.set('#f', Lisp.FALSE);
+env.set('#t', TRUE);
+env.set('#f', FALSE);
 
-env.set('else', Lisp.TRUE);
-env.set('otherwise', Lisp.TRUE);
+env.set('else', TRUE);
+env.set('otherwise', TRUE);
 env.set('cwd', process.cwd());
+
+const { mkNativeFunc } = Util
 
 mkNativeFunc(env, 'car', ['args'], (args: any) => Lisp.car(args));
 mkNativeFunc(env, 'cdr', ['args'], (args: any) => Lisp.cdr(args));
@@ -25,16 +32,16 @@ mkNativeFunc(env, 'env->size', [], () => { return env.size(); });
 mkNativeFunc(env, 'env->keys', [], () => { return env.keys(); });
 mkNativeFunc(env, 'env->values', [], () => { return env.values(); });
 mkNativeFunc(env, 'env->entries', [], () => { return env.entries(); });
-mkNativeFunc(env, 'debugnf', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', toString(name)); console.log(x); });
-mkNativeFunc(env, 'debugn', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-N]:', toString(name)); console.log(x); return x; });
+mkNativeFunc(env, 'debugnf', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', Util.toString(name)); console.log(x); });
+mkNativeFunc(env, 'debugn', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-N]:', Util.toString(name)); console.log(x); return x; });
 mkNativeFunc(env, 'debugf', ['x'], x => { console.log('[DEBUG-F]'); console.log(x); });
 mkNativeFunc(env, 'debug', ['x'], x => { console.log('[DEBUG]'); console.log(x); return x; });
-mkNativeFunc(env, 'printn', ['name', 'x'], ([name, x]: any) => { console.log(toString(name), toString(x)); });
-mkNativeFunc(env, 'printr', ['x'], ([x]: any) => { print(x); return x});
-mkNativeFunc(env, 'print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: any) => toString(x))); });
+mkNativeFunc(env, 'printn', ['name', 'x'], ([name, x]: any) => { console.log(Util.toString(name), Util.toString(x)); });
+mkNativeFunc(env, 'printr', ['x'], ([x]: any) => { Util.print(x); return x});
+mkNativeFunc(env, 'print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: any) => Util.toString(x))); });
 mkNativeFunc(env, 'newline', [], () => { console.log(); });
-mkNativeFunc(env, 'inspect', ['x'], ([x]: any) => { return toString(x, true); });
-mkNativeFunc(env, 'display', ['x'], ([x]: any) => { print(x, false, 'lambda'); });
+mkNativeFunc(env, 'inspect', ['x'], ([x]: any) => { return Util.toString(x, true); });
+mkNativeFunc(env, 'display', ['x'], ([x]: any) => { Util.print(x, false, 'lambda'); });
 mkNativeFunc(env, 'break', ['x'], x => { debugger; return x; });
 
 mkNativeFunc(env, 'gensym', [], () => Symbol());
@@ -43,46 +50,46 @@ mkNativeFunc(env, 'load', ['file', 'topLevel?'], ([file, topLevel = true]: any, 
   executeFile(join(<string>env.get('cwd'), file), topLevel ? env : a)
 });
 
-mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => toL(a === b));
-mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => toL(a === b));
-mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => toL(toString(a) === toString(b)));
+mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(a === b));
+mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(a === b));
+mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.toString(a) === Util.toString(b)));
 mkNativeFunc(env, 'append', ['list', '...'], ([args]: any) => args.reduce((acc: any, val: any) => acc.concat(val)));
-mkNativeFunc(env, 'length', ['list'], ([list]: any) => isList(list) && list.length);
-mkNativeFunc(env, 'reverse', ['list'], ([list]: any) => isList(list) && [...list].reverse());
+mkNativeFunc(env, 'length', ['list'], ([list]: any) => Util.isList(list) && list.length);
+mkNativeFunc(env, 'reverse', ['list'], ([list]: any) => Util.isList(list) && [...list].reverse());
 mkNativeFunc(env, 'list-tail', ['list', 'k'], ([list, k]: any) => {
-  assert(isList(list), 'argument to list-tail must be a list')
-  assert(list.length >= k, 'list has fewer than k elements')
+  Util.assert(Util.isList(list), 'argument to list-tail must be a list')
+  Util.assert(list.length >= k, 'list has fewer than k elements')
   return (<any[]>list).slice(k)
 });
 mkNativeFunc(env, 'list-ref', ['list', 'k'], ([list, k]: any) => {
-  assert(isList(list), 'argument to list-tail must be a list')
-  assert(list.length >= k, 'list has fewer than k elements')
+  Util.assert(Util.isList(list), 'argument to list-tail must be a list')
+  Util.assert(list.length >= k, 'list has fewer than k elements')
   return (<any[]>list).at(k)
 });
 mkNativeFunc(env, 'memq', ['obj', 'list'], ([obj, list]: any) => {
-  assert(isList(list), 'argument to list-tail must be a list') // TODO
+  Util.assert(Util.isList(list), 'argument to list-tail must be a list') // TODO
   const l = <any[]>list;
   const i = l.findIndex(o => /* eq? */o === obj);
   if (i === -1) {
-    return Lisp.FALSE
+    return FALSE
   }
   return l.slice(i)
 });
 mkNativeFunc(env, 'memv', ['obj', 'list'], ([obj, list]: any) => {
-  assert(isList(list), 'argument to list-tail must be a list') // TODO
+  Util.assert(Util.isList(list), 'argument to list-tail must be a list') // TODO
   const l = <any[]>list;
   const i = l.findIndex(o => /* eqv? */o === obj);
   if (i === -1) {
-    return Lisp.FALSE
+    return FALSE
   }
   return l.slice(i)
 });
 mkNativeFunc(env, 'member', ['obj', 'list'], ([obj, list]: any) => {
-  assert(isList(list), 'argument to list-tail must be a list') // TODO
+  Util.assert(Util.isList(list), 'argument to list-tail must be a list') // TODO
   const l = <any[]>list;
   const i = l.findIndex(o => /* equal? */o === obj);
   if (i === -1) {
-    return Lisp.FALSE
+    return FALSE
   }
   return l.slice(i)
 });
@@ -105,160 +112,160 @@ mkNativeFunc(env, 'cos', ['n'], ([n]: any) => Math.cos(n));
 mkNativeFunc(env, 'tan', ['n'], ([n]: any) => Math.tan(n));
 mkNativeFunc(env, 'asin', ['n'], ([n]: any) => Math.asin(n));
 mkNativeFunc(env, 'acos', ['n'], ([n]: any) => Math.acos(n));
-mkNativeFunc(env, 'atan', ['y', 'x'], ([y, x]: any) => isNone(x) ? Math.atan(y) : Math.atan2(y, x));
+mkNativeFunc(env, 'atan', ['y', 'x'], ([y, x]: any) => Util.isNone(x) ? Math.atan(y) : Math.atan2(y, x));
 mkNativeFunc(env, 'sqrt', ['n'], ([n]: any) => Math.sqrt(n));
 mkNativeFunc(env, 'expt', ['n'], ([n]: any) => Math.exp(n));
 
 mkNativeFunc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc + val, 0));
 mkNativeFunc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val, 1));
 mkNativeFunc(env, '-', ['args'], (args: any) => {
-  assert(args.length > 0, "procedure requires at least one argument: (-)")
+  Util.assert(args.length > 0, "procedure requires at least one argument: (-)")
   if (args.length === 1) return -args[0]
   else return args.reduce((acc: any, val: any) => acc - val)
 });
 mkNativeFunc(env, '/', ['args'], (args: any) => {
-  assert(args.length > 0, "procedure requires at least one argument: (/)")
+  Util.assert(args.length > 0, "procedure requires at least one argument: (/)")
   args.reduce((acc: any, val: any) => acc / val)
 });
-mkNativeFunc(env, '=', ['args'], (args: any) => args.reduce((acc: any, val: any) => toL(acc === val)));
-mkNativeFunc(env, '>', ['args'], (args: any) => args.reduce((acc: any, val: any) => toL(acc > val)));
-mkNativeFunc(env, '<', ['args'], (args: any) => args.reduce((acc: any, val: any) => toL(acc < val)));
-mkNativeFunc(env, '>=', ['args'], ([l, r]: any) => toL(l >= r));
-mkNativeFunc(env, '<=', ['args'], ([l, r]: any) => toL(l <= r));
+mkNativeFunc(env, '=', ['args'], (args: any) => args.reduce((acc: any, val: any) => Util.toL(acc === val)));
+mkNativeFunc(env, '>', ['args'], (args: any) => args.reduce((acc: any, val: any) => Util.toL(acc > val)));
+mkNativeFunc(env, '<', ['args'], (args: any) => args.reduce((acc: any, val: any) => Util.toL(acc < val)));
+mkNativeFunc(env, '>=', ['args'], ([l, r]: any) => Util.toL(l >= r));
+mkNativeFunc(env, '<=', ['args'], ([l, r]: any) => Util.toL(l <= r));
 
-mkNativeFunc(env, 'zero?', ['n'], ([n]: any) => toL(n === 0));
-mkNativeFunc(env, 'number?', ['n'], ([n]: any) => toL(isNum(n)));
-mkNativeFunc(env, 'positive?', ['n'], ([n]: any) => toL(isNum(n) && n > 0));
-mkNativeFunc(env, 'negative?', ['n'], ([n]: any) => toL(isNum(n) && n < 0));
-mkNativeFunc(env, 'odd?', ['n'], ([n]: any) => toL(isNum(n) && n % 2 !== 0));
-mkNativeFunc(env, 'even?', ['n'], ([n]: any) => toL(isNum(n) && n % 2 === 0));
-mkNativeFunc(env, 'boolean?', ['n'], ([n]: any) => toL(n === Lisp.FALSE || n === Lisp.TRUE));
-mkNativeFunc(env, 'null?', ['n'], ([n]: any) => toL(isEmpty(n)));
-mkNativeFunc(env, 'list?', ['n'], ([n]: any) => toL(isList(n)));
-mkNativeFunc(env, 'symbol?', ['n'], ([n]: any) => toL(isSym(n)));
+mkNativeFunc(env, 'zero?', ['n'], ([n]: any) => Util.toL(n === 0));
+mkNativeFunc(env, 'number?', ['n'], ([n]: any) => Util.toL(Util.isNum(n)));
+mkNativeFunc(env, 'positive?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n > 0));
+mkNativeFunc(env, 'negative?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n < 0));
+mkNativeFunc(env, 'odd?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n % 2 !== 0));
+mkNativeFunc(env, 'even?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n % 2 === 0));
+mkNativeFunc(env, 'boolean?', ['n'], ([n]: any) => Util.toL(n === FALSE || n === TRUE));
+mkNativeFunc(env, 'null?', ['n'], ([n]: any) => Util.toL(Util.isEmpty(n)));
+mkNativeFunc(env, 'list?', ['n'], ([n]: any) => Util.toL(Util.isList(n)));
+mkNativeFunc(env, 'symbol?', ['n'], ([n]: any) => Util.toL(Util.isSym(n)));
 mkNativeFunc(env, 'symbol->string', ['n'], ([n]: any) => {
-  assert(isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
-  return toString(n)
+  Util.assert(Util.isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
+  return Util.toString(n)
 });
 mkNativeFunc(env, 'string->symbol', ['n'], ([n]: any) => {
-  assert(isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
-  return Lisp.Sym(n)
+  Util.assert(Util.isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
+  return Sym(n)
 });
-mkNativeFunc(env, 'string?', ['n'], ([n]: any) => toL(isString(n)));
+mkNativeFunc(env, 'string?', ['n'], ([n]: any) => Util.toL(Util.isString(n)));
 mkNativeFunc(env, 'string-length', ['n'], ([n]: any) => {
-  assert(isString(n))
+  Util.assert(Util.isString(n))
   return n.length
 });
 mkNativeFunc(env, 'string-ref', ['string', 'k'], ([string, k]: any) => {
-  assert(isString(string) && string.length >= k)
+  Util.assert(Util.isString(string) && string.length >= k)
   return string[k]
 });
 mkNativeFunc(env, 'string-set', ['string', 'k', 'char'], ([string, k, char]: any) => {
-  assert(isString(string) && string.length >= k)
-  assert(isChar(char))
+  Util.assert(Util.isString(string) && string.length >= k)
+  Util.assert(Util.isChar(char))
   string[k] = char
   return []
 });
 mkNativeFunc(env, 'string=?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1 === string2)
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1 === string2)
 });
 mkNativeFunc(env, 'string-ci=?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
+  Util.assert(Util.isString(string1) && Util.isString(string2))
   if (string1.length !== string2.length)
-    return toL(false)
+    return Util.toL(false)
   for (let i = 0; i < string1.length; i++) {
     if ((<string>string1[i]).toLowerCase() === string2[i].toLowerCase())
       continue
-    return toL(false)
+    return Util.toL(false)
   }
-  return toL(true)
+  return Util.toL(true)
 });
 mkNativeFunc(env, 'string<?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1 < string2)
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1 < string2)
 });
 mkNativeFunc(env, 'string>?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1 > string2)
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1 > string2)
 });
 mkNativeFunc(env, 'string<=?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1 <= string2)
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1 <= string2)
 });
 mkNativeFunc(env, 'string>=?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1 >= string2)
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1 >= string2)
 });
 mkNativeFunc(env, 'string-ci<?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1.toLowerCase() < string2.toLowerCase())
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1.toLowerCase() < string2.toLowerCase())
 });
 mkNativeFunc(env, 'string-ci>?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1.toLowerCase() > string2.toLowerCase())
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1.toLowerCase() > string2.toLowerCase())
 });
 mkNativeFunc(env, 'string-ci<=?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1.toLowerCase() <= string2.toLowerCase())
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1.toLowerCase() <= string2.toLowerCase())
 });
 mkNativeFunc(env, 'string-ci>=?', ['string1', 'string2'], ([string1, string2]: any) => {
-  assert(isString(string1) && isString(string2))
-  return toL(string1.toLowerCase() >= string2.toLowerCase())
+  Util.assert(Util.isString(string1) && Util.isString(string2))
+  return Util.toL(string1.toLowerCase() >= string2.toLowerCase())
 });
 mkNativeFunc(env, 'substring', ['string', 'start', 'end'], ([string, start, end]: any) => {
-  assert(isString(string) && string.length >= start && string.length >= end && start < end)
+  Util.assert(Util.isString(string) && string.length >= start && string.length >= end && start < end)
   return (<string>string).substring(start, end)
 });
 mkNativeFunc(env, 'string-append', ['string', '...'], ([string, ...xs]: any) => {
-  assert(isString(string) && xs.map((x: any) => isString(x)))
+  Util.assert(Util.isString(string) && xs.map((x: any) => Util.isString(x)))
   return (<string>string).concat(...xs)
 });
 mkNativeFunc(env, 'string->list', ['string', '...'], ([string]: any) => {
-  assert(isString(string))
+  Util.assert(Util.isString(string))
   return (<string>string).split('')
 });
 mkNativeFunc(env, 'list->string', ['list', '...'], ([list]: any) => {
-  assert(isList(list) && list.map(o => isString(o)))
+  Util.assert(Util.isList(list) && list.map(o => Util.isString(o)))
   return (<List>list).join('')
 });
 mkNativeFunc(env, 'string-copy', ['string'], ([string]: any) => {
-  assert(isString(string))
+  Util.assert(Util.isString(string))
   return String(string)
 });
 mkNativeFunc(env, 'string-fill', ['string', 'char'], ([string, char]: any) => {
-  assert(isString(string))
-  assert(isChar(char))
+  Util.assert(Util.isString(string))
+  Util.assert(Util.isChar(char))
   string.replaceAll(/.*/, char)
   return string
 });
 mkNativeFunc(env, 'string-pad-end', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
-  assert(isString(string));
-  assert(isNum(maxLength));
+  Util.assert(Util.isString(string));
+  Util.assert(Util.isNum(maxLength));
   return (string as string).padEnd(maxLength, fillString);
 });
 mkNativeFunc(env, 'string-pad-start', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
-  assert(isString(string));
-  assert(isNum(maxLength));
+  Util.assert(Util.isString(string));
+  Util.assert(Util.isNum(maxLength));
   return (string as string).padStart(maxLength, fillString);
 });
 mkNativeFunc(env, 'procedure?', ['obj'], ([obj]: any) => {
-  return toL(isCallable(obj))
+  return Util.toL(Util.isCallable(obj))
 });
 
-mkNativeFunc(env, 'not', ['n'], ([n]: any) => toL(n === Lisp.FALSE));
+mkNativeFunc(env, 'not', ['n'], ([n]: any) => Util.toL(n === FALSE));
 
 mkNativeFunc(env, 'set-macro-character', ['char', 'cb'], ([char, cb]: any, env) => {
-  Lisp.readMacroTable[toString(char)] = locals => {
-    const proc = Lisp.evaluate(cb, env);
-    if (isCallable(proc)) {
+  readMacroTable[Util.toString(char)] = locals => {
+    const proc = evaluate(cb, env);
+    if (Util.isCallable(proc)) {
       mkNativeFunc(proc.env, 'read', ['read'], ([locals]: any) => locals.parse());
       mkNativeFunc(proc.env, 'advance', ['advance'], ([locals]: any) => locals.advance());
       mkNativeFunc(proc.env, 'current', ['current'], ([locals]: any) => locals.current());
       mkNativeFunc(proc.env, 'isEOF', ['isEOF'], ([locals]: any) => locals.isEOF());
       mkNativeFunc(proc.env, 'isSpace', ['isSpace'], ([locals]: any) => locals.isSpace());
       mkNativeFunc(proc.env, 'isNewLine', ['isNewLine'], ([locals]: any) => locals.isNewLine());
-      return Lisp.evaluate([proc, locals, toString(char)], env);
+      return evaluate([proc, locals, Util.toString(char)], env);
     }
     throw new Error('Nope @ set-macro-character');
   };
@@ -271,7 +278,7 @@ mkNativeFunc(env, 'call/cc', ['throw'], ([proc]: any, env) => {
     ball.retval = retval; throw ball;
   });
   try {
-    if (isCallable(proc)) {
+    if (Util.isCallable(proc)) {
       return proc.call([throw_ as Expr]);
     }
     throw new Errors.InvalidCallableExpression(proc);
@@ -288,21 +295,21 @@ mkNativeFunc(env, 'call/cc', ['throw'], ([proc]: any, env) => {
 
 mkNativeFunc(env, 'try', ['callable'], ([callable]: any) => {
   try {
-    if (isCallable(callable)) {
-      return [Lisp.TRUE, callable.call([])];
+    if (Util.isCallable(callable)) {
+      return [TRUE, callable.call([])];
     }
-    return [Lisp.FALSE, ['InvalidCallableExpression']]
+    return [FALSE, ['InvalidCallableExpression']]
   } catch (err) {
     if (err instanceof Error)
-      return [Lisp.FALSE, [err.message]];
+      return [FALSE, [err.message]];
     if (typeof err === 'string')
-      return [Lisp.FALSE, [err]];
-    return [Lisp.FALSE, ['UnknownError']];
+      return [FALSE, [err]];
+    return [FALSE, ['UnknownError']];
   }
 });
 
 mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
-  return Lisp.expand(Lisp.car(args), true, env);
+  return expand(Lisp.car(args), true, env);
 });
 
 /*
@@ -310,7 +317,7 @@ mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
 *  reader macros
 *
 */
-// Lisp.exec(`(begin
+// exec(`(begin
 //   (defun hat-quote-reader (stream char)
 //     (list (quote quote) (read stream)))
 //   (set-macro-character '^ 'hat-quote-reader)
@@ -330,7 +337,7 @@ Lisp.execute(`
 `, env);
 
 
-// Lisp.exec(
+// exec(
 //   `(define-macro lcomp (expression for var in list conditional conditional-test)
 //     ;; create a unique variable name for the result
 //     (let ((result (gensym)))

@@ -1,7 +1,10 @@
-import { Lisp } from "./lib/lisp";
+import * as Lisp from "./lib/lisp";
 import type { Env } from "./lib/env";
 import { NativeFunc, Proc } from "./lib/proc";
 import type { Atom, Expr, List } from "./lib/terms";
+import { TRUE, FALSE } from "./lib/const";
+import { Sym, SymTable } from "./lib/sym";
+import { quotes } from "./lib/macro";
 
 export const assert = <T extends any>(p: T, msg = ''): T extends false ? never : T => {
   if (p !== true) {
@@ -45,8 +48,8 @@ export const isExpr = (x: unknown): x is Expr => isAtom(x) || isList(x) || isCal
 
 export const symName = (s: symbol): string => s.description!;
 
-export const isT = (e: Expr): boolean => e === Lisp.TRUE;
-export const toL = (e: boolean): Expr => e ? Lisp.TRUE : Lisp.FALSE;
+export const isT = (e: Expr): boolean => e === TRUE;
+export const toL = (e: boolean): Expr => e ? TRUE : FALSE;
 
 export const zip = (...rows: Expr[][]) => isEmpty(rows) ? [[], []] : rows[0].map((_, c) => rows.map(row => row[c]));
 
@@ -90,13 +93,13 @@ export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): stri
     return String(expr);
   if (isEmpty(expr))
     return '()';
-  if (Lisp.car(expr) === Lisp.SymTable.LAMBDA) {
+  if (Lisp.car(expr) === SymTable.LAMBDA) {
     const repr = (<any>Lisp.cdr(expr)).map((x: any) => toString(x, inspect, lambdaSymbol)).join(' ');
     return `(${lambdaSymbol} ${repr})`;
   }
-  if (symName(<symbol>Lisp.car(expr)) in Lisp.quotes) {
+  if (symName(<symbol>Lisp.car(expr)) in quotes) {
     const val = toString(Lisp.cadr(expr), inspect, lambdaSymbol);
-    return `${Lisp.quotes[symName(<symbol>Lisp.car(expr))]}${val}`;
+    return `${quotes[symName(<symbol>Lisp.car(expr))]}${val}`;
   }
   return `(${expr.map(c => toString(c, inspect, lambdaSymbol)).join(' ')})`;
 };
@@ -108,7 +111,7 @@ export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args
   const func = new class extends NativeFunc {
     public name = name;
     public env = env;
-    public params = params.map(Lisp.Sym);
+    public params = params.map(Sym);
     public _call = cb;
   };
 
@@ -117,5 +120,5 @@ export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args
 }
 
 export const mkLambda = (params: string[] | string, body: Expr): Expr => {
-  return [Lisp.SymTable.LAMBDA, isList(params) ? params.map(Lisp.Sym) : Lisp.Sym(params), body];
+  return [SymTable.LAMBDA, isList(params) ? params.map(Sym) : Sym(params), body];
 };

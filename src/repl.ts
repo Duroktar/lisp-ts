@@ -5,9 +5,10 @@ import path, { join } from 'path';
 import getPath from 'platform-folders';
 import repl from 'pretty-repl';
 import { Recoverable } from 'repl';
-import * as Errors from "./lib/errors";
-import { Lisp } from "./lib/lisp";
 import { env } from "./globals";
+import * as Errors from "./lib/error";
+import { evaluate } from './lib/eval';
+import * as Lisp from "./lib/lisp";
 import * as Utils from "./utils";
 
 const APPDATA = Utils.exists(getPath('appdata'), 'Error looking up appdata directory!');
@@ -32,7 +33,7 @@ namespace Repl {
     function _eval(cmd: string, context: any, filename: string, callback: any) {
       try {
         const x = Lisp.parse(cmd, env)
-        const val = Lisp.evaluate(x, env)
+        const val = evaluate(x, env)
         callback(null, Utils.toString(val))
       } catch (err) {
         errorHandler(err, callback)

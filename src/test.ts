@@ -1,10 +1,10 @@
 import { env } from "./globals";
-import { Lisp } from "./lib/lisp";
+import { execute } from "./lib/lisp";
 
-Lisp.execute(`
+execute(`
 
 (load "tests/utils.scm")
-(set-verbose-test #f)
+(set-verbose-test #t)
 
 (load "tests/spec.scm")
 (load "tests/r5rs.scm")

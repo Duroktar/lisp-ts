@@ -1,4 +1,4 @@
-import { Lisp } from "./lib/lisp";
+import * as Lisp from "./lib/lisp";
 import * as Runtime from "./globals";
 
 export namespace MetaEval {

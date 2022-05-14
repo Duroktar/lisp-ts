@@ -1,6 +1,6 @@
 
 import { env } from "./globals";
-import { Lisp } from "./lib/lisp";
+import * as Lisp from "./lib/lisp";
 // import { executeFile } from "./load";
 // import { print } from "./utils";
 

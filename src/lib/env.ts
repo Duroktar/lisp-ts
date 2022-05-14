@@ -1,4 +1,4 @@
-import * as Errors from "./errors";
+import * as Errors from "./error";
 import type { NativeFunc, Proc } from "./proc";
 import type { Atom, Expr } from "./terms";
 import * as Utils from "../utils";

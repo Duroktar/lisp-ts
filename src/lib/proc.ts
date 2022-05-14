@@ -1,5 +1,5 @@
-import { Lisp } from "./lisp";
 import { Env } from "./env";
+import { evaluate } from "./eval";
 import type { Expr } from "./terms";
 
 export class Proc {
@@ -7,7 +7,7 @@ export class Proc {
   public name: string = 'λ';
   public call = (args: Expr) => {
     const env = new Env(this.params, args, this.env);
-    return Lisp.evaluate(this.expr, env);
+    return evaluate(this.expr, env);
   };
 }
 
