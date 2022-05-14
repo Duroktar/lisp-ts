@@ -9,24 +9,21 @@ import { Expr } from "./terms";
 
 export const evaluate = (e: Expr, a: Env): Expr => {
   // console.log('evaluating:', Utils.toString(e))
-  if (Utils.isSym(e))
-    return a.get(Utils.toString(e)) as Expr;
+  if (Utils.isSym(e)) return a.get(Utils.toString(e)) as Expr;
   else if (!Utils.isList(e)) {
-    if (Utils.isString(e))
-      return JSON.parse(e);
-    if (Utils.isNum(e))
-      return e;
+    if (Utils.isString(e)) return JSON.parse(e);
+    if (Utils.isNum(e)) return e;
     throw new Error(`unknown thingy: ${Utils.toString(e, true)}`);
   } else {
     switch (car(e)) {
       case SymTable.QUOTE: return quote(e);
       case SymTable.ATOM: return atom(evaluate(cadr(e), a));
       case SymTable.EQ: return eq(evaluate(cadr(e), a),
-        evaluate(caddr(e), a));
+                                  evaluate(caddr(e), a));
       case SymTable.CAR: return car(evaluate(cadr(e), a));
       case SymTable.CDR: return cdr(evaluate(cadr(e), a));
       case SymTable.CONS: return cons(evaluate(cadr(e), a),
-        evaluate(caddr(e), a));
+                                  evaluate(caddr(e), a));
       case SymTable.COND: return evalCond(cadr(e), a, e);
       case SymTable.LAMBDA: {
         return new Proc(cadr(e), caddr(e), a) as any;
@@ -71,7 +68,7 @@ export const evaluate = (e: Expr, a: Env): Expr => {
       default: {
         const [proc, ...args] = e.map(expr => evaluate(expr, a));
         if (Utils.isCallable(proc)) {
-          const c = Utils.toString(car(e));
+          // const c = Utils.toString(car(e));
           // console.log(`calling: ${proc.name} ${proc.name === c ? '' : c}`)
           return proc.call(args);
         }

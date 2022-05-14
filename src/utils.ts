@@ -1,6 +1,6 @@
 import * as Lisp from "./lib/lisp";
 import type { Env } from "./lib/env";
-import { NativeFunc, Proc } from "./lib/proc";
+import { BaseProcedure, Proc } from "./lib/proc";
 import type { Atom, Expr, List } from "./lib/terms";
 import { TRUE, FALSE } from "./lib/const";
 import { Sym, SymTable } from "./lib/sym";
@@ -41,9 +41,9 @@ export const isString = (x: unknown): x is string => typeof x === 'string';
 export const isChar = (x: unknown): x is string & {length: 1} => isString(x) && x.length === 1;
 export const isEmpty = (x: unknown): x is [] => isList(x) && x.length === 0;
 export const isNone = (x: unknown): x is undefined | null => x === undefined || x === null;
-export const isCallable = (x: unknown): x is Proc | NativeFunc => isProc(x) || isNativeFn(x);
+export const isCallable = (x: unknown): x is Proc | BaseProcedure => isProc(x) || isNativeFn(x);
 export const isProc = (x: unknown): x is Proc => x instanceof Proc;
-export const isNativeFn = (x: unknown): x is NativeFunc => x instanceof NativeFunc;
+export const isNativeFn = (x: unknown): x is BaseProcedure => x instanceof BaseProcedure;
 export const isExpr = (x: unknown): x is Expr => isAtom(x) || isList(x) || isCallable(x) || isString(x) || isNum(x);
 
 export const symName = (s: symbol): string => s.description!;
@@ -76,7 +76,7 @@ export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): stri
     // if (inspect) return String(expr)
     return expr.description!;
   }
-  if (expr instanceof NativeFunc) {
+  if (expr instanceof BaseProcedure) {
     return `(nativefunc ${expr.name})`;
   }
   if (expr instanceof Proc) {
@@ -107,8 +107,8 @@ export const print = (e: Expr, inspect = false, lambdaSymbol = 'lambda'): void =
   console.log(toString(e, inspect, lambdaSymbol));
 };
 
-export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args: Expr, env: Env) => any): Expr | NativeFunc {
-  const func = new class extends NativeFunc {
+export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args: Expr, env: Env) => any): Expr | BaseProcedure {
+  const func = new class extends BaseProcedure {
     public name = name;
     public env = env;
     public params = params.map(Sym);

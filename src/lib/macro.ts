@@ -1,8 +1,11 @@
 import * as Utils from "../utils";
+import { FALSE, TRUE } from "./const";
+import { evaluate } from "./eval";
 import { expand } from "./expand";
 import { Proc } from "./proc";
 import { Sym, SymTable } from "./sym";
 import { Expr } from "./terms";
+import { env } from '../globals'
 
 export function _async(...args: Expr[]) {
   const x = [SymTable.DO, args];
@@ -24,10 +27,8 @@ export function _let(...args: Expr[]): any {
   if (Utils.isAtom(args[0])) {
     const [name, bindings, body] = args
     const [parms, vals]: any = Utils.zip(...bindings as any) || [[], []];
-    const lambda = [SymTable.LAMBDA, parms, expand(body)];
-    // const lambda = [SymTable.LAMBDA, parms, body];
     const outer = [SymTable.LAMBDA, [],
-      [SymTable.DEFINE, name, lambda],
+      [SymTable.DEFINE, name, [SymTable.LAMBDA, parms, expand(body)]],
       [name, ...vals],
     ];
     return [outer]
@@ -36,9 +37,21 @@ export function _let(...args: Expr[]): any {
   Utils.expect(args, Utils.isList(bindings) && bindings.every(b => Utils.isList(b) && b.length === 2 && Utils.isSym(b[0])));
   const [vars, vals] = Utils.zip(...bindings as any);
   Utils.expect(args, (vars.length === new Set(vars).size), 'let bindings must be unique');
-  const lambda = [SymTable.LAMBDA, vars, ...expand(body) as any];
-  // const lambda = [SymTable.LAMBDA, vars, ...body];
-  return [lambda].concat(<any>vals);
+  return [[SymTable.LAMBDA, vars, ...expand(body) as any]].concat(<any>vals);
+}
+
+export function _and(...args: Expr[]): any {
+  for (let arg of args) {
+    if (evaluate(arg, env) === FALSE) return arg;
+  }
+  return TRUE
+}
+
+export function _or(...args: Expr[]): any {
+  for (let arg of args) {
+    if (evaluate(arg, env) === TRUE) return arg;
+  }
+  return FALSE
 }
 
 export const readMacroTable: Record<string, (...args: any[]) => Expr> = {};
@@ -46,6 +59,8 @@ export const readMacroTable: Record<string, (...args: any[]) => Expr> = {};
 export const macroTable: Record<string, Proc | Function> = {
   async: _async,
   let: _let,
+  and: _and,
+  or: _or,
 };
 
 export const quotes = {
