@@ -36,6 +36,10 @@
 
 (test #t (or (= 2 2) (< 2 1)))
 
+(test #t (or (= 3 2) (= 2 1) (= 2 2)))
+
+(test #f (or (= 3 2) (= 2 1) (= 3 2)))
+
 (test '(b c) (or (memq 'b '(a b c)) (/ 3 0)))
 
 (test 6 (let ((x 2) (y 3)) (* x y)))
