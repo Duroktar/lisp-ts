@@ -325,6 +325,14 @@ Lisp.execute(`
     (if (null? args) #t
         (if (= (length args) 1) (car args)
             \`(if ,(car args) (and ,@(cdr args)) #f)))))
+
+  (define-macro or (lambda args
+    (if (null? args) #f
+        (if (= (length args) 1) (car args)
+            \`(let ((x ,(car args)))
+                (if x x (or ,@(cdr args))))))))
+
+
 )`, env)
 
 /*
