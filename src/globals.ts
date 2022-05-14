@@ -53,7 +53,7 @@ mkNativeFunc(env, 'load', ['file', 'topLevel?'], ([file, topLevel = true]: any, 
 mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(a === b));
 mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(a === b));
 mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.toString(a) === Util.toString(b)));
-mkNativeFunc(env, 'append', ['list', '...'], ([args]: any) => args.reduce((acc: any, val: any) => acc.concat(val)));
+mkNativeFunc(env, 'append', ['list', '...'], ([...args]: any) => args.reduce((acc: any, val: any) => acc.concat(val)));
 mkNativeFunc(env, 'length', ['list'], ([list]: any) => Util.isList(list) && list.length);
 mkNativeFunc(env, 'reverse', ['list'], ([list]: any) => Util.isList(list) && [...list].reverse());
 mkNativeFunc(env, 'list-tail', ['list', 'k'], ([list, k]: any) => {
@@ -317,11 +317,15 @@ mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
 *  reader macros
 *
 */
-// exec(`(begin
-//   (defun hat-quote-reader (stream char)
-//     (list (quote quote) (read stream)))
-//   (set-macro-character '^ 'hat-quote-reader)
-// )`, Runtime.env)
+
+Lisp.execute(`
+(begin
+
+  (define-macro and (lambda args
+    (if (null? args) #t
+        (if (= (length args) 1) (car args)
+            \`(if ,(car args) (and ,@(cdr args)) #f)))))
+)`, env)
 
 /*
 *

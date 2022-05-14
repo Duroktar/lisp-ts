@@ -3,7 +3,7 @@ import { Env } from "./env";
 import { evaluate } from "./eval";
 import { macroTable } from "./macro";
 import { Proc } from "./proc";
-import { SymTable } from "./sym";
+import { Sym, SymTable } from "./sym";
 import { Expr, List } from "./terms";
 
 export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr => {
@@ -38,11 +38,16 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
     }
     return expand([SymTable.DEFUN, name, args, ...body], false, env);
   }
-  else if ([SymTable.DEFUN, SymTable.DEFINEMACRO].includes(<any>e[0])) {
+  else if (e[0] === SymTable.DEFUN || e[0] === SymTable.DEFINEMACRO) {
     Utils.expect(e, e.length >= 3);
-    const [_def, name, args, body] = e;
+    let [_def, name, args, body] = e;
     Utils.expect(e, Utils.isSym(name));
     Utils.expect(e, Utils.isList(args) || Utils.isSym(args));
+    if (Utils.isList(args) && args[0] === SymTable.LAMBDA) {
+      const [_def, args_, body_] = args as any
+      args = args_
+      body = body_
+    }
     const expr: List = expand([SymTable.LAMBDA, args, body], false, env) as any;
     Utils.expect(expr, expr.length >= 1, `body list size should be at least 1, got: ${expr.length}`);
     if (_def === SymTable.DEFINEMACRO) {
@@ -58,7 +63,7 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
   else if (SymTable.LAMBDA === e[0]) {
     const [_lambda, params, ...expression] = e;
     const allAtoms = Utils.isList(params) && params.every(Utils.isSym);
-    Utils.expect(e, (allAtoms || Utils.isSym(params)), 'Invalid args');
+    Utils.expect(e, (allAtoms || Utils.isSym(params)), `Invalid lambda args. Expected a list of atoms or a single atom but instead got: ${Utils.toString(params)}`);
     Utils.expect(e, expression.length >= 1, `lambda expression empty`);
     const body: any = expression.length === 1 ? expression[0] : [SymTable.BEGIN, ...expression];
     return [_lambda, params, expand(body, false, env)];
@@ -86,13 +91,13 @@ export const expandQuasiquote = (x: Expr): Expr => {
   if (!Utils.isPair(x)) return [SymTable.QUOTE, x];
   Utils.expect(x, x !== SymTable.UNQUOTESPLICING, "can't slice here");
   if (Array.isArray(x)) {
-    if (Utils.isList(x) && x[0] === SymTable.UNQUOTE) {
+    if (x[0] === SymTable.UNQUOTE) {
       Utils.expect(x, Utils.isList(x) && x.length === 2);
       return x[1];
     }
     if (Utils.isList(x[0]) && x[0][0] === SymTable.UNQUOTESPLICING) {
-      Utils.expect(x[0], Utils.isList(x[0]) && (<List>x[0]).length === 2);
-      return [SymTable.APPEND, x[0].slice(1), expandQuasiquote(x.slice(1))];
+      Utils.expect(x, Utils.isList(x[0]) && x[0].length === 2);
+      return [SymTable.APPEND, x[0][1], expandQuasiquote(x.slice(1))];
     }
     else {
       return [SymTable.CONS, expandQuasiquote(x[0]), expandQuasiquote(x.slice(1))];

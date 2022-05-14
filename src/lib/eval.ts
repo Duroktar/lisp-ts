@@ -23,7 +23,7 @@ export const evaluate = (e: Expr, a: Env): Expr => {
       case SymTable.CAR: return car(evaluate(cadr(e), a));
       case SymTable.CDR: return cdr(evaluate(cadr(e), a));
       case SymTable.CONS: return cons(evaluate(cadr(e), a),
-                                  evaluate(caddr(e), a));
+                                      evaluate(caddr(e), a));
       case SymTable.COND: return evalCond(cadr(e), a, e);
       case SymTable.LAMBDA: {
         return new Proc(cadr(e), caddr(e), a) as any;
@@ -50,11 +50,8 @@ export const evaluate = (e: Expr, a: Env): Expr => {
       case SymTable.IF: {
         const [_if, cond, then_, else_] = e;
         const c = evaluate(cond, a);
-        if (Utils.isT(c)) {
-          return evaluate(then_, a);
-        } else {
-          return evaluate(else_ ?? EMPTY, a);
-        }
+        if (!Utils.isF(c)) return evaluate(then_, a);
+        return else_ ? evaluate(else_, a) : EMPTY;
       }
       case SymTable.SET: {
         const [_set, variable, value] = e;

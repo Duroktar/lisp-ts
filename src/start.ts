@@ -1,6 +1,7 @@
 
 import { env } from "./globals";
 import * as Lisp from "./lib/lisp";
+import { print } from "./utils";
 // import { executeFile } from "./load";
 // import { print } from "./utils";
 
@@ -166,5 +167,9 @@ import * as Lisp from "./lib/lisp";
 //         (* n (fac (sub1 n)))))
 // `, env))
 
-Lisp.execute('(load "samples/fac.scm")', env)
-Lisp.execute('(print (fac 12))', env)
+// Lisp.execute('(load "samples/fac.scm")', env)
+// Lisp.execute('(print (fac 12))', env)
+
+// print(Lisp.parse('(and (= 2 2) (> 2 1))', env))
+// print(Lisp.parse(`(and 1 2 'c '(f g))`, env))
+// print(Lisp.execute(`(and 1 2 'c '(f g))`, env))

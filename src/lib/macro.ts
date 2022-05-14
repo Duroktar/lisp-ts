@@ -1,11 +1,8 @@
 import * as Utils from "../utils";
-import { FALSE, TRUE } from "./const";
-import { evaluate } from "./eval";
 import { expand } from "./expand";
 import { Proc } from "./proc";
 import { Sym, SymTable } from "./sym";
 import { Expr } from "./terms";
-import { env } from '../globals'
 
 export function _async(...args: Expr[]) {
   const x = [SymTable.DO, args];
@@ -40,27 +37,13 @@ export function _let(...args: Expr[]): any {
   return [[SymTable.LAMBDA, vars, ...expand(body) as any]].concat(<any>vals);
 }
 
-export function _and(...args: Expr[]): any {
-  for (let arg of args) {
-    if (evaluate(arg, env) === FALSE) return arg;
-  }
-  return TRUE
-}
-
-export function _or(...args: Expr[]): any {
-  for (let arg of args) {
-    if (evaluate(arg, env) === TRUE) return arg;
-  }
-  return FALSE
-}
-
 export const readMacroTable: Record<string, (...args: any[]) => Expr> = {};
 
 export const macroTable: Record<string, Proc | Function> = {
   async: _async,
   let: _let,
-  and: _and,
-  or: _or,
+  // and: _and,
+  // or: _or,
 };
 
 export const quotes = {

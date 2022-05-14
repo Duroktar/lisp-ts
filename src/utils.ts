@@ -48,6 +48,7 @@ export const isExpr = (x: unknown): x is Expr => isAtom(x) || isList(x) || isCal
 
 export const symName = (s: symbol): string => s.description!;
 
+export const isF = (e: Expr): boolean => e === FALSE;
 export const isT = (e: Expr): boolean => e === TRUE;
 export const toL = (e: boolean): Expr => e ? TRUE : FALSE;
 

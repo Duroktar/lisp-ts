@@ -49,9 +49,9 @@
           (if *verbose-test* (begin
             (newline)
             (print "!!! Failure !!!")
-            (print " - Expression:" ',expression)
-            (print (string-pad-end " - Expected:" 16) *expected*)
-            (print (string-pad-end " - Actual:"   16) (cadr *result*))))))))
+            (print (string-pad-end " - Expression:" 16) ',expression)
+            (print (string-pad-end " - Expected:" 16)   *expected*)
+            (print (string-pad-end " - Actual:"   16)   (cadr *result*))))))))
 
 (defun test-begin (name) (begin
   (print "*** Running Tests:" name "***")
