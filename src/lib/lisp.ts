@@ -6,28 +6,12 @@ import { read } from "./read";
 import { Expr, List } from "./terms";
 
 // primitives (7)
-export const quote = (expr: Expr): Expr => cadr(expr);
+export const quote = (expr: Expr): Expr => (<List>expr)[1];
 export const atom = (expr: Expr): Expr => Utils.toL(Utils.isAtom(expr));
 export const eq = (x: Expr, y: Expr): Expr => Utils.toL(Utils.isSym(x) && Utils.isSym(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y));
-
 export const car = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isList, 'Argument to car must be an array..')[0];
 export const cdr = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
 // END primitives
-
-// export const compose = (...fns: Function[]) => (arg: any) => fns.reduceRight((acc, fn) => fn(acc), arg)
-// export const cadr    = compose(car, cdr)
-
-// functions
-export const cadr    = (expr: Expr): Expr => car(cdr(expr));
-export const cdar    = (expr: Expr): Expr => cdr(car(expr));
-export const caar    = (expr: Expr): Expr => car(car(expr));
-export const cadar   = (expr: Expr): Expr => car(cdr(car(expr)));
-export const caddr   = (expr: Expr): Expr => car(cdr(cdr(expr)));
-export const cdadr   = (expr: Expr): Expr => cdr(car(cdr(expr)));
-export const caddar  = (expr: Expr): Expr => car(cdr(cdr(car(expr))));
-export const cadddr  = (expr: Expr): Expr => car(cdr(cdr(cdr(expr))));
-export const cadadr  = (expr: Expr): Expr => car(cdr(car(cdr(expr))));
-export const cadddar = (expr: Expr): Expr => car(cdr(cdr(cdr(car(expr)))));
 
 export const _do = (args: Expr[], env: Env) => {
   /*
@@ -112,12 +96,7 @@ export const _do = (args: Expr[], env: Env) => {
 }
 
 export const parse = (code: string, a: Env): Expr => {
-  const rv = expand(read(code), true, a);
-  if (code.startsWith('(let')) {
-    console.log(Utils.toString(rv))
-    debugger
-  }
-  return rv;
+  return expand(read(code), true, a);
 };
 
 export const execute = (code: string, a: Env): Expr => {

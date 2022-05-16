@@ -2,13 +2,12 @@ import { join } from "path";
 import { FALSE, TRUE } from "./lib/const";
 import { callWithCC } from "./lib/cont";
 import { Env } from "./lib/env";
-import * as Errors from "./lib/error";
 import { evaluate } from "./lib/eval";
 import { expand } from "./lib/expand";
 import * as Lisp from "./lib/lisp";
 import { readMacroTable } from "./lib/macro";
 import { Sym } from "./lib/sym";
-import { Expr, List } from "./lib/terms";
+import { List } from "./lib/terms";
 import { executeFile } from "./load";
 import { gcd, lcm } from "./math";
 import * as Util from "./utils";
@@ -49,6 +48,7 @@ mkNativeFunc(env, 'display', ['x'], ([x]: any) => { Util.print(x, false, 'lambda
 mkNativeFunc(env, 'newline', [], () => { console.log(); });
 mkNativeFunc(env, 'inspect', ['x'], ([x]: any) => { return Util.toString(x, true); });
 mkNativeFunc(env, 'break', ['x'], x => { debugger; return x; });
+mkNativeFunc(env, 'error', ['x', 'code?'], ([x, code = 1]: any) => { console.error(x); process.exit(code); });
 
 mkNativeFunc(env, 'gensym', [], () => Symbol());
 

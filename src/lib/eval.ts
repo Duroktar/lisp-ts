@@ -1,10 +1,10 @@
 import * as Utils from "../utils";
-import { EMPTY, FALSE } from "./const";
+import { EMPTY, FALSE, UNDEF } from "./const";
 import { Env } from "./env";
-import { atom, caddr, cadr, car, cdr, eq, quote, _do } from "./lisp";
+import { atom, car, cdr, eq, quote, _do } from "./lisp";
 import { Proc } from "./proc";
 import { SymTable } from "./sym";
-import { Expr } from "./terms";
+import { Atom, Expr } from "./terms";
 
 
 export const evaluate = (e: Expr, a: Env): Expr => {
@@ -15,20 +15,20 @@ export const evaluate = (e: Expr, a: Env): Expr => {
     throw new Error(`unknown thingy: ${Utils.toString(e, true)}`);
   } else {
     switch (car(e)) {
-      case SymTable.QUOTE: return quote(e);
-      case SymTable.ATOM: return atom(evaluate(cadr(e), a));
-      case SymTable.EQ: return eq(evaluate(cadr(e), a),
-                                  evaluate(caddr(e), a));
-      case SymTable.CAR: return car(evaluate(cadr(e), a));
-      case SymTable.CDR: return cdr(evaluate(cadr(e), a));
-      case SymTable.COND: return evalCond(cadr(e), a, e);
+      case SymTable.QUOTE: return e[1];
+      case SymTable.ATOM: return atom(evaluate(e[1], a));
+      case SymTable.EQ: return eq(evaluate(e[1], a),
+                                  evaluate(e[2], a));
+      case SymTable.CAR: return car(evaluate(e[1], a));
+      case SymTable.CDR: return cdr(evaluate(e[1], a));
+      case SymTable.COND: return evalCond(e[1], a, e);
       case SymTable.LAMBDA: {
-        return new Proc(cadr(e), caddr(e), a) as any;
+        return new Proc(e[1], e[2], a) as any;
       }
       case SymTable.DEFINE:
       case SymTable.DEFUN: {
-        const [_def, variable, expr] = e;
-        const name = Utils.toString(variable);
+        const [_def, variable, expr] = e as [Atom, symbol, Expr];
+        const name = variable.description!;
         const value = evaluate(expr, a);
         if (Utils.isProc(value)) {
           value.name = name;
@@ -37,18 +37,18 @@ export const evaluate = (e: Expr, a: Env): Expr => {
         return value;
       }
       case SymTable.BEGIN: {
-        const [_begin, ...exprs] = e;
-        const rv = exprs.reduce((_, expr) => evaluate(expr, a), []);
-        return rv;
+        const [_def, ...exprs] = e as [Atom, ...Expr[]];
+        return exprs.map(expr => evaluate(expr, a)).pop()!
       }
       case SymTable.DO: {
-        return _do(<any>cdr(e), a);
+        const [_def, ...exprs] = e as [Atom, ...Expr[]];
+        return _do(exprs, a);
       }
       case SymTable.IF: {
-        const [_if, cond, then_, else_] = e;
+        const [_if, cond, then_, else_] = e as [Atom, Expr, Expr, Expr?];
         const c = evaluate(cond, a);
         if (!Utils.isF(c)) return evaluate(then_, a);
-        return else_ ? evaluate(else_, a) : EMPTY;
+        return else_ ? evaluate(else_, a) : UNDEF;
       }
       case SymTable.SET: {
         const [_set, variable, value] = e;

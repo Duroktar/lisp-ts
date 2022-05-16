@@ -14,6 +14,7 @@ export const assert = <T extends any>(p: T, msg = ''): T extends false ? never :
   }
 };
 
+
 type Exists<P> = Exclude<P, undefined | null>;
 
 export const exists = <P>(p: P, msg = ''): Exists<P> => {
@@ -112,7 +113,7 @@ export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): stri
     return `(${lambdaSymbol} ${repr})`;
   }
   if (symName(<symbol>Lisp.car(expr)) in quotes) {
-    const val = toString(Lisp.cadr(expr), inspect, lambdaSymbol);
+    const val = toString(expr[1], inspect, lambdaSymbol);
     return `${quotes[symName(<symbol>Lisp.car(expr))]}${val}`;
   }
   return `(${expr.map(c => toString(c, inspect, lambdaSymbol)).join(' ')})`;
