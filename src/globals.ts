@@ -50,8 +50,8 @@ mkNativeFunc(env, 'load', ['file', 'topLevel?'], ([file, topLevel = true]: any, 
   executeFile(join(<string>env.get('cwd'), file), topLevel ? env : a)
 });
 
-mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(a === b));
-mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(a === b));
+mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
+mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.toString(a) === Util.toString(b)));
 mkNativeFunc(env, 'append', ['list', '...'], ([...args]: any) => args.reduce((acc: any, val: any) => acc.concat(val)));
 mkNativeFunc(env, 'length', ['list'], ([list]: any) => Util.isList(list) && list.length);

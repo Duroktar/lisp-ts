@@ -35,23 +35,27 @@
             (print (string-pad-end " - Expected:" 16) *expected*)
             (print (string-pad-end " - Actual:"   16) *result*)))))))
 
-(define-macro test (expected expression)
-  `(begin
-      (define *result*   (try (lambda () ,expression)))
-      (define *expected* ,expected)
-      (incr-total)
-      (if (equal? *expected* (cadr *result*))
-        (begin
-          (if *verbose-test* (print "Passed..."))
-          (incr-passed))
-        (begin
-          (incr-failed)
-          (if *verbose-test* (begin
-            (newline)
-            (print "!!! Failure !!!")
-            (print (string-pad-end " - Expression:" 16) ',expression)
-            (print (string-pad-end " - Expected:" 16)   *expected*)
-            (print (string-pad-end " - Actual:"   16)   (cadr *result*))))))))
+(define-syntax test
+  (syntax-rules ()
+    ([test name expect expr]
+     (test expect expr))
+    ([test expected expression]
+      (begin
+        (define *result*   (try (lambda () expression)))
+        (define *expected* expected)
+        (incr-total)
+        (if (equal? *expected* (cadr *result*))
+          (begin
+            (if *verbose-test* (print "Passed..."))
+            (incr-passed))
+          (begin
+            (incr-failed)
+            (if *verbose-test* (begin
+              (newline)
+              (print "!!! Failure !!!")
+              (print (string-pad-end " - Expression:" 16) 'expression)
+              (print (string-pad-end " - Expected:" 16)   *expected*)
+              (print (string-pad-end " - Actual:"   16)   (cadr *result*))))))))))
 
 (defun test-begin (name) (begin
   (print "*** Running Tests:" name "***")

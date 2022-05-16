@@ -367,7 +367,7 @@
 
 (test '(dah dah didah) (vector->list '#(dah dah didah)))
 
-(test '#(dididit dah) (list->vector '(dididit dah)))
+; (test '#(dididit dah) (list->vector '(dididit dah)))
 
 (test #t (procedure? car))
 

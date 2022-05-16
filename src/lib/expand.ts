@@ -270,11 +270,11 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
         */
 
         // #1
-        if (Utils.isIdent(pattern) && !env.has(pattern))
+        if (Utils.isIdent(pattern) && !env.hasFrom(pattern))
           return true
 
         // #2
-        if (Utils.isIdent(pattern) && env.has(pattern)) {
+        if (Utils.isIdent(pattern) && env.hasFrom(pattern)) {
           const domatch = Utils.isIdent(form) && env.has(form);
           return domatch
         }
