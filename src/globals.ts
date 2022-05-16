@@ -59,46 +59,9 @@ mkNativeFunc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(Util.isPair(obj)));
 mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.toString(a) === Util.toString(b)));
-// mkNativeFunc(env, 'append', ['list', '...rest'], ([list, ...rest]: any) => [].concat(list, ...rest));
+
 mkNativeFunc(env, 'length', ['list'], ([list]: any) => Util.isList(list) && list.length);
 mkNativeFunc(env, 'reverse', ['list'], ([list]: any) => Util.isList(list) && [...list].reverse());
-mkNativeFunc(env, 'list-tail', ['list', 'k'], ([list, k]: any) => {
-  Util.assert(Util.isList(list), 'argument to list-tail must be a list')
-  Util.assert(list.length >= k, 'list has fewer than k elements')
-  return (<any[]>list).slice(k)
-});
-mkNativeFunc(env, 'list-ref', ['list', 'k'], ([list, k]: any) => {
-  Util.assert(Util.isList(list), 'argument to list-tail must be a list')
-  Util.assert(list.length >= k, 'list has fewer than k elements')
-  return (<any[]>list)[k]
-});
-mkNativeFunc(env, 'memq', ['obj', 'list'], ([obj, list]: any) => {
-  Util.assert(Util.isList(list), 'argument to list-tail must be a list') // TODO
-  const l = <any[]>list;
-  const i = l.findIndex(o => /* eq? */o === obj);
-  if (i === -1) {
-    return FALSE
-  }
-  return l.slice(i)
-});
-mkNativeFunc(env, 'memv', ['obj', 'list'], ([obj, list]: any) => {
-  Util.assert(Util.isList(list), 'argument to list-tail must be a list') // TODO
-  const l = <any[]>list;
-  const i = l.findIndex(o => /* eqv? */o === obj);
-  if (i === -1) {
-    return FALSE
-  }
-  return l.slice(i)
-});
-mkNativeFunc(env, 'member', ['obj', 'list'], ([obj, list]: any) => {
-  Util.assert(Util.isList(list), 'argument to list-tail must be a list') // TODO
-  const l = <any[]>list;
-  const i = l.findIndex(o => Util.isEqual(o, obj));
-  if (i === -1) {
-    return FALSE
-  }
-  return l.slice(i)
-});
 
 mkNativeFunc(env, 'min', ['args'], (args: any) => args.reduce((acc: any, val: any) => Math.min(acc, val)));
 mkNativeFunc(env, 'max', ['args'], (args: any) => args.reduce((acc: any, val: any) => Math.max(acc, val)));
@@ -227,11 +190,11 @@ mkNativeFunc(env, 'string-ci>=?', ['string1', 'string2'], ([string1, string2]: a
   return Util.toL(string1.toLowerCase() >= string2.toLowerCase())
 });
 mkNativeFunc(env, 'substring', ['string', 'start', 'end'], ([string, start, end]: any) => {
-  Util.assert(Util.isString(string) && string.length >= start && string.length >= end && start < end)
-  return (<string>string).substring(start, end)
+  // Util.assert(Util.isString(string) && string.length >= start && string.length >= end && start < end)
+  return (<string>string).slice(start, end)
 });
-mkNativeFunc(env, 'string-append', ['string', '...'], ([string, ...xs]: any) => {
-  Util.assert(Util.isString(string) && xs.map((x: any) => Util.isString(x)))
+mkNativeFunc(env, 'string-append', ['string', '...xs'], ([string, ...xs]: any) => {
+  // Util.assert(Util.isString(string))
   return (<string>string).concat(...xs)
 });
 mkNativeFunc(env, 'string->list', ['string', '...'], ([string]: any) => {
@@ -451,20 +414,50 @@ Lisp.execute(`
         (cons (car lst1) (append (cdr lst1) lst2))
         lst2))
 
-  (defun assq (x y)
-    (cond ((eq? (caar y) x) (cadar y))
-          ((null? (cdr y)) '())
-          (else (assq x (cdr y)))))
+  (defun list-ref (lst i)
+    (car (list-tail lst i)))
 
-  (defun assv (x y)
-    (cond ((eqv? (caar y) x) (cadar y))
-          ((null? (cdr y)) '())
-          (else (assv x (cdr y)))))
+  (defun list-set! (lst i x)
+    (set-car! (list-tail lst i) x))
 
-  (defun assoc (x y)
-    (cond ((equal? (caar y) x) (cadar y))
-          ((null? (cdr y)) '())
-          (else (assoc x (cdr y)))))
+  (defun list-tail (lst i)
+    (if (< 0 i)
+        (list-tail (cdr lst) (- i 1))
+        lst))
+
+  (defun memv (x lst)
+    (if (pair? lst)
+        (if (eqv? x (car lst))
+            lst
+            (memv x (cdr lst)))
+        #f))
+
+  (define memq memv)
+
+  (defun member (x lst)
+    (if (pair? lst)
+        (if (equal? x (car lst))
+            lst
+            (member x (cdr lst)))
+        #f))
+
+  (defun assv (x lst)
+    (if (pair? lst)
+        (let ((couple (car lst)))
+          (if (eqv? x (car couple))
+              couple
+              (assv x (cdr lst))))
+        #f))
+
+  (define assq assv)
+
+  (defun assoc (x lst)
+    (if (pair? lst)
+        (let ((couple (car lst)))
+          (if (equal? x (car couple))
+              couple
+              (assoc x (cdr lst))))
+        #f))
 
   (defun remainder (x y)
     (- x (* y (quotient x y))))

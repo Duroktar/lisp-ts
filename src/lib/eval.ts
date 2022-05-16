@@ -1,5 +1,5 @@
 import * as Utils from "../utils";
-import { EMPTY } from "./const";
+import { EMPTY, FALSE } from "./const";
 import { Env } from "./env";
 import { atom, caddr, cadr, car, cdr, eq, quote, _do } from "./lisp";
 import { Proc } from "./proc";
@@ -75,7 +75,7 @@ export const evaluate = (e: Expr, a: Env): Expr => {
 export const evalCond = (c: Expr, a: Env, mm: any): Expr => {
   Utils.expect(c, Utils.isEmpty(c) === false, 'Fallthrough condition');
   const [[cond, then], ...rest] = c as any[];
-  if (Utils.isT(evaluate(cond, a))) {
+  if (evaluate(cond, a) !== FALSE) {
     return evaluate([SymTable.BEGIN, ...then], a);
   }
   return evalCond(rest, a, mm);
