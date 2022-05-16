@@ -70,7 +70,7 @@ mkNativeFunc(env, 'list-tail', ['list', 'k'], ([list, k]: any) => {
 mkNativeFunc(env, 'list-ref', ['list', 'k'], ([list, k]: any) => {
   Util.assert(Util.isList(list), 'argument to list-tail must be a list')
   Util.assert(list.length >= k, 'list has fewer than k elements')
-  return (<any[]>list).at(k)
+  return (<any[]>list)[k]
 });
 mkNativeFunc(env, 'memq', ['obj', 'list'], ([obj, list]: any) => {
   Util.assert(Util.isList(list), 'argument to list-tail must be a list') // TODO
@@ -93,7 +93,7 @@ mkNativeFunc(env, 'memv', ['obj', 'list'], ([obj, list]: any) => {
 mkNativeFunc(env, 'member', ['obj', 'list'], ([obj, list]: any) => {
   Util.assert(Util.isList(list), 'argument to list-tail must be a list') // TODO
   const l = <any[]>list;
-  const i = l.findIndex(o => /* equal? */o === obj);
+  const i = l.findIndex(o => Util.isEqual(o, obj));
   if (i === -1) {
     return FALSE
   }

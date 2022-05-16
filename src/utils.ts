@@ -47,6 +47,9 @@ export const isNativeFn = (x: unknown): x is BaseProcedure => x instanceof BaseP
 export const isExpr = (x: unknown): x is Expr => isAtom(x) || isList(x) || isCallable(x) || isString(x) || isNum(x);
 export const isConst = (x: unknown) => isNum(x) || isString(x)
 export const isIdent = isSym
+export const isEqual = (x: unknown, y: unknown) => {
+  return JSON.stringify(x) === JSON.stringify(y)
+}
 export const isEq = (x: unknown, y: unknown) => {
   return (
     isList(x) && x.length === 0 &&
