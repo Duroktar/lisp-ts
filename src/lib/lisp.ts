@@ -119,6 +119,7 @@ export const parse = (code: string, a: Env): Expr => {
   }
   return rv;
 };
+
 export const execute = (code: string, a: Env): Expr => {
   return evaluate(parse(code, a), a);
 };

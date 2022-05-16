@@ -1,5 +1,6 @@
 import { join } from "path";
 import { FALSE, TRUE } from "./lib/const";
+import { callWithCC } from "./lib/cont";
 import { Env } from "./lib/env";
 import * as Errors from "./lib/error";
 import { evaluate } from "./lib/eval";
@@ -247,27 +248,8 @@ mkNativeFunc(env, 'set-macro-character', ['char', 'cb'], ([char, cb]: any, env) 
   };
 });
 
-mkNativeFunc(env, 'call/cc', ['throw'], ([proc]: any, env) => {
-  class RuntimeWarning extends Error { public retval?: any; }
-  let ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.");
-  const throw_ = mkNativeFunc(env, 'throw', ['retval'], retval => {
-    ball.retval = retval; throw ball;
-  });
-  try {
-    if (Util.isCallable(proc)) {
-      return proc.call([throw_ as Expr]);
-    }
-    throw new Errors.InvalidCallableExpression(proc);
-  } catch (err) {
-    if (err instanceof RuntimeWarning) {
-      // console.log(`exiting call/cc [${id}] (THROWN)`)
-      return ball.retval;
-    }
-    else {
-      throw err;
-    }
-  }
-});
+mkNativeFunc(env, 'call/cc', ['throw'], callWithCC);
+mkNativeFunc(env, 'call-with-current-continuation', ['throw'], callWithCC);
 
 mkNativeFunc(env, 'try', ['callable'], ([callable]: any) => {
   try {
