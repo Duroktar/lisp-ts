@@ -8,8 +8,9 @@
     "build": "ttsc src/start.ts",
     "repl:dev": "nodemon src/repl.ts",
     "repl": "ts-node src/repl.ts",
-    "test": "jest",
-    "test:lisp": "ts-node src/test.ts",
+    "test:dev": "nodemon --config tests/nodemon.json src/test.ts",
+    "test:jest": "jest",
+    "test": "ts-node src/test.ts",
     "start": "ts-node src/start.ts"
   },
   "devDependencies": {
