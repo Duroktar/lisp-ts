@@ -389,6 +389,18 @@ Lisp.execute(`
   (defun cdddar (x) (cdr (cdr (cdr (car x)))))
   (defun cddddr (x) (cdr (cdr (cdr (cdr x)))))
 
+  (defun map (proc lst)
+    (if (pair? lst)
+        (cons (proc (car lst)) (map proc (cdr lst)))
+        '()))
+
+  (defun for-each (proc lst)
+    (if (pair? lst)
+        (begin
+          (proc (car lst))
+          (for-each proc (cdr lst)))
+        #f))
+
   (defun list x x)
 
   (defun append (lst1 lst2)
