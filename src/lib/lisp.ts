@@ -35,7 +35,7 @@ export const _do = (args: Expr[], env: Env) => {
         (<test> <expression> ...)
       <command> ...)
   */
-  const [[...preludes], [test, ...expressions], ...commands] = <any>args;
+  const [[...preludes], [test, ...expressions], ...commands] = <any[][]>args;
 
   // Syntax: The <init>s, <step>s, <test>s, and <command>s must be expressions.
   //         The <variable>s must be pairwise distinct variables.
@@ -52,7 +52,7 @@ export const _do = (args: Expr[], env: Env) => {
     Utils.expect(command, Utils.isExpr(command), `A Command must be an expression. Got: ${typeof command} .. (value: ${Utils.toString(command)})`);
   });
 
-  const bindings: List = [];
+  let bindings: List = [];
   const steps: List = [];
 
   // The <init> expressions are evaluated (in some unspecified order),
@@ -60,12 +60,11 @@ export const _do = (args: Expr[], env: Env) => {
   // the results of the <init> expressions are stored in the bindings of the <variable>s,
   // and then the iteration phase begins.
   preludes.forEach(([var1, init1, step1]: any) => {
-    bindings.push([Utils.toString(var1), evaluate(init1, env)]);
+    bindings.push([var1, evaluate(init1, env)]);
     steps.push([var1, step1]);
   });
-  bindings.forEach(([varName, binding]: any) => {
-    env.set(varName, binding);
-  });
+
+  processBindings();
 
   // Each iteration begins by evaluating <test>;
   // If the result is #f, then the <command>s are evaluated in order for effect,
@@ -74,15 +73,17 @@ export const _do = (args: Expr[], env: Env) => {
   // Then the next iteration begins.
   const iterate = (depth = 0): Expr => {
     const testResult = evaluate(test, env);
-    if (Utils.isT(testResult) === false) {
+    if (!Utils.isT(testResult)) {
       commands.forEach((command: any) => {
         evaluate(command, env);
       });
       steps.forEach((step: any) => {
         const [varName, result] = step;
-        const res = evaluate(result, env);
-        env.set(Utils.toString(varName), res);
+        // const res = evaluate(result, env);
+        // env.setFrom(varName, res);
+        bindings.push([varName, evaluate(result, env)]);
       });
+      processBindings()
       if (depth >= 1000) {
         throw new Error('max depth exceeded');
       }
@@ -94,17 +95,29 @@ export const _do = (args: Expr[], env: Env) => {
       // and the values of the last <expression> are returned
       // - If no <expression>s are present,
       // then the do expression returns unspecified values
-      return expressions.reduce((_: any, expression: any) => {
-        return evaluate(expression, env);
-      }, []);
+      const rv = expressions.map(expr => evaluate(expr, env));
+
+      return rv.pop() ?? [];
     }
   };
 
   return iterate();
+
+  function processBindings() {
+    while (bindings.length) {
+      const [varName, binding] = bindings.shift() as any;
+      env.setFrom(varName, binding);
+    }
+  }
 }
 
 export const parse = (code: string, a: Env): Expr => {
-  return expand(read(code), true, a);
+  const rv = expand(read(code), true, a);
+  if (code.startsWith('(let')) {
+    console.log(Utils.toString(rv))
+    debugger
+  }
+  return rv;
 };
 export const execute = (code: string, a: Env): Expr => {
   return evaluate(parse(code, a), a);
