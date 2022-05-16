@@ -97,7 +97,7 @@ export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): stri
     return `(${lambdaSymbol} ${expr.name})`;
   }
   if (isString(expr))
-    return `"${expr}"`;
+    return `${expr}`;
   if (isNone(expr))
     return expr;
   if (isNum(expr))

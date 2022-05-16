@@ -1,7 +1,7 @@
 import * as Utils from "../utils";
 import { EMPTY } from "./const";
 import { Env } from "./env";
-import { atom, caddr, cadr, car, cdr, cons, eq, quote, _do } from "./lisp";
+import { atom, caddr, cadr, car, cdr, eq, quote, _do } from "./lisp";
 import { Proc } from "./proc";
 import { SymTable } from "./sym";
 import { Expr } from "./terms";
@@ -11,8 +11,7 @@ export const evaluate = (e: Expr, a: Env): Expr => {
   // console.log('evaluating:', Utils.toString(e))
   if (Utils.isSym(e)) return a.get(Utils.toString(e)) as Expr;
   else if (!Utils.isList(e)) {
-    if (Utils.isString(e)) return JSON.parse(e);
-    if (Utils.isNum(e)) return e;
+    if (Utils.isString(e) || Utils.isNum(e)) return e;
     throw new Error(`unknown thingy: ${Utils.toString(e, true)}`);
   } else {
     switch (car(e)) {
@@ -22,8 +21,6 @@ export const evaluate = (e: Expr, a: Env): Expr => {
                                   evaluate(caddr(e), a));
       case SymTable.CAR: return car(evaluate(cadr(e), a));
       case SymTable.CDR: return cdr(evaluate(cadr(e), a));
-      case SymTable.CONS: return cons(evaluate(cadr(e), a),
-                                      evaluate(caddr(e), a));
       case SymTable.COND: return evalCond(cadr(e), a, e);
       case SymTable.LAMBDA: {
         return new Proc(cadr(e), caddr(e), a) as any;

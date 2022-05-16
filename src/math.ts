@@ -16,5 +16,5 @@ export function lcm(n1: number, n2: number) {
   let gcdr = gcd(n1, n2);
 
   //then calculate the lcm
-  return (n1 * n2) / gcdr;
+  return Math.abs((n1 * n2) / gcdr);
 }

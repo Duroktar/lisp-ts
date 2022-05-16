@@ -9,7 +9,7 @@ import { Expr, List } from "./terms";
 export const quote = (expr: Expr): Expr => cadr(expr);
 export const atom = (expr: Expr): Expr => Utils.toL(Utils.isAtom(expr));
 export const eq = (x: Expr, y: Expr): Expr => Utils.toL(Utils.isSym(x) && Utils.isSym(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y));
-export const cons = (car: Expr, cdr: Expr): Expr => [car].concat(cdr);
+
 export const car = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isList, 'Argument to car must be an array..')[0];
 export const cdr = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
 // END primitives

@@ -16,14 +16,17 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
   }
   else if (SymTable.COND === e[0]) {
     const [_def, ...exprs] = e;
-    const preds = exprs.map(pair => {
-      const [head, ...tail] = pair as any[];
-      const res = tail.map(x => expand(x, false, env));
-      // console.log([head, res])
-      return [head, res];
-    });
-    Utils.expect(preds, Utils.isList(preds) && preds.every(x => x.length === 2 && x.every(e => Utils.isNone(e) === false)), `found invalid cond entry where (length != 2): (${(Utils.isList(preds) ? preds.find(x => x.length !== 2) : preds)})`);
-    return [_def, preds];
+    if (exprs.length > 1) {
+      const preds = exprs.map(pair => {
+        const [head, ...tail] = pair as any[];
+        const res = tail.map(x => expand(x, false, env));
+        // console.log([head, res])
+        return [head, res];
+      });
+      Utils.expect(preds, Utils.isList(preds) && preds.every(x => x.length === 2 && x.every(e => Utils.isNone(e) === false)), `found invalid cond entry where (length != 2): (${(Utils.isList(preds) ? preds.find(x => x.length !== 2) : preds)})`);
+      return [_def, preds];
+    }
+    return [_def, ...exprs];
   }
   else if (SymTable.BEGIN === e[0]) {
     const [_begin, ...exprs] = e;
@@ -291,7 +294,7 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
 
           // #5
           if (pattern[pattern.length - 1] === Sym('...')) {
-            Utils.expect(pattern, form.length >= pattern.length-2)
+            Utils.expect(pattern, form.length >= pattern.length-2, `(fLength: ${form.length}, pLength: ${pattern.length-2})`)
             if (pattern.length === 2)
               return true
             const pHead = pattern.slice(0, -2)

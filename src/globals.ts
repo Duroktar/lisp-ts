@@ -23,8 +23,10 @@ env.set('cwd', process.cwd());
 
 const { mkNativeFunc } = Util
 
+mkNativeFunc(env, 'cons', ['a', 'b'], ([a, b]: any) => [a].concat(b));
 mkNativeFunc(env, 'car', ['args'], (args: any) => Lisp.car(args));
 mkNativeFunc(env, 'cdr', ['args'], (args: any) => Lisp.cdr(args));
+mkNativeFunc(env, 'set-cdr!', ['l', 'v'], ([l, v]: any) => l[1] = v);
 
 mkNativeFunc(env, 'locals', [], (_, a) => { return a; });
 mkNativeFunc(env, 'env', [], () => { return env; });
@@ -41,6 +43,7 @@ mkNativeFunc(env, 'printn', ['name', 'x'], ([name, x]: any) => { console.log(Uti
 mkNativeFunc(env, 'printr', ['x'], ([x]: any) => { Util.print(x); return x});
 mkNativeFunc(env, 'prints', ['...xs'], ([...xs]: any) => { console.log(...xs); });
 mkNativeFunc(env, 'print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: any) => Util.toString(x))); });
+mkNativeFunc(env, 'show', ['x'], x => { console.log(x); });
 mkNativeFunc(env, 'display', ['x'], ([x]: any) => { Util.print(x, false, 'lambda'); });
 mkNativeFunc(env, 'newline', [], () => { console.log(); });
 mkNativeFunc(env, 'inspect', ['x'], ([x]: any) => { return Util.toString(x, true); });
@@ -56,7 +59,7 @@ mkNativeFunc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(Util.isPair(obj)));
 mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.toString(a) === Util.toString(b)));
-mkNativeFunc(env, 'append', ['list', '...'], ([...args]: any) => args.reduce((acc: any, val: any) => acc.concat(val)));
+// mkNativeFunc(env, 'append', ['list', '...rest'], ([list, ...rest]: any) => [].concat(list, ...rest));
 mkNativeFunc(env, 'length', ['list'], ([list]: any) => Util.isList(list) && list.length);
 mkNativeFunc(env, 'reverse', ['list'], ([list]: any) => Util.isList(list) && [...list].reverse());
 mkNativeFunc(env, 'list-tail', ['list', 'k'], ([list, k]: any) => {
@@ -319,7 +322,7 @@ mkNativeFunc(env, 'try', ['callable'], ([callable]: any) => {
 });
 
 mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
-  return expand(Lisp.car(args), true, env);
+  return expand(args[0], true, env);
 });
 
 /*
@@ -335,6 +338,7 @@ mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
 */
 Lisp.execute(`
 (begin
+
   (define-syntax and
     (syntax-rules ()
       ([and] #t)
@@ -450,6 +454,11 @@ Lisp.execute(`
   (defun cddddr (x) (cdr (cdr (cdr (cdr x)))))
 
   (defun list x x)
+
+  (defun append (lst1 lst2)
+    (if (pair? lst1)
+        (cons (car lst1) (append (cdr lst1) lst2))
+        lst2))
 
   (defun assq (x y)
     (cond ((eq? (caar y) x) (cadar y))

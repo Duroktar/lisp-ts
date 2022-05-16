@@ -15,44 +15,27 @@
 (defun set-current-test (name) (set! *current-test* name))
 (defun set-verbose-test (to) (set! *verbose-test* to))
 
-(define-macro test-id (id expected expression)
-  `(begin
-      (define *name*     ,id)
-      (define *result*   (cadr (try (lambda () ,expression))))
-      (define *expected* ,expected)
-      (incr-total)
-      (if (equal? *expected* *result*)
-        (begin
-          (if *verbose-test* (prints "Passed..."))
-          (incr-passed))
-        (begin
-          (incr-failed)
-          (if *verbose-test* (begin
-            (newline)
-            (prints "!!! Failure !!!")
-            (prints " - Name:      " ',expression)
-            (prints " - Expression:" ',expression)
-            (prints (string-pad-end " - Expected:" 16) (inspect *expected*))
-            (prints (string-pad-end " - Actual:"   16) *result*)))))))
-
 (define-syntax test
   (syntax-rules ()
-    ([test name expect expr]
-     (test expect expr))
-    ([test expected expression]
+    ([test expect expr]
+     (test expect expect expr))
+    ([test name expected expression]
       (begin
         (define *result*   (try (lambda () expression)))
         (define *expected* expected)
+        (define *test-id* (if (not (eq? 'name 'expected)) (inspect name) " "))
         (incr-total)
         (if (equal? *expected* (cadr *result*))
           (begin
-            (if *verbose-test* (prints "Passed..."))
+            (if *verbose-test* (prints *test-id* "Passed..."))
             (incr-passed))
           (begin
             (incr-failed)
             (if *verbose-test* (begin
               (newline)
               (prints "!!! Failure !!!")
+              (if (not (eq? 'name 'expected))
+                (prints (string-pad-end " - Test Name:" 16) *test-id*))
               (prints (string-pad-end " - Expression:" 16) (inspect 'expression))
               (prints (string-pad-end " - Expected:" 16)   (inspect *expected*))
               (prints (string-pad-end " - Actual:"   16)   (inspect (cadr *result*)))))))))))

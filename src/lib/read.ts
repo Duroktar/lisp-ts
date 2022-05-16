@@ -148,7 +148,7 @@ import { Expr, List } from "./terms";
         else
           throw new MalformedStringError(text, error(start));
 
-        return JSON.stringify(exprs);
+        return exprs;
       }
 
       return parseReadMacro();
