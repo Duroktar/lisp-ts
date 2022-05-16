@@ -23,17 +23,17 @@
       (incr-total)
       (if (equal? *expected* *result*)
         (begin
-          (if *verbose-test* (print "Passed..."))
+          (if *verbose-test* (prints "Passed..."))
           (incr-passed))
         (begin
           (incr-failed)
           (if *verbose-test* (begin
             (newline)
-            (print "!!! Failure !!!")
-            (print " - Name:      " ',expression)
-            (print " - Expression:" ',expression)
-            (print (string-pad-end " - Expected:" 16) *expected*)
-            (print (string-pad-end " - Actual:"   16) *result*)))))))
+            (prints "!!! Failure !!!")
+            (prints " - Name:      " ',expression)
+            (prints " - Expression:" ',expression)
+            (prints (string-pad-end " - Expected:" 16) (inspect *expected*))
+            (prints (string-pad-end " - Actual:"   16) *result*)))))))
 
 (define-syntax test
   (syntax-rules ()
@@ -46,28 +46,28 @@
         (incr-total)
         (if (equal? *expected* (cadr *result*))
           (begin
-            (if *verbose-test* (print "Passed..."))
+            (if *verbose-test* (prints "Passed..."))
             (incr-passed))
           (begin
             (incr-failed)
             (if *verbose-test* (begin
               (newline)
-              (print "!!! Failure !!!")
-              (print (string-pad-end " - Expression:" 16) 'expression)
-              (print (string-pad-end " - Expected:" 16)   *expected*)
-              (print (string-pad-end " - Actual:"   16)   (cadr *result*))))))))))
+              (prints "!!! Failure !!!")
+              (prints (string-pad-end " - Expression:" 16) (inspect 'expression))
+              (prints (string-pad-end " - Expected:" 16)   (inspect *expected*))
+              (prints (string-pad-end " - Actual:"   16)   (inspect (cadr *result*)))))))))))
 
 (defun test-begin (name) (begin
-  (print "*** Running Tests:" name "***")
+  (prints "*** Running Tests:" name "***")
   (set-current-test name)))
 
 (defun test-end ()
   (begin
     (newline)
-    (print "--- Finished Tests:" *current-test* "---")
-    (printn (string-pad-end " - Passed:" 14) *tests-passed*)
-    (printn (string-pad-end " - Failed:" 14) *tests-failed*)
-    (printn (string-pad-end " - Total:" 14) *tests-total*)
+    (prints "--- Finished Tests:" *current-test* "---")
+    (prints (string-pad-end " - Passed:" 14) *tests-passed*)
+    (prints (string-pad-end " - Failed:" 14) *tests-failed*)
+    (prints (string-pad-end " - Total:" 14)  *tests-total*)
     (newline)
     (set-current-test "none")
     (reset-passed)

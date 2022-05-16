@@ -32,16 +32,18 @@ mkNativeFunc(env, 'env->size', [], () => { return env.size(); });
 mkNativeFunc(env, 'env->keys', [], () => { return env.keys(); });
 mkNativeFunc(env, 'env->values', [], () => { return env.values(); });
 mkNativeFunc(env, 'env->entries', [], () => { return env.entries(); });
+
 mkNativeFunc(env, 'debugnf', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', Util.toString(name)); console.log(x); });
 mkNativeFunc(env, 'debugn', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-N]:', Util.toString(name)); console.log(x); return x; });
 mkNativeFunc(env, 'debugf', ['x'], x => { console.log('[DEBUG-F]'); console.log(x); });
 mkNativeFunc(env, 'debug', ['x'], x => { console.log('[DEBUG]'); console.log(x); return x; });
 mkNativeFunc(env, 'printn', ['name', 'x'], ([name, x]: any) => { console.log(Util.toString(name), Util.toString(x)); });
 mkNativeFunc(env, 'printr', ['x'], ([x]: any) => { Util.print(x); return x});
+mkNativeFunc(env, 'prints', ['...xs'], ([...xs]: any) => { console.log(...xs); });
 mkNativeFunc(env, 'print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: any) => Util.toString(x))); });
+mkNativeFunc(env, 'display', ['x'], ([x]: any) => { Util.print(x, false, 'lambda'); });
 mkNativeFunc(env, 'newline', [], () => { console.log(); });
 mkNativeFunc(env, 'inspect', ['x'], ([x]: any) => { return Util.toString(x, true); });
-mkNativeFunc(env, 'display', ['x'], ([x]: any) => { Util.print(x, false, 'lambda'); });
 mkNativeFunc(env, 'break', ['x'], x => { debugger; return x; });
 
 mkNativeFunc(env, 'gensym', [], () => Symbol());
@@ -50,6 +52,7 @@ mkNativeFunc(env, 'load', ['file', 'topLevel?'], ([file, topLevel = true]: any, 
   executeFile(join(<string>env.get('cwd'), file), topLevel ? env : a)
 });
 
+mkNativeFunc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(Util.isPair(obj)));
 mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.toString(a) === Util.toString(b)));
@@ -97,8 +100,7 @@ mkNativeFunc(env, 'member', ['obj', 'list'], ([obj, list]: any) => {
 mkNativeFunc(env, 'min', ['args'], (args: any) => args.reduce((acc: any, val: any) => Math.min(acc, val)));
 mkNativeFunc(env, 'max', ['args'], (args: any) => args.reduce((acc: any, val: any) => Math.max(acc, val)));
 mkNativeFunc(env, 'abs', ['n'], ([n]: any) => Math.abs(n));
-// mkNativeFunc(env, 'modulo', ['a', 'b'], ([a, b]: any) => Math.round(a / b)); // TODO: https://schemers.org/Documents/Standards/R5RS/HTML/
-mkNativeFunc(env, 'remainder', ['a', 'b'], ([a, b]: any) => a % b);
+mkNativeFunc(env, 'quotient', ['x', 'y'], ([x, y]: any) => x/y|0);
 mkNativeFunc(env, 'gcd', ['a', 'b'], ([a, b]: any) => { return gcd(a, b) });
 mkNativeFunc(env, 'lcm', ['a', 'b'], ([a, b]: any) => { return lcm(a, b) });
 mkNativeFunc(env, 'floor', ['n'], ([n]: any) => Math.floor(n));
@@ -146,6 +148,14 @@ mkNativeFunc(env, 'symbol?', ['n'], ([n]: any) => Util.toL(Util.isSym(n)));
 mkNativeFunc(env, 'symbol->string', ['n'], ([n]: any) => {
   Util.assert(Util.isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
   return Util.toString(n)
+});
+mkNativeFunc(env, 'number->string', ['n', 'radix?'], ([n, radix]: any) => {
+  Util.assert(Util.isNum(n), `"number->string" procedure takes a 'number' as an argument`);
+  return (<number>n).toString(radix ?? 10);
+});
+mkNativeFunc(env, 'string->number', ['n', 'radix?'], ([n, radix]: any) => {
+  Util.assert(Util.isString(n), `"string->number" procedure takes a 'string' as an argument`);
+  return parseInt(n, radix ?? 10);
 });
 mkNativeFunc(env, 'string->symbol', ['n'], ([n]: any) => {
   Util.assert(Util.isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
@@ -325,7 +335,6 @@ mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
 */
 Lisp.execute(`
 (begin
-
   (define-syntax and
     (syntax-rules ()
       ([and] #t)
@@ -406,57 +415,68 @@ Lisp.execute(`
 *  functions
 *
 */
-Lisp.execute(`(defun caar   (x) (car (car x)))`, env);
-Lisp.execute(`(defun cadr   (x) (car (cdr x)))`, env);
-Lisp.execute(`(defun cdar   (x) (cdr (car x)))`, env);
-Lisp.execute(`(defun cddr   (x) (cdr (cdr x)))`, env);
-
-Lisp.execute(`(defun caaar  (x) (car (car (car x))))`, env);
-Lisp.execute(`(defun caadr  (x) (car (car (cdr x))))`, env);
-Lisp.execute(`(defun cadar  (x) (car (cdr (car x))))`, env);
-Lisp.execute(`(defun caddr  (x) (car (cdr (cdr x))))`, env);
-Lisp.execute(`(defun cdaar  (x) (cdr (car (car x))))`, env);
-Lisp.execute(`(defun cdadr  (x) (cdr (car (cdr x))))`, env);
-Lisp.execute(`(defun cddar  (x) (cdr (cdr (car x))))`, env);
-Lisp.execute(`(defun cdddr  (x) (cdr (cdr (cdr x))))`, env);
-
-Lisp.execute(`(defun caaaar (x) (car (car (car (car x)))))`, env);
-Lisp.execute(`(defun caaadr (x) (car (car (car (cdr x)))))`, env);
-Lisp.execute(`(defun caadar (x) (car (car (cdr (car x)))))`, env);
-Lisp.execute(`(defun caaddr (x) (car (car (cdr (cdr x)))))`, env);
-Lisp.execute(`(defun cadaar (x) (car (cdr (car (car x)))))`, env);
-Lisp.execute(`(defun cadadr (x) (car (cdr (car (cdr x)))))`, env);
-Lisp.execute(`(defun caddar (x) (car (cdr (cdr (car x)))))`, env);
-Lisp.execute(`(defun cadddr (x) (car (cdr (cdr (cdr x)))))`, env);
-
-Lisp.execute(`(defun cdaaar (x) (cdr (car (car (car x)))))`, env);
-Lisp.execute(`(defun cdaadr (x) (cdr (car (car (cdr x)))))`, env);
-Lisp.execute(`(defun cdadar (x) (cdr (car (cdr (car x)))))`, env);
-Lisp.execute(`(defun cdaddr (x) (cdr (car (cdr (cdr x)))))`, env);
-Lisp.execute(`(defun cddaar (x) (cdr (cdr (car (car x)))))`, env);
-Lisp.execute(`(defun cddadr (x) (cdr (cdr (car (cdr x)))))`, env);
-Lisp.execute(`(defun cdddar (x) (cdr (cdr (cdr (car x)))))`, env);
-Lisp.execute(`(defun cddddr (x) (cdr (cdr (cdr (cdr x)))))`, env);
-
-Lisp.execute(`(defun list x x)`, env);
-
 Lisp.execute(`
+(begin
+  (defun caar   (x) (car (car x)))
+  (defun cadr   (x) (car (cdr x)))
+  (defun cdar   (x) (cdr (car x)))
+  (defun cddr   (x) (cdr (cdr x)))
+
+  (defun caaar  (x) (car (car (car x))))
+  (defun caadr  (x) (car (car (cdr x))))
+  (defun cadar  (x) (car (cdr (car x))))
+  (defun caddr  (x) (car (cdr (cdr x))))
+  (defun cdaar  (x) (cdr (car (car x))))
+  (defun cdadr  (x) (cdr (car (cdr x))))
+  (defun cddar  (x) (cdr (cdr (car x))))
+  (defun cdddr  (x) (cdr (cdr (cdr x))))
+
+  (defun caaaar (x) (car (car (car (car x)))))
+  (defun caaadr (x) (car (car (car (cdr x)))))
+  (defun caadar (x) (car (car (cdr (car x)))))
+  (defun caaddr (x) (car (car (cdr (cdr x)))))
+  (defun cadaar (x) (car (cdr (car (car x)))))
+  (defun cadadr (x) (car (cdr (car (cdr x)))))
+  (defun caddar (x) (car (cdr (cdr (car x)))))
+  (defun cadddr (x) (car (cdr (cdr (cdr x)))))
+
+  (defun cdaaar (x) (cdr (car (car (car x)))))
+  (defun cdaadr (x) (cdr (car (car (cdr x)))))
+  (defun cdadar (x) (cdr (car (cdr (car x)))))
+  (defun cdaddr (x) (cdr (car (cdr (cdr x)))))
+  (defun cddaar (x) (cdr (cdr (car (car x)))))
+  (defun cddadr (x) (cdr (cdr (car (cdr x)))))
+  (defun cdddar (x) (cdr (cdr (cdr (car x)))))
+  (defun cddddr (x) (cdr (cdr (cdr (cdr x)))))
+
+  (defun list x x)
+
   (defun assq (x y)
     (cond ((eq? (caar y) x) (cadar y))
           ((null? (cdr y)) '())
-          (else (assq x (cdr y)))))`
-, env)
-Lisp.execute(`
+          (else (assq x (cdr y)))))
+
   (defun assv (x y)
     (cond ((eqv? (caar y) x) (cadar y))
           ((null? (cdr y)) '())
-          (else (assv x (cdr y)))))`
-, env)
-Lisp.execute(`
+          (else (assv x (cdr y)))))
+
   (defun assoc (x y)
     (cond ((equal? (caar y) x) (cadar y))
           ((null? (cdr y)) '())
-          (else (assoc x (cdr y)))))`
-, env)
+          (else (assoc x (cdr y)))))
 
-Lisp.execute(`(defun sub1 (x) (- x 1))`, env)
+  (defun remainder (x y)
+    (- x (* y (quotient x y))))
+
+  (defun modulo (x y)
+    (let ((q (quotient x y)))
+      (let ((r (- x (* y q))))
+        (if (eqv? r 0)
+            0
+            (if (eqv? (< x 0) (< y 0))
+                r
+                (+ r y))))))
+
+  (defun sub1 (x) (- x 1))
+)`, env)
