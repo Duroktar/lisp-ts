@@ -9,7 +9,15 @@ export class Env {
     if (Utils.isList(params) && Utils.isList(args) && params.every(Utils.isSym)) {
       const getParams = (params: List, args: List): [string, any][] => {
         if (params.length === 0) return []
+        if (params[0] === Sym('...')) {
+          if (params.slice(1).length !== 0) {
+            debugger
+          }
+          Utils.expect(params, params.slice(1).length === 0, 'no args allowed after `...`')
+          return [[Utils.toString(params[0]), args]]
+        }
         if (params[0] === Sym('.')) {
+          Utils.expect(params, params.slice(2).length === 0, 'only one arg allowed after `.`')
           return [[Utils.toString(params[1]), args]]
         }
         const [x0, ...xs0] = params
@@ -32,8 +40,15 @@ export class Env {
     }
     return result as Expr;
   }
+  getOrDefault<T extends Expr, R = undefined>(name: Atom, d?: R): T | R {
+    const result = this.inner[name] ?? this.outer?.getOrDefault(name);
+    return (result ?? d) as any;
+  }
   set(name: Atom, value: Expr | Proc | BaseProcedure): void {
     this.inner[name] = value;
+  }
+  setFrom(expr: Expr, value: Expr | Proc | BaseProcedure): void {
+    this.inner[Utils.toString(expr)] = value;
   }
   update(name: Atom, value: Expr | Proc | BaseProcedure): void {
     let env = this.find(name)
@@ -49,7 +64,19 @@ export class Env {
     }
   }
   has(name: Atom): boolean {
-    return (this.inner[name] ?? this.outer?.get(name)) !== undefined;
+    try {
+      return (this.inner[name] ?? this.outer?.get(name)) !== undefined;
+    } catch {
+      return false
+    }
+  }
+  hasFrom(expr: Expr): boolean {
+    const name = Utils.toString(expr)
+    try {
+      return (this.inner[name] ?? this.outer?.get(name)) !== undefined;
+    } catch {
+      return false
+    }
   }
   size(): number {
     return this.keys().length

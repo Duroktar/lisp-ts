@@ -168,8 +168,31 @@ import { print } from "./utils";
 // `, env))
 
 // Lisp.execute('(load "samples/fac.scm")', env)
+
 // Lisp.execute('(print (fac 12))', env)
 
 // print(Lisp.parse('(and (= 2 2) (> 2 1))', env))
 // print(Lisp.parse(`(and 1 2 'c '(f g))`, env))
 // print(Lisp.execute(`(and 1 2 'c '(f g))`, env))
+
+// print(Lisp.parse(`(and (= 2 2) (> 2 1))`, env))
+// print(Lisp.parse(`(and 1)`, env))
+// print(Lisp.parse(`(and 1 2)`, env))
+// print(Lisp.parse(`(and 1 2 3)`, env))
+// print(Lisp.parse(`(and 1 2 3 4)`, env))
+// print(Lisp.parse(`(and 1 2 3 4 5)`, env))
+// print(Lisp.parse(`(and 1 2 #f 4 5)`, env))
+
+// print(["(and (= 2 2) (> 2 1)) =>", Lisp.execute(`(and (= 2 2) (> 2 1))`, env)])
+// print(["(and) =>", Lisp.execute(`(and)`, env)])
+// print(["(and 1) =>", Lisp.execute(`(and 1)`, env)])
+// print(["(and 1 2) =>", Lisp.execute(`(and 1 2)`, env)])
+// print(["(and 1 2 3) =>", Lisp.execute(`(and 1 2 3)`, env)])
+// print(["(and 1 2 3 4) =>", Lisp.execute(`(and 1 2 3 4)`, env)])
+// print(["(and 1 2 3 4 5) =>", Lisp.execute(`(and 1 2 3 4 5)`, env)])
+// print(["(and 1 2 #f 4 5) =>", Lisp.execute(`(and 1 2 #f 4 5)`, env)])
+
+// print(Lisp.parse(`(case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8 9) 'composite))`, env))
+
+// Lisp.execute('(load "samples/define-syntax.scm")', env)
+Lisp.execute('(load "samples/let.scm")', env)

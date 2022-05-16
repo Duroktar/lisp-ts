@@ -318,28 +318,60 @@ mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
 *
 */
 
-Lisp.execute(`
-(begin
-
-  (define-macro and (lambda args
-    (if (null? args) #t
-        (if (= (length args) 1) (car args)
-            \`(if ,(car args) (and ,@(cdr args)) #f)))))
-
-  (define-macro or (lambda args
-    (if (null? args) #f
-        (if (= (length args) 1) (car args)
-            \`(let ((x ,(car args)))
-                (if x x (or ,@(cdr args))))))))
-
-
-)`, env)
-
 /*
 *
 *  macros
 *
 */
+Lisp.execute(`
+(begin
+
+  (define-syntax and
+    (syntax-rules ()
+      ([and] #t)
+      ([and test] test)
+      ([and test1 test2 ...]
+        (if test1 [and test2 ...] #f))))
+
+  (define-syntax or
+    (syntax-rules ()
+      ([or] #f)
+      ([or test] test)
+      ([or test1 test2 ...]
+        (let ([x test1])
+          (if x x (or test2 ...))))))
+
+  (define-syntax case
+    (syntax-rules (else)
+      ([case (key ...)
+          clauses ...]
+        (let ([atom-key (key ...)])
+          (case atom-key clauses ...)))
+      ((case key
+          (else result1 result2 ...))
+        (begin result1 result2 ...))
+      ([case key
+          ((atoms ...) result1 result2 ...)]
+        (if [memv key '(atoms ...)]
+          (begin result1 result2 ...)))
+      ([case key
+          ((atoms ...) result1 result2 ...)
+          clause clauses ...]
+        (if [memv key '(atoms ...)]
+            (begin result1 result2 ...)
+            (case key clause clauses ...)))))
+
+  (define-syntax let*
+    (syntax-rules ()
+      ((let* () body1 body2 ...)
+        (let () body1 body2 ...))
+      ((let* ((name1 val1) (name2 val2) ...)
+          body1 body2 ...)
+        (let ((name1 val1))
+          (let* ((name2 val2) ...)
+            body1 body2 ...)))))
+)`, env)
+
 Lisp.execute(`
   (define-macro while (condition body)
     \`(let loop ()

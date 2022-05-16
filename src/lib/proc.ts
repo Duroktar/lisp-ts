@@ -20,7 +20,7 @@ export class Proc extends BaseProcedure {
   constructor(public params: Expr, public expr: Expr, public env: Env) {
     super()
   }
-  public _call = (args: Expr) => {
-    return evaluate(this.expr, this.getClosure(args));
+  public _call = (args: Expr, env: Env) => {
+    return evaluate(this.expr, env);
   };
 }

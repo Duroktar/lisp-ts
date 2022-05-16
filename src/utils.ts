@@ -45,6 +45,8 @@ export const isCallable = (x: unknown): x is Proc | BaseProcedure => isProc(x) |
 export const isProc = (x: unknown): x is Proc => x instanceof Proc;
 export const isNativeFn = (x: unknown): x is BaseProcedure => x instanceof BaseProcedure;
 export const isExpr = (x: unknown): x is Expr => isAtom(x) || isList(x) || isCallable(x) || isString(x) || isNum(x);
+export const isConst = (x: unknown) => isNum(x) || isString(x)
+export const isIdent = isSym
 
 export const symName = (s: symbol): string => s.description!;
 

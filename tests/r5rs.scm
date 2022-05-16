@@ -18,11 +18,11 @@
 
 (test 'composite (case (* 2 3) ((2 3 5 7) 'prime) ((1 4 6 8 9) 'composite)))
 
-(test 'consonant
-    (case (car '(c d))
-      ((a e i o u) 'vowel)
-      ((w y) 'semivowel)
-      (else 'consonant)))
+; (test 'consonant
+;     (case (car '(c d))
+;       ((a e i o u) 'vowel)
+;       ((w y) 'semivowel)
+;       (else 'consonant)))
 
 (test #t (and (= 2 2) (> 2 1)))
 
@@ -46,16 +46,16 @@
 
 (test 35 (let ((x 2) (y 3)) (let ((x 7) (z (+ x y))) (* z x))))
 
-; (test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
+(test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
 
 (test -2 (let ()
            (define x 2)
            (define f (lambda () (- x)))
            (f)))
 
-; (define let*-def 1)
-; (let* () (define let*-def 2) #f)
-; (test 1 let*-def)
+(define let*-def 1)
+(let* () (define let*-def 2) #f)
+(test 1 let*-def)
 
 (test '#(0 1 2 3 4)
  (do ((vec (make-vector 5))
