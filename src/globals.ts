@@ -385,15 +385,6 @@ Lisp.execute(`
             body1 body2 ...)))))
 )`, env)
 
-Lisp.execute(`
-  (define-macro while (condition body)
-    \`(let loop ()
-          (cond (,condition
-              (begin ,body)
-              (loop)))))
-`, env);
-
-
 // exec(
 //   `(define-macro lcomp (expression for var in list conditional conditional-test)
 //     ;; create a unique variable name for the result

@@ -10,7 +10,7 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
   const e = expr as Expr[];
   if (!Utils.isList(e)) { return e; }
   if (Utils.isEmpty(e)) { return e; }
-  if (SymTable.QUOTE === e[0]) {
+  else if (SymTable.QUOTE === e[0]) {
     Utils.expect(e, e.length === 2);
     return e;
   }
@@ -41,7 +41,7 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
     }
     return expand([SymTable.DEFUN, name, args, ...body], false, env);
   }
-  else if (e[0] === SymTable.DEFINESYNTAX) {
+  else if (SymTable.DEFINESYNTAX === e[0]) {
     /*
       (define-syntax <keyword> <transformer spec>)
 
@@ -324,7 +324,7 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
     macroTable[callee.name] = callee as any;
     return [];
   }
-  else if (e[0] === SymTable.DEFUN || e[0] === SymTable.DEFINEMACRO) {
+  else if (SymTable.DEFUN === e[0]) {
     Utils.expect(e, e.length >= 3);
     let [_def, name, args, body] = e;
     Utils.expect(e, Utils.isSym(name), `Can only define a symbol`);
@@ -335,14 +335,6 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
       body = body_
     }
     const expr: List = expand([SymTable.LAMBDA, args, body], false, env) as any;
-    if (_def === SymTable.DEFINEMACRO) {
-      Utils.expect(e, topLevel, 'define-macro only allowed at top level');
-      const callee: Proc = evaluate(expr, env) as any;
-      callee.name = Utils.toString(name);
-      Utils.expect(e, Utils.isProc(callee), 'macro must be a procedure');
-      macroTable[callee.name] = callee as any;
-      return [];
-    }
     return [_def, name, expr];
   }
   else if (SymTable.LAMBDA === e[0]) {

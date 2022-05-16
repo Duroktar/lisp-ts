@@ -1,8 +1,3 @@
-(define-macro while (condition body)
-    `(let loop ()
-        (cond (,condition
-            (begin ,body)
-            (loop)))))
 
 ((let loop ((x 1))
   (cond ((> x 10)   (print "We're done!"))

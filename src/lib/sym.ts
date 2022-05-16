@@ -10,7 +10,6 @@ export const SymTable = {
   COND: Sym('cond'),
   CONS: Sym('cons'),
   DEFINE: Sym('define'),
-  DEFINEMACRO: Sym('define-macro'),
   DEFINESYNTAX: Sym('define-syntax'),
   DEFUN: Sym('defun'),
   DO: Sym('do'),
