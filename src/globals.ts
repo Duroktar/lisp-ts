@@ -1,13 +1,14 @@
-import { join } from "path";
-import { FALSE, TRUE } from "./lib/const";
-import { callWithCC } from "./lib/cont";
-import { Env } from "./lib/env";
-import { evaluate } from "./lib/eval";
-import { expand } from "./lib/expand";
-import * as Lisp from "./lib/lisp";
-import { readMacroTable } from "./lib/macro";
-import { Sym } from "./lib/sym";
-import { List } from "./lib/terms";
+import assert from "assert";
+import { basename, dirname, join, isAbsolute, relative } from "path";
+import { FALSE, TRUE, UNDEF } from "./core/const";
+import { callWithCC } from "./core/cont";
+import { Env } from "./core/env";
+import { evaluate } from "./core/eval";
+import { expand } from "./core/expand";
+import * as Lisp from "./core/lisp";
+import { readMacroTable } from "./core/macro";
+import { Sym } from "./core/sym";
+import { Atom, List } from "./core/terms";
 import { executeFile } from "./load";
 import { gcd, lcm } from "./math";
 import * as Util from "./utils";
@@ -19,7 +20,8 @@ env.set('#f', FALSE);
 
 env.set('else', TRUE);
 env.set('otherwise', TRUE);
-env.set('cwd', process.cwd());
+
+env.set('#cwd', process.cwd());
 
 const { mkNativeFunc } = Util
 
@@ -47,19 +49,48 @@ mkNativeFunc(env, 'show', ['x'], x => { console.log(x); });
 mkNativeFunc(env, 'display', ['x'], ([x]: any) => { Util.print(x, false, 'lambda'); });
 mkNativeFunc(env, 'newline', [], () => { console.log(); });
 mkNativeFunc(env, 'inspect', ['x'], ([x]: any) => { return Util.toString(x, true); });
-mkNativeFunc(env, 'break', ['x'], x => { debugger; return x; });
+mkNativeFunc(env, 'break', ['args'], (args: any, env) => { debugger; return evaluate(args, env); });
 mkNativeFunc(env, 'error', ['x', 'code?'], ([x, code = 1]: any) => { console.error(x); process.exit(code); });
 
 mkNativeFunc(env, 'gensym', [], () => Symbol());
 
-mkNativeFunc(env, 'load', ['file', 'topLevel?'], ([file, topLevel = true]: any, a) => {
-  executeFile(join(<string>env.get('cwd'), file), topLevel ? env : a)
+const loaderCache = new Map<Atom, {basename: string; dirname: string; path: string}>();
+
+mkNativeFunc(env, 'load', ['file'], ([file]: any) => {
+  if (!loaderCache.has(file)) {
+    const cacheData = {
+      basename: basename(file),
+      dirname: dirname(file),
+      path: file,
+    };
+    if (isAbsolute(file)) {
+      executeFile(join(env.get('#cwd'), file), env)
+    } else {
+      const fromPath = env.get('#cwd');
+
+      assert(typeof fromPath === 'string',
+      `can't resolve path to imported file`)
+
+      const relpath = relative(fromPath, file)
+      executeFile(relpath, env)
+    }
+    loaderCache.set(file, cacheData)
+  }
+  // loaderCache.get(file)
+  return []
 });
 
 mkNativeFunc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(Util.isPair(obj)));
 mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 mkNativeFunc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
-mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.toString(a) === Util.toString(b)));
+mkNativeFunc(env, 'equal?', ['a', 'b'], ([a, b]: any) => {
+  return Util.toL(Util.toString(a) === Util.toString(b))
+});
+
+mkNativeFunc(env, 'assv', ['x', 'lst'], ([x, lst]: any) => {
+
+  return Sym('#f')
+});
 
 mkNativeFunc(env, 'length', ['list'], ([list]: any) => Util.isList(list) && list.length);
 mkNativeFunc(env, 'reverse', ['list'], ([list]: any) => Util.isList(list) && [...list].reverse());
@@ -141,7 +172,7 @@ mkNativeFunc(env, 'string-set', ['string', 'k', 'char'], ([string, k, char]: any
   Util.assert(Util.isString(string) && string.length >= k)
   Util.assert(Util.isChar(char))
   string[k] = char
-  return []
+  return UNDEF
 });
 mkNativeFunc(env, 'string=?', ['string1', 'string2'], ([string1, string2]: any) => {
   Util.assert(Util.isString(string1) && Util.isString(string2))
@@ -251,10 +282,10 @@ mkNativeFunc(env, 'set-macro-character', ['char', 'cb'], ([char, cb]: any, env) 
 mkNativeFunc(env, 'call/cc', ['throw'], callWithCC);
 mkNativeFunc(env, 'call-with-current-continuation', ['throw'], callWithCC);
 
-mkNativeFunc(env, 'try', ['callable'], ([callable]: any) => {
+mkNativeFunc(env, 'try', ['callable'], ([callable]: any, a) => {
   try {
     if (Util.isCallable(callable)) {
-      return [TRUE, callable.call([])];
+      return [TRUE, callable.call([], a)];
     }
     return [FALSE, ['InvalidCallableExpression']]
   } catch (err) {
@@ -266,204 +297,10 @@ mkNativeFunc(env, 'try', ['callable'], ([callable]: any) => {
   }
 });
 
-mkNativeFunc(env, 'macroexpand', ['expr'], (args: any, env) => {
-  return expand(args[0], true, env);
-});
+mkNativeFunc(env, 'macroexpand', ['expr'], ([args]: any) => expand(args, true, env));
 
 /*
 *
 *  reader macros
 *
 */
-
-/*
-*
-*  macros
-*
-*/
-Lisp.execute(`
-(begin
-
-  (define-syntax and
-    (syntax-rules ()
-      ([and] #t)
-      ([and test] test)
-      ([and test1 test2 ...]
-        (if test1 [and test2 ...] #f))))
-
-  (define-syntax or
-    (syntax-rules ()
-      ([or] #f)
-      ([or test] test)
-      ([or test1 test2 ...]
-        (let ([x test1])
-          (if x x (or test2 ...))))))
-
-  (define-syntax case
-    (syntax-rules (else)
-      ([case (key ...)
-          clauses ...]
-        (let ([atom-key (key ...)])
-          (case atom-key clauses ...)))
-      ((case key
-          (else result1 result2 ...))
-        (begin result1 result2 ...))
-      ([case key
-          ((atoms ...) result1 result2 ...)]
-        (if [memv key '(atoms ...)]
-          (begin result1 result2 ...)))
-      ([case key
-          ((atoms ...) result1 result2 ...)
-          clause clauses ...]
-        (if [memv key '(atoms ...)]
-            (begin result1 result2 ...)
-            (case key clause clauses ...)))))
-
-  (define-syntax let*
-    (syntax-rules ()
-      ((let* () body1 body2 ...)
-        (let () body1 body2 ...))
-      ((let* ((name1 val1) (name2 val2) ...)
-          body1 body2 ...)
-        (let ((name1 val1))
-          (let* ((name2 val2) ...)
-            body1 body2 ...)))))
-)`, env)
-
-// exec(
-//   `(define-macro lcomp (expression for var in list conditional conditional-test)
-//     ;; create a unique variable name for the result
-//     (let ((result (gensym)))
-//       ;; the arguments are really code so we can substitute them
-//       ;; store nil in the unique variable name generated above
-//       \`(let ((,result nil))
-//         ;; var is a variable name
-//         ;; list is the list literal we are suppose to iterate over
-//         (loop for ,var in ,list
-//               ;; conditional is if or unless
-//               ;; conditional-test is (= (mod x 2) 0) in our examples
-//               ,conditional ,conditional-test
-//               ;; and this is the action from the earlier lisp example
-//               ;; result = result + [x] in python
-//               do (setq ,result (append ,result (list ,expression))))
-//             ;; return the result
-//         ,result)))`
-// , env)
-
-/*
-*
-*  functions
-*
-*/
-Lisp.execute(`
-(begin
-  (defun caar   (x) (car (car x)))
-  (defun cadr   (x) (car (cdr x)))
-  (defun cdar   (x) (cdr (car x)))
-  (defun cddr   (x) (cdr (cdr x)))
-
-  (defun caaar  (x) (car (car (car x))))
-  (defun caadr  (x) (car (car (cdr x))))
-  (defun cadar  (x) (car (cdr (car x))))
-  (defun caddr  (x) (car (cdr (cdr x))))
-  (defun cdaar  (x) (cdr (car (car x))))
-  (defun cdadr  (x) (cdr (car (cdr x))))
-  (defun cddar  (x) (cdr (cdr (car x))))
-  (defun cdddr  (x) (cdr (cdr (cdr x))))
-
-  (defun caaaar (x) (car (car (car (car x)))))
-  (defun caaadr (x) (car (car (car (cdr x)))))
-  (defun caadar (x) (car (car (cdr (car x)))))
-  (defun caaddr (x) (car (car (cdr (cdr x)))))
-  (defun cadaar (x) (car (cdr (car (car x)))))
-  (defun cadadr (x) (car (cdr (car (cdr x)))))
-  (defun caddar (x) (car (cdr (cdr (car x)))))
-  (defun cadddr (x) (car (cdr (cdr (cdr x)))))
-
-  (defun cdaaar (x) (cdr (car (car (car x)))))
-  (defun cdaadr (x) (cdr (car (car (cdr x)))))
-  (defun cdadar (x) (cdr (car (cdr (car x)))))
-  (defun cdaddr (x) (cdr (car (cdr (cdr x)))))
-  (defun cddaar (x) (cdr (cdr (car (car x)))))
-  (defun cddadr (x) (cdr (cdr (car (cdr x)))))
-  (defun cdddar (x) (cdr (cdr (cdr (car x)))))
-  (defun cddddr (x) (cdr (cdr (cdr (cdr x)))))
-
-  (defun map (proc lst)
-    (if (pair? lst)
-        (cons (proc (car lst)) (map proc (cdr lst)))
-        '()))
-
-  (defun for-each (proc lst)
-    (if (pair? lst)
-        (begin
-          (proc (car lst))
-          (for-each proc (cdr lst)))
-        #f))
-
-  (defun list x x)
-
-  (defun append (lst1 lst2)
-    (if (pair? lst1)
-        (cons (car lst1) (append (cdr lst1) lst2))
-        lst2))
-
-  (defun list-ref (lst i)
-    (car (list-tail lst i)))
-
-  (defun list-set! (lst i x)
-    (set-car! (list-tail lst i) x))
-
-  (defun list-tail (lst i)
-    (if (< 0 i)
-        (list-tail (cdr lst) (- i 1))
-        lst))
-
-  (defun memv (x lst)
-    (if (pair? lst)
-        (if (eqv? x (car lst))
-            lst
-            (memv x (cdr lst)))
-        #f))
-
-  (define memq memv)
-
-  (defun member (x lst)
-    (if (pair? lst)
-        (if (equal? x (car lst))
-            lst
-            (member x (cdr lst)))
-        #f))
-
-  (defun assv (x lst)
-    (if (pair? lst)
-        (let ((couple (car lst)))
-          (if (eqv? x (car couple))
-              couple
-              (assv x (cdr lst))))
-        #f))
-
-  (define assq assv)
-
-  (defun assoc (x lst)
-    (if (pair? lst)
-        (let ((couple (car lst)))
-          (if (equal? x (car couple))
-              couple
-              (assoc x (cdr lst))))
-        #f))
-
-  (defun remainder (x y)
-    (- x (* y (quotient x y))))
-
-  (defun modulo (x y)
-    (let ((q (quotient x y)))
-      (let ((r (- x (* y q))))
-        (if (eqv? r 0)
-            0
-            (if (eqv? (< x 0) (< y 0))
-                r
-                (+ r y))))))
-
-  (defun sub1 (x) (- x 1))
-)`, env)

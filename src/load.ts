@@ -1,19 +1,22 @@
-import * as Lisp from "./lib/lisp";
+import * as Lisp from "./core/lisp";
 import { readFileSync } from "fs";
-import { Env } from "./lib/env";
-import { read } from "./lib/read";
+import { Env } from "./core/env";
+import { read } from "./core/read";
 
 export const readFile = (path: string) => {
   const file = String(readFileSync(path));
   return read(file);
 };
 
-export const parseFile = (path: string, a: Env) => {
+export const parseFile = (path: string, env: Env) => {
   const file = String(readFileSync(path));
-  return Lisp.parse(file, a);
+  return Lisp.parse(file, env);
 };
 
-export const executeFile = (path: string, a: Env) => {
+export const executeFile = (path: string, env: Env) => {
   const file = String(readFileSync(path));
-  return Lisp.execute(file, a);
+  // console.log('loading:', path);
+  Lisp.execute(file, env);
+  // console.log('loading:', path);
+  return
 };

@@ -5,10 +5,10 @@ import path, { join } from 'path';
 import getPath from 'platform-folders';
 import repl from 'pretty-repl';
 import { Recoverable } from 'repl';
+import * as Errors from "./core/error";
+import { evaluate } from './core/eval';
+import * as Lisp from "./core/lisp";
 import { env } from "./globals";
-import * as Errors from "./lib/error";
-import { evaluate } from './lib/eval';
-import * as Lisp from "./lib/lisp";
 import * as Utils from "./utils";
 
 const APPDATA = Utils.exists(getPath('appdata'), 'Error looking up appdata directory!');
@@ -20,16 +20,19 @@ namespace Repl {
   const HISTORY_FILE_PTH = join(APPDATA, 'lisp-ts', 'repl', 'history', '0.log');
 
   export const initializeREPL = () => {
+
     if (existsSync(HISTORY_FILE_PTH) === false) {
         mkdirSync(path.dirname(HISTORY_FILE_PTH), { recursive: true })
         writeFileSync(HISTORY_FILE_PTH, '')
     }
 
+    Lisp.execute(`(load "stdlib/r5rs.scm")`, env)
+
     console.error(`Welcome to ${'lisp-ts'.blue} ${('v' + LANGUAGE_VERSION).yellow}`)
+
   }
 
   export const start = (prompt: string) => {
-
     function _eval(cmd: string, context: any, filename: string, callback: any) {
       try {
         const x = Lisp.parse(cmd, env)

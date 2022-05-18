@@ -14,4 +14,27 @@
 (test '#4.1.2-h   '(quote a)  '(quote a))
 (test '#4.1.2-i   '(quote a)  ''a)
 
+(test '#4.2.2-a 6
+  (let ((x 2) (y 3)) (* x y)))
+(test '#4.2.2-b 35
+  (let ((x 2) (y 3)) (let ((x 7) (z (+ x y))) (* z x))))
+(test '#4.2.2-c 70
+  (let ((x 2) (y 3))
+    (let* ((x 7)
+          (z (+ x y)))
+      (* z x))))
+
+(begin
+  (defun wrap (v) (list v))
+
+  (define-syntax wrap-macro
+    (syntax-rules ()
+      ([wrap-macro v]
+      (wrap v))))
+
+  (wrap-macro 1)
+
+  (test "Referential Transparency"  1
+    (let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1))))
+
 (test-end)

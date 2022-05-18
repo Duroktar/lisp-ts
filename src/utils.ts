@@ -1,10 +1,11 @@
-import * as Lisp from "./lib/lisp";
-import type { Env } from "./lib/env";
-import { BaseProcedure, Proc } from "./lib/proc";
-import type { Atom, Expr, List } from "./lib/terms";
-import { TRUE, FALSE } from "./lib/const";
-import { Sym, SymTable } from "./lib/sym";
-import { quotes } from "./lib/macro";
+import * as Lisp from "./core/lisp";
+import type { Env } from "./core/env";
+import { BaseProcedure, Proc } from "./core/proc";
+import type { Atom, Expr, List } from "./core/terms";
+import { TRUE, FALSE, UNDEF } from "./core/const";
+import { Sym, SymTable } from "./core/sym";
+import { quotes } from "./core/macro";
+import { SyntaxRulesDef } from "./core/syntax";
 
 export const assert = <T extends any>(p: T, msg = ''): T extends false ? never : T => {
   if (p !== true) {
@@ -84,15 +85,29 @@ export const find = (func: (m: Expr, i: number) => boolean, m: Expr, __i = 0): E
     return m;
 };
 
-export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): string => {
+export const getSafe = <T>(a: T[] | any, i: number) => {
+  if (isList(a)) return a[i]
+  return undefined
+}
+
+export const toStringSafe = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): string => {
+  try {
+    return toString(expr, inspect, lambdaSymbol)
+  } catch (e) {
+    return UNDEF.description!
+  }
+}
+
+export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'lambda'): string => {
+  if (expr === undefined) return UNDEF.description!
   if (isSym(expr)) {
     // if (inspect) return String(expr)
-    return expr.description!;
+    return expr?.description!;
   }
   if (expr instanceof BaseProcedure) {
     return `(nativefunc ${expr.name})`;
   }
-  if (expr instanceof Proc) {
+  if (expr instanceof Proc || expr instanceof SyntaxRulesDef) {
     if (inspect) {
       const parms = toString(expr.params, inspect, lambdaSymbol);
       const body = toString(expr.expr, inspect, lambdaSymbol);
@@ -101,7 +116,7 @@ export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): stri
     return `(${lambdaSymbol} ${expr.name})`;
   }
   if (isString(expr))
-    return `${expr}`;
+    return `"${expr}"`;
   if (isNone(expr))
     return expr;
   if (isNum(expr))
@@ -118,7 +133,7 @@ export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): stri
   }
   return `(${expr.map(c => toString(c, inspect, lambdaSymbol)).join(' ')})`;
 };
-export const print = (e: Expr, inspect = false, lambdaSymbol = 'lambda'): void => {
+export const print = (e: Expr, inspect = false, lambdaSymbol = 'lambda'/* λ */): void => {
   console.log(toString(e, inspect, lambdaSymbol));
 };
 

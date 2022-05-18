@@ -1,7 +1,9 @@
 import { env } from "./globals";
-import { execute } from "./lib/lisp";
+import { execute } from "./core/lisp";
 
 execute(`
+
+(load "stdlib/r5rs.scm")
 
 (load "tests/utils.scm")
 (set-verbose-test #t)

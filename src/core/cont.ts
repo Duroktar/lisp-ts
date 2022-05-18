@@ -11,7 +11,7 @@ export const callWithCC = ([proc]: any, env: Env) => {
   });
   try {
     if (isCallable(proc)) {
-      return proc.call([throw_ as Expr]);
+      return proc.call([throw_ as Expr], env);
     }
     throw new InvalidCallableExpression(proc);
   } catch (err) {

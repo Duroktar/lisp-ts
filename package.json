@@ -6,7 +6,7 @@
   "scripts": {
     "build:watch": "ttsc --watch src/start.ts",
     "build": "ttsc src/start.ts",
-    "repl:dev": "nodemon src/repl.ts",
+    "repl:dev": "nodemon --config nodemon.json src/repl.ts",
     "repl": "ts-node src/repl.ts",
     "test:dev": "nodemon --config tests/nodemon.json src/test.ts",
     "test:jest": "jest",

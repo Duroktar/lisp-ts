@@ -7,12 +7,14 @@ export abstract class BaseProcedure {
   abstract env: Env;
   public expr: Expr = [];
   public name = 'λ';
-  public call = (args: Expr) => {
-    return this._call(args, this.getClosure(args));
+  public call = (args: Expr, env: Env) => {
+    return this._call(args, this.getClosure(args, env));
   };
+
   abstract _call(args: Expr, env: Env): Expr;
-  public getClosure(args: Expr): Env {
-    return new Env(this.params, args, this.env);
+
+  public getClosure(args: Expr, env: Env): Env {
+    return new Env(this.params, args, env);
   }
 }
 

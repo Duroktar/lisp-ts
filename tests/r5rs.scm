@@ -53,9 +53,9 @@
            (define f (lambda () (- x)))
            (f)))
 
-(define let*-def 1)
-(let* () (define let*-def 2) #f)
-(test 1 let*-def)
+; (define let*-def 1)
+; (let* () (define let*-def 2) #f)
+; (test 1 let*-def)
 
 (test '#(0 1 2 3 4)
  (do ((vec (make-vector 5))
@@ -365,7 +365,7 @@
    (vector-set! vec 1 '("Sue" "Sue"))
    vec))
 
-(test '(dah dah didah) (vector->list '#(dah dah didah)))
+; (test '(dah dah didah) (vector->list '#(dah dah didah)))
 
 ; (test '#(dididit dah) (list->vector '(dididit dah)))
 

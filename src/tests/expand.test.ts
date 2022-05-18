@@ -1,8 +1,8 @@
-import * as Lisp from "../lib/lisp";
+import * as Lisp from "../core/lisp";
 import * as Runtime from "../globals";
 import { toString } from "../utils";
-import { read } from "../lib/read";
-import { expand } from "../lib/expand";
+import { read } from "../core/read";
+import { expand } from "../core/expand";
 
 test('(expand) (let ...) = (λ ...)', () => {
   expect(

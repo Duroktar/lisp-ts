@@ -8,3 +8,5 @@
     (if (zero? n)
         1
         (* n (fac (sub1 n)))))
+
+(print "'fac.scm' loaded")

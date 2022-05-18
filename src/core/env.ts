@@ -5,7 +5,7 @@ import * as Utils from "../utils";
 import { Sym } from "./sym";
 
 export class Env {
-  constructor(params: Expr = [], args: Expr = [], private outer?: Env) {
+  constructor(params: Expr = [], args: Expr = [], public outer?: Env) {
     if (Utils.isList(params) && Utils.isList(args) && params.every(Utils.isSym)) {
       const getParams = (params: List, args: List): [string, any][] => {
         if (params.length === 0) return []
@@ -33,28 +33,42 @@ export class Env {
       throw new Errors.InvalidEnvArgumentsError(params, args);
     }
   }
-  get(name: Atom): Expr | Proc | BaseProcedure {
+  get<T extends Expr | Proc | BaseProcedure>(name: string): T {
     const result = this.inner[name] ?? this.outer?.get(name);
     if (result === undefined) {
       throw new Errors.UndefinedVariableError(String(name));
     }
-    return result as Expr;
+    return result as T;
   }
-  getOrDefault<T extends Expr, R = undefined>(name: Atom, d?: R): T | R {
+  getFrom<T extends Expr | Proc | BaseProcedure>(expr: Expr): T {
+    return this.get(Utils.toString(expr)) as T
+  }
+  getOrDefault<T extends Expr | Proc | BaseProcedure, R = T>(name: string, d?: R): T | R {
     const result = this.inner[name] ?? this.outer?.getOrDefault(name);
     return (result ?? d) as any;
   }
-  set(name: Atom, value: Expr | Proc | BaseProcedure): void {
+  set(name: string, value: Expr | Proc | BaseProcedure): void {
     this.inner[name] = value;
   }
   setFrom(expr: Expr, value: Expr | Proc | BaseProcedure): void {
     this.inner[Utils.toString(expr)] = value;
   }
-  update(name: Atom, value: Expr | Proc | BaseProcedure): void {
-    let env = this.find(name)
+  mergeFrom(expr: Expr, value: Expr | Proc | BaseProcedure): void {
+    if (!this.hasFrom(expr)) {
+      this.setFrom(expr, [<any>value]);
+      return
+    }
+    const merger: List = this.getFrom(expr)
+    merger.push(value as Expr)
+  }
+  update(name: string, value: Expr | Proc | BaseProcedure): void {
+    let env = this.sourceEnv(name)
     if (env) { env.set(name, value) }
   }
-  find(name: Atom): Env | undefined {
+  updateFrom(expr: Expr, value: Expr | Proc | BaseProcedure): void {
+    return this.update(Utils.toString(expr), value)
+  }
+  sourceEnv(name: string): Env | undefined {
     let env = this as Env
     while (env.inner[name] === undefined && env.outer) {
       env = env.outer
@@ -63,7 +77,7 @@ export class Env {
       return env
     }
   }
-  has(name: Atom): boolean {
+  has(name: string): boolean {
     try {
       return (this.inner[name] ?? this.outer?.get(name)) !== undefined;
     } catch {
@@ -87,6 +101,13 @@ export class Env {
       Object.entries(env.inner).forEach(([k ,v]) => accum.push(fn([k, <any>v])))
     }
     return accum
+  }
+  merge(env: Env): Env {
+    const n = new Env([], [], this)
+    for (let [key, value] of env.entries()) {
+      n.set(key, value)
+    }
+    return n
   }
   keys(): string[] {
     return this.map(([key, _]) => key)

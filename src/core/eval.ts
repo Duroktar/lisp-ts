@@ -1,7 +1,7 @@
 import * as Utils from "../utils";
-import { EMPTY, FALSE, UNDEF } from "./const";
+import { FALSE, UNDEF } from "./const";
 import { Env } from "./env";
-import { atom, car, cdr, eq, quote, _do } from "./lisp";
+import { atom, car, cdr, eq, _do } from "./lisp";
 import { Proc } from "./proc";
 import { SymTable } from "./sym";
 import { Atom, Expr } from "./terms";
@@ -25,10 +25,10 @@ export const evaluate = (e: Expr, a: Env): Expr => {
       case SymTable.LAMBDA: {
         return new Proc(e[1], e[2], a) as any;
       }
-      case SymTable.DEFINE:
-      case SymTable.DEFUN: {
+      case SymTable.DEFUN: // console.log(`defining function: ${Utils.toString(e[1])}`);
+      case SymTable.DEFINE: {
         const [_def, variable, expr] = e as [Atom, symbol, Expr];
-        const name = variable.description!;
+        const name = Utils.toString(variable)
         const value = evaluate(expr, a);
         if (Utils.isProc(value)) {
           value.name = name;
@@ -56,15 +56,16 @@ export const evaluate = (e: Expr, a: Env): Expr => {
         const r = evaluate(value, a);
         const name = Utils.toString(variable);
         Utils.expect(e, a.has(name), 'Variable must be bound');
-        a.find(name)!.set(name, r);
+        a.sourceEnv(name)!.set(name, r);
         return [];
       }
       default: {
         const [proc, ...args] = e.map(expr => evaluate(expr, a));
         if (Utils.isCallable(proc)) {
+          const r = proc.call(args, a);
           // const c = Utils.toString(car(e));
-          // console.log(`calling: ${proc.name} ${proc.name === c ? '' : c}`)
-          return proc.call(args);
+          // console.log(`Evaluating procedure: ${proc.name} ${proc.name === c ? '' : c}`)
+          return r;
         }
         // console.log('evaluating list')
         return args;
