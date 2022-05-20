@@ -100,7 +100,8 @@ export const parse = (code: string, a: Env): Expr => {
 };
 
 export const execute = (code: string, a: Env): Expr => {
+  const parsed = parse(code, a);
   // console.log('executing code');
 
-  return evaluate(parse(code, a), a);
+  return evaluate(parsed, a);
 };

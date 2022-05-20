@@ -6,6 +6,8 @@ import { TRUE, FALSE, UNDEF } from "./core/const";
 import { Sym, SymTable } from "./core/sym";
 import { quotes } from "./core/macro";
 import { SyntaxRulesDef } from "./core/syntax";
+import { TSchemeModule } from "./core/module";
+// import { TSchemeModule } from "./globals";
 
 export const assert = <T extends any>(p: T, msg = ''): T extends false ? never : T => {
   if (p !== true) {
@@ -20,7 +22,7 @@ type Exists<P> = Exclude<P, undefined | null>;
 
 export const exists = <P>(p: P, msg = ''): Exists<P> => {
   if (p == null) {
-    throw new Error(msg || `assert error: ${p}`);
+    throw new Error(msg || `exists error: ${p}`);
   } else {
     return p as any;
   }
@@ -90,7 +92,7 @@ export const getSafe = <T>(a: T[] | any, i: number) => {
   return undefined
 }
 
-export const toStringSafe = (expr: Expr, inspect = false, lambdaSymbol = 'λ'): string => {
+export const toStringSafe = (expr: Expr, inspect = false, lambdaSymbol = 'lambda'): string => {
   try {
     return toString(expr, inspect, lambdaSymbol)
   } catch (e) {
@@ -106,6 +108,9 @@ export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'lambda'): 
   }
   if (expr instanceof BaseProcedure) {
     return `(nativefunc ${expr.name})`;
+  }
+  if (expr instanceof TSchemeModule) {
+    return `(module "${expr.basename}")`;
   }
   if (expr instanceof Proc || expr instanceof SyntaxRulesDef) {
     if (inspect) {
@@ -152,3 +157,7 @@ export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args
 export const mkLambda = (params: string[] | string, body: Expr): Expr => {
   return [SymTable.LAMBDA, isList(params) ? params.map(Sym) : Sym(params), body];
 };
+
+export const eqC = (a: any) => (b: any) => a === b;
+
+export const searchIdx = (...keys: string[]) => keys.reduce((acc, key) => ({...acc, [key]: 1}), {})

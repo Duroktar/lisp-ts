@@ -23,7 +23,7 @@
       (begin
         (define *result*   (try (lambda () expression)))
         (define *expected* expected)
-        (define *test-id* (if (not (eq? 'name 'expected)) (inspect name) " "))
+        (define *test-id*  (if (not (eq? 'name 'expected)) (inspect name) " "))
         (incr-total)
         (if (equal? *expected* (cadr *result*))
           (begin

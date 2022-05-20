@@ -15,21 +15,11 @@
 ;      (ellipsis-template (pattern-id body2) 1)))
 ;    (ellipsis-template (pattern-id val) 1)))
 
-; (define-syntax let*
-;   (syntax-rules ()
-;     ((let* () body1 body2 ...)
-;       (let () body1 body2 ...))
-;     ((let* ((name1 val1) (name2 val2) ...)
-;         body1 body2 ...)
-;       (let ((name1 val1))
-;         (let* ((name2 val2) ...)
-;           body1 body2 ...)))))
-
 ; (let* ((x 7) (z (+ x y))) (* z x))
 
-(let ((a 1) (b 2))
-  (display "adding two numbers")
-  (display (+ a b)))
+; (let ((a 1) (b 2))
+;   (display "adding two numbers")
+;   (display (+ a b)))
 
 ; macro invocations
 
@@ -69,3 +59,37 @@
 ;           (z (+ x y)))
 ;       (* z x)))
 ; ) ; => 70
+
+; (define-syntax let
+;   (syntax-rules ()
+;     ((let ((name val) ...) body1 body2 ...)
+;       ((lambda (name ...) body1 body2 ...)
+;       val ...))))
+
+; (define-syntax let*
+;   (syntax-rules ()
+;     ((let* () body1 body2 ...)
+;       (let () body1 body2 ...))
+;     ((let* ((name1 val1) (name2 val2) ...)
+;         body1 body2 ...)
+;       (let ((name1 val1))
+;         (let* ((name2 val2) ...)
+;           body1 body2 ...)))))
+
+(define-syntax broke
+  (syntax-rules ()
+    ((broke ((name1 val1) ...) body1 body2 ...)
+      (broke ((name1 val1) ...) body1 body2 ...))))
+
+(broke ((z (+ 3 5))) (* z z))
+
+; (let ((x 2) (y 3))
+;     (let* ((x 7)
+;           (z (+ x y)))
+;       (* z x)))
+
+; (let* (z (+ x y)) (* z x))
+
+; (let* ((x 7) (z (+ x y))) (* z x))
+
+; (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x)))

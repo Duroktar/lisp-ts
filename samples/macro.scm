@@ -121,13 +121,6 @@
         1
         (* n (fac (sub1 n)))))
 
-  (define-syntax and
-    (syntax-rules ()
-      ([and] #t)
-      ([and test] test)
-      ([and test1 test2 ...]
-        (if test1 [and test2 ...] #f))))
-
 (define-syntax cond
     (syntax-rules (else =>)
       ([cond (else result1 result2 ...)]
@@ -180,3 +173,12 @@
 
 ((lambda.1 (a b) (display "adding two numbers\n") (+ a b)) 1 2)
 ((lambda (a b) ((display "adding two numbers")) (+ a b)) 1 2)
+
+(let ((x 2) (y 3)) (* x y))
+
+(define-syntax and
+  (syntax-rules ()
+    ([and] #t)
+    ([and test] test)
+    ([and test1 test2 ...]
+      (if test1 [and test2 ...] #f))))

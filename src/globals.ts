@@ -9,7 +9,7 @@ import * as Lisp from "./core/lisp";
 import { readMacroTable } from "./core/macro";
 import { Sym } from "./core/sym";
 import { Atom, List } from "./core/terms";
-import { executeFile } from "./load";
+import { executeFile, loadFile } from "./load";
 import { gcd, lcm } from "./math";
 import * as Util from "./utils";
 
@@ -30,7 +30,7 @@ mkNativeFunc(env, 'car', ['args'], (args: any) => Lisp.car(args));
 mkNativeFunc(env, 'cdr', ['args'], (args: any) => Lisp.cdr(args));
 mkNativeFunc(env, 'set-cdr!', ['l', 'v'], ([l, v]: any) => l[1] = v);
 
-mkNativeFunc(env, 'locals', [], (_, a) => { return a; });
+mkNativeFunc(env, 'locals', [], (_, a) => { return a.keys().map(Sym); });
 mkNativeFunc(env, 'env', [], () => { return env; });
 mkNativeFunc(env, 'env->size', [], () => { return env.size(); });
 mkNativeFunc(env, 'env->keys', [], () => { return env.keys(); });
@@ -53,32 +53,6 @@ mkNativeFunc(env, 'break', ['args'], (args: any, env) => { debugger; return eval
 mkNativeFunc(env, 'error', ['x', 'code?'], ([x, code = 1]: any) => { console.error(x); process.exit(code); });
 
 mkNativeFunc(env, 'gensym', [], () => Symbol());
-
-const loaderCache = new Map<Atom, {basename: string; dirname: string; path: string}>();
-
-mkNativeFunc(env, 'load', ['file'], ([file]: any) => {
-  if (!loaderCache.has(file)) {
-    const cacheData = {
-      basename: basename(file),
-      dirname: dirname(file),
-      path: file,
-    };
-    if (isAbsolute(file)) {
-      executeFile(join(env.get('#cwd'), file), env)
-    } else {
-      const fromPath = env.get('#cwd');
-
-      assert(typeof fromPath === 'string',
-      `can't resolve path to imported file`)
-
-      const relpath = relative(fromPath, file)
-      executeFile(relpath, env)
-    }
-    loaderCache.set(file, cacheData)
-  }
-  // loaderCache.get(file)
-  return []
-});
 
 mkNativeFunc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(Util.isPair(obj)));
 mkNativeFunc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
@@ -282,10 +256,10 @@ mkNativeFunc(env, 'set-macro-character', ['char', 'cb'], ([char, cb]: any, env) 
 mkNativeFunc(env, 'call/cc', ['throw'], callWithCC);
 mkNativeFunc(env, 'call-with-current-continuation', ['throw'], callWithCC);
 
-mkNativeFunc(env, 'try', ['callable'], ([callable]: any, a) => {
+mkNativeFunc(env, 'try', ['callable'], ([callable]: any) => {
   try {
     if (Util.isCallable(callable)) {
-      return [TRUE, callable.call([], a)];
+      return [TRUE, callable.call([], env)];
     }
     return [FALSE, ['InvalidCallableExpression']]
   } catch (err) {
@@ -298,6 +272,33 @@ mkNativeFunc(env, 'try', ['callable'], ([callable]: any, a) => {
 });
 
 mkNativeFunc(env, 'macroexpand', ['expr'], ([args]: any) => expand(args, true, env));
+
+const importableNameIndex = Util.searchIdx('stdlib', 'tests', 'samples')
+
+const parseLoadSymbol = (sym: symbol, ext = '.scm') => {
+  const repr = sym.description
+  assert(repr, 'A symbol has no name.. - Some Guy')
+  assert(
+    repr.includes('/') &&
+    repr.split('/')[0] in importableNameIndex,
+
+    `Must import from a known namespace (eg: ${Object.keys(importableNameIndex).slice(0, 2).join(', ')}, etc.)`
+  )
+  return repr + ext
+}
+
+mkNativeFunc(env, 'load', ['file'], ([file]: any) => {
+  if (Util.isSym(file)) {
+    return loadFile(parseLoadSymbol(file))
+  }
+  return loadFile(file)
+});
+mkNativeFunc(env, 'reload', ['file'], ([file]: any) => {
+  if (Util.isSym(file)) {
+    return loadFile(parseLoadSymbol(file), true)
+  }
+  return loadFile(file, true)
+});
 
 /*
 *

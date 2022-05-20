@@ -1,6 +1,7 @@
 import { Expr } from "./terms";
 import * as Utils from "../utils";
 import { Position } from "../types";
+import { SyntaxRulesDef } from "./syntax";
 
 export class InvalidEnvArgumentsError extends Error {
   constructor(
@@ -40,6 +41,23 @@ export class MalformedStringError extends Error {
     this.formattedError = formatError(source, { ...options, message: this.message });
   }
   public formattedError: string;
+}
+export class MatchError extends Error {
+  constructor(
+    public def: SyntaxRulesDef,
+    public form: Expr,
+  ) {
+    super(`no matches found for pattern: ${Utils.toStringSafe(form)}`)
+  }
+}
+
+export class InputError extends Error {
+  constructor(
+    public def: SyntaxRulesDef,
+    public form: Expr,
+  ) {
+    super()
+  }
 }
 
 export type FormatErrorOptions = {

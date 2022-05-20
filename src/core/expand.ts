@@ -1,3 +1,4 @@
+import assert from "assert";
 import * as Utils from "../utils";
 import { Env } from "./env";
 import { macroTable } from "./macro";
@@ -5,7 +6,7 @@ import { Sym, SymTable } from "./sym";
 import { SyntaxRulesDef } from "./syntax";
 import { Expr, List } from "./terms";
 
-export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr => {
+export const expand = (expr: Expr, topLevel = false, env: Env): Expr => {
   const e = expr as Expr[];
   if (!Utils.isList(e)) { return e; }
   if (Utils.isEmpty(e)) { return e; }
@@ -30,16 +31,19 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
   else if (SymTable.BEGIN === e[0]) {
     const [_begin, ...exprs] = e;
     Utils.expect(e, exprs.length >= 1, 'expand begin');
-    return [_begin, ...exprs.map(x => expand(x, topLevel, env))];
-  }
-  else if (SymTable.DEFINE === e[0]) {
-    const [_def, name, args, ...body] = e;
-    if (Utils.isEmpty(body)) return [_def, name, args];
-    return expand([SymTable.DEFUN, name, args, ...body], false, env);
+    const rrv = exprs.map(x => expand(x, topLevel, env));
+    return [_begin, ...rrv];
   }
   else if (SymTable.DEFINESYNTAX === e[0]) {
     Utils.expect(e, e.length >= 3, 'expand define-syntax');
     return expandDefineSyntax(e, topLevel, env);
+  }
+  else if (SymTable.DEFINE === e[0]) {
+    const [_def, name, args, ...body] = e;
+    if (Utils.isEmpty(body)) {
+      return [_def, name, expand(args, false, env)];
+    }
+    return expand([SymTable.DEFUN, name, args, ...body], false, env);
   }
   else if (SymTable.DEFUN === e[0]) {
     Utils.expect(e, e.length >= 3, 'expand defun');
@@ -56,12 +60,14 @@ export const expand = (expr: Expr, topLevel = false, env: Env = new Env()): Expr
   else if (Utils.toString(e[0]) in macroTable) {
     const name = Utils.toString(e[0]);
     const proc: any = macroTable[name];
-    const args = e.slice(1);
     if (Utils.isCallable(proc)) {
-      const result = proc.call(expr, env);
-      return expand(result, topLevel, proc.env);
+      const result = proc.call(e, env);
+      const expanded = expand(result, topLevel, proc.env);
+      // console.log(`post-expanded syntax:`.yellow.bold,
+      //   Utils.toStringSafe(expanded, undefined, 'lambda'))
+      return expanded;
     }
-    return expand(proc(...args), topLevel, env);
+    return expand(proc(...e), topLevel, env);
   }
   return e.map(x => expand(x, false, env));
 };
@@ -142,16 +148,17 @@ function expandDefineSyntax(e: List, topLevel: boolean, env: Env) {
 
   const callee = new SyntaxRulesDef(name, env, syntaxRules, literals);
   macroTable[callee.name] = callee as any;
+  // console.log(macroTable);
   return [];
 }
 
 function expandLambda(e: List, env: Env) {
   const [_lambda, params, ...expression] = e;
   const allAtoms = Utils.isList(params) && params.every(Utils.isSym);
-  Utils.expect(e, (allAtoms || Utils.isSym(params)), `Invalid lambda args. Expected a list of atoms or a single atom but instead got: ${Utils.toString(params)}, ${Utils.toString(e)}`);
-  Utils.expect(e, expression.length >= 1, `lambda expression empty`);
-  const body: any = expression.length === 1 ? expression[0] : [SymTable.BEGIN, ...expression];
-  return [_lambda, params, expand(body, false, env)];
+  assert(allAtoms || Utils.isSym(params), `Invalid lambda args. Expected a list of atoms or a single atom but instead got: ${Utils.toString(params)}, ${Utils.toString(e)}`);
+  assert(expression.length >= 1, `lambda expression empty`);
+  const body = (expression.length > 1) && [SymTable.BEGIN, ...expression]
+  return [_lambda, params, expand(body || expression[0], false, env)];
 }
 
 function expandDefun(e: List, env: Env): Expr {
