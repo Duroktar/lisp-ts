@@ -1,28 +1,28 @@
 import { Env } from "./env";
 import { evaluate } from "./eval";
-import type { Expr } from "./terms";
+import type { Term } from "./terms";
 
 export abstract class BaseProcedure {
-  abstract params: Expr;
+  abstract params: Term;
   abstract env: Env;
-  public expr: Expr = [];
+  public expr: Term = [];
   public name = 'λ';
-  public call = (args: Expr, env: Env) => {
+  public call = (args: Term, env: Env) => {
     return this._call(args, this.getClosure(args, env));
   };
 
-  abstract _call(args: Expr, env: Env): Expr;
+  abstract _call(args: Term, env: Env): Term;
 
-  public getClosure(args: Expr, env: Env): Env {
+  public getClosure(args: Term, env: Env): Env {
     return new Env(this.params, args, env);
   }
 }
 
 export class Proc extends BaseProcedure {
-  constructor(public params: Expr, public expr: Expr, public env: Env) {
+  constructor(public params: Term, public expr: Term, public env: Env) {
     super()
   }
-  public _call = (args: Expr, env: Env) => {
+  public _call = (args: Term, env: Env) => {
     return evaluate(this.expr, env);
   };
 }

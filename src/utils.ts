@@ -1,7 +1,7 @@
 import * as Lisp from "./core/lisp";
 import type { Env } from "./core/env";
 import { BaseProcedure, Proc } from "./core/proc";
-import type { Atom, Expr, List } from "./core/terms";
+import type { Atom, Term, List } from "./core/terms";
 import { TRUE, FALSE, UNDEF } from "./core/const";
 import { Sym, SymTable } from "./core/sym";
 import { quotes } from "./core/macro";
@@ -48,7 +48,7 @@ export const isNone = (x: unknown): x is undefined | null => x === undefined || 
 export const isCallable = (x: unknown): x is Proc | BaseProcedure => isProc(x) || isNativeFn(x);
 export const isProc = (x: unknown): x is Proc => x instanceof Proc;
 export const isNativeFn = (x: unknown): x is BaseProcedure => x instanceof BaseProcedure;
-export const isExpr = (x: unknown): x is Expr => isAtom(x) || isList(x) || isCallable(x) || isString(x) || isNum(x);
+export const isExpr = (x: unknown): x is Term => isAtom(x) || isList(x) || isCallable(x) || isString(x) || isNum(x);
 export const isConst = (x: unknown) => isNum(x) || isString(x)
 export const isIdent = isSym
 export const isEqual = (x: unknown, y: unknown) => {
@@ -63,19 +63,19 @@ export const isEq = (x: unknown, y: unknown) => {
 
 export const symName = (s: symbol): string => s.description!;
 
-export const isF = (e: Expr): boolean => e === FALSE;
-export const isT = (e: Expr): boolean => e === TRUE;
-export const toL = (e: boolean): Expr => e ? TRUE : FALSE;
+export const isF = (e: Term): boolean => e === FALSE;
+export const isT = (e: Term): boolean => e === TRUE;
+export const toL = (e: boolean): Term => e ? TRUE : FALSE;
 
-export const zip = (...rows: Expr[][]) => isEmpty(rows) ? [[], []] : rows[0].map((_, c) => rows.map(row => row[c]));
+export const zip = (...rows: Term[][]) => isEmpty(rows) ? [[], []] : rows[0].map((_, c) => rows.map(row => row[c]));
 
-export const map = (func: (m: Expr) => Expr, m: Expr): Expr => {
+export const map = (func: (m: Term) => Term, m: Term): Term => {
   if (isList(m)) {
     return m.map(child => map(func, child));
   }
   return func(m);
 };
-export const find = (func: (m: Expr, i: number) => boolean, m: Expr, __i = 0): Expr | undefined => {
+export const find = (func: (m: Term, i: number) => boolean, m: Term, __i = 0): Term | undefined => {
   if (isList(m)) {
     for (const child of m) {
       const r = find(func, child, __i++);
@@ -92,7 +92,7 @@ export const getSafe = <T>(a: T[] | any, i: number) => {
   return undefined
 }
 
-export const toStringSafe = (expr: Expr, inspect = false, lambdaSymbol = 'lambda'): string => {
+export const toStringSafe = (expr: Term, inspect = false, lambdaSymbol = 'lambda'): string => {
   try {
     return toString(expr, inspect, lambdaSymbol)
   } catch (e) {
@@ -100,7 +100,7 @@ export const toStringSafe = (expr: Expr, inspect = false, lambdaSymbol = 'lambda
   }
 }
 
-export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'lambda'): string => {
+export const toString = (expr: Term, inspect = false, lambdaSymbol = 'lambda'): string => {
   if (expr === undefined) return UNDEF.description!
   if (isSym(expr)) {
     // if (inspect) return String(expr)
@@ -138,11 +138,11 @@ export const toString = (expr: Expr, inspect = false, lambdaSymbol = 'lambda'): 
   }
   return `(${expr.map(c => toString(c, inspect, lambdaSymbol)).join(' ')})`;
 };
-export const print = (e: Expr, inspect = false, lambdaSymbol = 'lambda'/* λ */): void => {
+export const print = (e: Term, inspect = false, lambdaSymbol = 'lambda'/* λ */): void => {
   console.log(toString(e, inspect, lambdaSymbol));
 };
 
-export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args: Expr, env: Env) => any): Expr | BaseProcedure {
+export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args: Term, env: Env) => any): Term | BaseProcedure {
   const func = new class extends BaseProcedure {
     public name = name;
     public env = env;
@@ -154,7 +154,7 @@ export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args
   return func;
 }
 
-export const mkLambda = (params: string[] | string, body: Expr): Expr => {
+export const mkLambda = (params: string[] | string, body: Term): Term => {
   return [SymTable.LAMBDA, isList(params) ? params.map(Sym) : Sym(params), body];
 };
 

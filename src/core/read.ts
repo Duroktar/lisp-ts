@@ -1,16 +1,18 @@
+import node_fs from "fs";
 import { Position, Predicate } from "../types";
 import { EMPTY, TRUE } from "./const";
 import { FormatErrorOptions, MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./error";
 import { readMacroTable } from "./macro";
 import { SymTable } from "./sym";
-import { Expr, List } from "./terms";
+import { Term, List } from "./terms";
+
 
   // system
-  export const read = (text: string): Expr => {
-    let cursor = 0, end = text.length - 1, line = 1, col = 1;
+  export const read = (input: string): Term => {
+    let cursor = 0, end = input.length - 1, line = 1, col = 1;
 
     const advance = () => {
-      const char = text[cursor++];
+      const char = input[cursor++];
       if (char === '\n') {
         line++;
         col = 0;
@@ -19,19 +21,19 @@ import { Expr, List } from "./terms";
       return char;
     };
 
-    const current = () => text[cursor];
-    const isDblQt = () => text[cursor] === '"';
-    const isOpenS = () => text[cursor] === '(';
-    const isCloseS = () => text[cursor] === ')';
-    const isOpenM = () => text[cursor] === '[';
-    const isCloseM = () => text[cursor] === ']';
-    const isOpenP = () => text[cursor] === '{';
-    const isCloseP = () => text[cursor] === '}';
-    const isSpace = () => text[cursor] === ' ';
-    const isNewLine = () => text[cursor] === '\n';
-    const isHash = () => text[cursor] === '#';
-    const isSemi = () => text[cursor] === ';';
-    const isEscape = () => text[cursor] === '\\';
+    const current = () => input[cursor];
+    const isDblQt = () => input[cursor] === '"';
+    const isOpenS = () => input[cursor] === '(';
+    const isCloseS = () => input[cursor] === ')';
+    const isOpenM = () => input[cursor] === '[';
+    const isCloseM = () => input[cursor] === ']';
+    const isOpenP = () => input[cursor] === '{';
+    const isCloseP = () => input[cursor] === '}';
+    const isSpace = () => input[cursor] === ' ';
+    const isNewLine = () => input[cursor] === '\n';
+    const isHash = () => input[cursor] === '#';
+    const isSemi = () => input[cursor] === ';';
+    const isEscape = () => input[cursor] === '\\';
     const isAlpha = (c: string) => (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')));
     const isDigit = (c: string) => ((c >= '0') && (c <= '9'));
     const isSpecial = (c: string) => ((c === '.') || (c === '_') || (c === '^') || (c === '=') || (c === '?') || (c === '!'));
@@ -55,25 +57,25 @@ import { Expr, List } from "./terms";
 
     const toLisp = (funcs: Record<string, any>) => Object.entries(funcs).reduce((acc: any, [key, val]: any) => { acc[key] = (...args: any[]) => val(...args) ? TRUE : EMPTY; return acc; }, {} as Record<string, any>);
 
-    const parseDelimitedList = (open: Predicate, close: Predicate): Expr | undefined => {
+    const parseDelimitedList = (open: Predicate, close: Predicate): Term | undefined => {
       if (open()) {
         const open = { col, line, cursor };
         advance();
 
-        const exprs: Expr[] = [];
+        const exprs: Term[] = [];
         while (!close() && !isEOF()) {
           exprs.push(parse());
         }
 
         if (close()) { advance(); }
         else
-          throw new MissingParenthesisError(text, error(open));
+          throw new MissingParenthesisError(input, error(open));
 
         return exprs;
       }
 
       else if (current() === ')')
-        throw new UnexpectedParenthesisError(text, error({ col, line, cursor }));
+        throw new UnexpectedParenthesisError(input, error({ col, line, cursor }));
     }
     const listDelimiterPredicates = [
       [isOpenS, isCloseS],
@@ -87,7 +89,7 @@ import { Expr, List } from "./terms";
       return { end: { line, col, cursor }, message, start };
     };
 
-    function parseAtom(): Expr {
+    function parseAtom(): Term {
       let atom: string = '';
       do {
         if (isEscape())
@@ -104,7 +106,7 @@ import { Expr, List } from "./terms";
       return Symbol.for(atom);
     }
 
-    function parseQuote(): Expr {
+    function parseQuote(): Term {
       if (current() === "'") {
         advance();
         return [SymTable.QUOTE, parse()];
@@ -124,7 +126,7 @@ import { Expr, List } from "./terms";
       return parseAtom();
     }
 
-    function parseReadMacro(): Expr {
+    function parseReadMacro(): Term {
       if (current() in readMacroTable) {
         const macro = readMacroTable[current()];
         advance();
@@ -133,7 +135,7 @@ import { Expr, List } from "./terms";
       return parseQuote();
     }
 
-    function parseString(): Expr {
+    function parseString(): Term {
       if (isDblQt()) {
         const start = { col, line, cursor };
         advance();
@@ -146,7 +148,7 @@ import { Expr, List } from "./terms";
         if (isDblQt())
           advance();
         else
-          throw new MalformedStringError(text, error(start));
+          throw new MalformedStringError(input, error(start));
 
         return exprs;
       }
@@ -154,7 +156,7 @@ import { Expr, List } from "./terms";
       return parseReadMacro();
     }
 
-    function parseList(): Expr {
+    function parseList(): Term {
       for (let [open, close] of listDelimiterPredicates) {
         const result = parseDelimitedList(open, close)
         if (result) return result;
@@ -162,14 +164,14 @@ import { Expr, List } from "./terms";
       return parseString();
     }
 
-    function parse(): Expr {
+    function parse(): Term {
       consumeIgnored();
       const expr = parseList();
       consumeIgnored();
       return expr;
     }
 
-    function parseProgram(): Expr {
+    function parseProgram(): Term {
       const res: List = []
 
       while (isEOF() === false)

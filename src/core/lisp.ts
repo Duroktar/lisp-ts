@@ -1,19 +1,20 @@
+
 import * as Utils from "../utils";
 import { Env } from "./env";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
 import { read } from "./read";
-import { Expr, List } from "./terms";
+import { Term, List } from "./terms";
 
 // primitives (7)
-export const quote = (expr: Expr): Expr => (<List>expr)[1];
-export const atom = (expr: Expr): Expr => Utils.toL(Utils.isAtom(expr));
-export const eq = (x: Expr, y: Expr): Expr => Utils.toL(Utils.isSym(x) && Utils.isSym(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y));
-export const car = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isList, 'Argument to car must be an array..')[0];
-export const cdr = (expr: Expr): Expr => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
+export const quote = (expr: Term): Term => (<List>expr)[1];
+export const atom = (expr: Term): Term => Utils.toL(Utils.isAtom(expr));
+export const eq = (x: Term, y: Term): Term => Utils.toL(Utils.isSym(x) && Utils.isSym(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y));
+export const car = (expr: Term): Term => Utils.expect(<any>expr, Utils.isList, 'Argument to car must be an array..')[0];
+export const cdr = (expr: Term): Term => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
 // END primitives
 
-export const _do = (args: Expr[], env: Env) => {
+export const _do = (args: Term[], env: Env) => {
   /*
   (do ((<variable1> <init1> <step1>) ...)
         (<test> <expression> ...)
@@ -55,7 +56,7 @@ export const _do = (args: Expr[], env: Env) => {
   // - the <step> expressions are evaluated in some unspecified order,
   // - the <variable>s are bound to fresh locations holding the results,
   // Then the next iteration begins.
-  const iterate = (depth = 0): Expr => {
+  const iterate = (depth = 0): Term => {
     const testResult = evaluate(test, env);
     if (!Utils.isT(testResult)) {
       commands.forEach((command: any) => {
@@ -95,11 +96,11 @@ export const _do = (args: Expr[], env: Env) => {
   }
 }
 
-export const parse = (code: string, a: Env): Expr => {
+export const parse = (code: string, a: Env): Term => {
   return expand(read(code), true, a);
 };
 
-export const execute = (code: string, a: Env): Expr => {
+export const execute = (code: string, a: Env): Term => {
   const parsed = parse(code, a);
   // console.log('executing code');
 

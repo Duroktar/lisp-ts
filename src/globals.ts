@@ -300,6 +300,22 @@ mkNativeFunc(env, 'reload', ['file'], ([file]: any) => {
   return loadFile(file, true)
 });
 
+// // Implement putchar/getchar to the terminal (from: https://github.com/udem-dlteam/ribbit)
+
+// const putchar = (c: number) => {
+//   let buffer = Buffer.alloc(1);
+//   buffer[0] = c;
+//   node_fs.writeSync(1, buffer, 0, 1);
+//   return c;
+// };
+
+// const getchar_sync = () => {
+//   let buffer = Buffer.alloc(1);
+//   if (node_fs.readSync(0, buffer, 0, 1, 0))
+//     return buffer[0];
+//   return -1;
+// };
+
 /*
 *
 *  reader macros

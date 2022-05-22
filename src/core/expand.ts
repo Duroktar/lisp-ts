@@ -4,10 +4,10 @@ import { Env } from "./env";
 import { macroTable } from "./macro";
 import { Sym, SymTable } from "./sym";
 import { SyntaxRulesDef } from "./syntax";
-import { Expr, List } from "./terms";
+import { Term, List } from "./terms";
 
-export const expand = (expr: Expr, topLevel = false, env: Env): Expr => {
-  const e = expr as Expr[];
+export const expand = (expr: Term, topLevel = false, env: Env): Term => {
+  const e = expr as Term[];
   if (!Utils.isList(e)) { return e; }
   if (Utils.isEmpty(e)) { return e; }
   else if (SymTable.QUOTE === e[0]) {
@@ -72,7 +72,7 @@ export const expand = (expr: Expr, topLevel = false, env: Env): Expr => {
   return e.map(x => expand(x, false, env));
 };
 
-export const expandQuasiquote = (x: Expr): Expr => {
+export const expandQuasiquote = (x: Term): Term => {
   if (!Utils.isPair(x)) return [SymTable.QUOTE, x];
   Utils.expect(x, x !== SymTable.UNQUOTESPLICING, "can't slice here");
   if (Array.isArray(x)) {
@@ -161,7 +161,7 @@ function expandLambda(e: List, env: Env) {
   return [_lambda, params, expand(body || expression[0], false, env)];
 }
 
-function expandDefun(e: List, env: Env): Expr {
+function expandDefun(e: List, env: Env): Term {
   let [_def, name, args, body] = e;
     if (Utils.isList(args) && args[0] === SymTable.LAMBDA) {
       const [_def, args_, body_] = args as any

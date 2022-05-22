@@ -1,9 +1,9 @@
 import * as Utils from "../utils";
 import { Proc } from "./proc";
 import { Sym, SymTable } from "./sym";
-import { Expr } from "./terms";
+import { Term } from "./terms";
 
-export function _async(...args: Expr[]) {
+export function _async(...args: Term[]) {
   const x = [SymTable.DO, args];
   Utils.expect(x, args.length > 0, '`do` blocks must container an expression');
   const result = args.reduce((acc: any[], expr) => {
@@ -18,7 +18,7 @@ export function _async(...args: Expr[]) {
   return result;
 }
 
-export const readMacroTable: Record<string, (...args: any[]) => Expr> = {};
+export const readMacroTable: Record<string, (...args: any[]) => Term> = {};
 
 export const macroTable: Record<string, Proc | Function> = {
   async: _async,

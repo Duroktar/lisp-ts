@@ -1,7 +1,7 @@
 import { isCallable, mkNativeFunc } from "../utils";
 import { Env } from "./env";
 import { InvalidCallableExpression } from "./error";
-import { Expr } from "./terms";
+import { Term } from "./terms";
 
 export const callWithCC = ([proc]: any, env: Env) => {
   class RuntimeWarning extends Error { public retval?: any; }
@@ -11,7 +11,7 @@ export const callWithCC = ([proc]: any, env: Env) => {
   });
   try {
     if (isCallable(proc)) {
-      return proc.call([throw_ as Expr], env);
+      return proc.call([throw_ as Term], env);
     }
     throw new InvalidCallableExpression(proc);
   } catch (err) {

@@ -1,12 +1,12 @@
 /* References: An Optimized R5RS Macro Expander - Jay McCarthy */
 import assert from "assert";
-import { isIdent, isList, isAtom, isString, isNum, isSym } from "../utils";
+import { isIdent, isList, isAtom, isString, isNum, isSym, zip } from "../utils";
 import { expect, eqC, toString, toStringSafe } from "../utils";
 import { Env } from "./env";
 import { InputError, MatchError } from "./error";
 import { BaseProcedure } from "./proc";
 import { Sym } from "./sym";
-import { Atom, Expr, List } from "./terms";
+import { Atom, Term, List } from "./terms";
 
 class Den /* Denotation */ {
   constructor(
@@ -31,9 +31,9 @@ class IdentifierTypes {
     public patternIds:  Set<string>,
     public literalIds:  Set<string>,
   ) {}
-  isLitId = (identifier: Expr) => this.literalIds.has(toString(identifier))
-  isPatId = (identifier: Expr) => this.patternIds.has(toString(identifier))
-  isTplId = (identifier: Expr) => this.templateIds.has(toString(identifier))
+  isLitId = (identifier: Term) => this.literalIds.has(toString(identifier))
+  isPatId = (identifier: Term) => this.patternIds.has(toString(identifier))
+  isTplId = (identifier: Term) => this.templateIds.has(toString(identifier))
 }
 
 export class SyntaxRulesDef extends BaseProcedure {
@@ -66,7 +66,7 @@ export class SyntaxRulesDef extends BaseProcedure {
 
   */
   constructor(
-    public symbol: Expr,
+    public symbol: Term,
     public env: Env,
     public syntaxRules: any[],
     public literals: Atom[],
@@ -77,7 +77,7 @@ export class SyntaxRulesDef extends BaseProcedure {
 
   static gen = 1
 
-  public _call(form: Expr, env: Env): Expr {
+  public _call(form: Term, env: Env): Term {
     const gen = SyntaxRulesDef.gen++
 
     console.log(`Expanding Syntax (${gen}):`.blue.bold, `${toStringSafe(form)}`);
@@ -119,7 +119,7 @@ export class SyntaxRulesDef extends BaseProcedure {
     return bound
   }
   // simple wrapper around match
-  getMatch(form: Expr, gen: number): [List[], Env] {
+  getMatch(form: Term, gen: number): [List[], Env] {
     for (let rule of this.syntaxRules) {
       const [pattern] = rule;
       try {
@@ -139,7 +139,7 @@ export class SyntaxRulesDef extends BaseProcedure {
     }
     throw new MatchError(this, form)
   }
-  match(form: Expr, pattern: Expr, env = new Env()): Env {
+  match(form: Term, pattern: Term, env = new Env()): Env {
     /*
       - A subpattern followed by ... can match zero or more elements of the
         input.
@@ -253,7 +253,7 @@ export class SyntaxRulesDef extends BaseProcedure {
 
     return new IdentifierTypes(templateIds, patternIds, literalIds);
   }
-  parseTemplate(template: Expr, ids: IdentifierTypes, env: Env, gen: number): List {
+  parseTemplate(template: Term, ids: IdentifierTypes, env: Env, gen: number): List {
     if (isList(template)) {
       const items = []
 
@@ -284,54 +284,83 @@ export class SyntaxRulesDef extends BaseProcedure {
     if (ids.isPatId(template))
       return [PAT, template]
 
+    if (ids.isLitId(template))
+      return [LIT, template]
+
     const denotation =
       new Den(name, gen).toAtom();
 
-    env.setFrom(denotation, template);
-
-    if (ids.isLitId(template))
-      return [LIT, denotation]
+    env.mergeFrom(denotation, template);
 
     return [REG, denotation]
   }
-  genOutput(template: Expr, env: Env): Expr {
+  genOutput(template: Term, env: Env): Term {
     assert(Array.isArray(template), '`genOutput` expected an arrray')
     switch (template[0]) {
       case TemplAstTag.LIST: {
-        const [_def, patterns] = <List[]>template
-        let values: Expr[] = []
+        const [_def, patterns] = <any[][]>template;
+        const result: any[] = [];
 
-        for (const ptn of <any[]>patterns) {
-          const output = this.genOutput(ptn, env);
-
+        patterns.forEach(ptn => {
           switch (ptn[0]) {
-            case TemplAstTag.DOTS:
-              if ((output as any)[0].length === 0)
-                break
-            case TemplAstTag.PAT:
-              values = values.concat((<any>output))
-              break
+            case TemplAstTag.LIST:
+              const rv: any = this.genOutput(ptn, env);
+              if (rv.length > 0) result.push(rv);
+              return
+            case TemplAstTag.DOTS: {
+              const items: any = this.genOutput(ptn, env);
+              if (items[0].length > 0) result.push(...items)
+              return
+            }
             // literal-id
             case TemplAstTag.LIT:
-            // regular-id
-            case TemplAstTag.REG:
             // datum
             case TemplAstTag.DAT:
-            default: {
-              values.push(output)
-              break
+              result.push(ptn[1])
+              return
+            // regular-id
+            case TemplAstTag.REG:
+            // pattern-id
+            case TemplAstTag.PAT: {
+              const id = ptn[1]
+              result.push((<any>env.getFrom(id))[0]);
+              return
             }
           }
-        }
-        return values
+          throw new Error('ARRG')
+        })
+
+        return result
       }
+
       case TemplAstTag.DOTS: {
-        const [___, pat] = <any>template
-        let items = this.genOutput(pat, env);
-        if (pat[0] === TemplAstTag.LIST) {
-          return items
+        const [_def, ptn] = <any[][]>template;
+        const result: any[] = [];
+
+        switch (ptn[0]) {
+          case TemplAstTag.LIST: {
+            const items = ptn[1].map((o: any) => this.genOutput(o, env));
+            result.push(...zip(...<any[]>items))
+            break
+          }
+          // literal-id
+          case TemplAstTag.LIT:
+          // datum
+          case TemplAstTag.DAT:
+            result.push(ptn[1])
+            break
+          // regular-id
+          case TemplAstTag.REG:
+          // pattern-id
+          case TemplAstTag.PAT: {
+            const id = ptn[1]
+            const rv = (<any>env.getFrom(id));
+            result.push(rv);
+            break
+          }
         }
-        return items
+
+        return result
       }
 
       // literal-id
@@ -344,14 +373,11 @@ export class SyntaxRulesDef extends BaseProcedure {
       // pattern-id
       case TemplAstTag.PAT: {
         const id = template[1]
-        return env.getFrom<List>(id);
-      }
-
-      default: {
-        assert(template[0] === undefined, `unexpected key: ${toStringSafe(template)}`)
-        throw new Error();
+        return env.getFrom(id)
       }
     }
+
+    throw new Error('NOERP')
   }
 }
 
@@ -364,4 +390,4 @@ const TemplAstTag = {
   LIST: Sym('tlist'),
 }
 
-const isBound = (identifier: Expr, env: Env) => env.hasFrom(identifier)
+const isBound = (identifier: Term, env: Env) => env.hasFrom(identifier)

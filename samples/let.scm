@@ -60,36 +60,36 @@
 ;       (* z x)))
 ; ) ; => 70
 
-; (define-syntax let
-;   (syntax-rules ()
-;     ((let ((name val) ...) body1 body2 ...)
-;       ((lambda (name ...) body1 body2 ...)
-;       val ...))))
-
-; (define-syntax let*
-;   (syntax-rules ()
-;     ((let* () body1 body2 ...)
-;       (let () body1 body2 ...))
-;     ((let* ((name1 val1) (name2 val2) ...)
-;         body1 body2 ...)
-;       (let ((name1 val1))
-;         (let* ((name2 val2) ...)
-;           body1 body2 ...)))))
-
-(define-syntax broke
+(define-syntax let
   (syntax-rules ()
-    ((broke ((name1 val1) ...) body1 body2 ...)
-      (broke ((name1 val1) ...) body1 body2 ...))))
+    ((let ((name val) ...) body1 body2 ...)
+      ((lambda (name ...) body1 body2 ...)
+      val ...))))
 
-(broke ((z (+ 3 5))) (* z z))
+(define-syntax let*
+  (syntax-rules ()
+    ((let* () body1 body2 ...)
+      (let () body1 body2 ...))
+    ((let* ((name1 val1) (name2 val2) ...)
+        body1 body2 ...)
+      (let ((name1 val1))
+        (let* ((name2 val2) ...)
+          body1 body2 ...)))))
+
+; (define id (x) x)
+
+; (define-syntax broke
+;   (syntax-rules ()
+;     ((broke ((name1 val1) ...) body1 body2 ...)
+;       (print ((name1 val1) ...) body1 body2 ...))))
+
+; (broke ((a 1) (b 2)) (* z z))
 
 ; (let ((x 2) (y 3))
 ;     (let* ((x 7)
 ;           (z (+ x y)))
 ;       (* z x)))
 
-; (let* (z (+ x y)) (* z x))
-
-; (let* ((x 7) (z (+ x y))) (* z x))
+(let* ((x 7) (z (+ x y))) (* z x))
 
 ; (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x)))

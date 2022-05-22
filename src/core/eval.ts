@@ -4,12 +4,12 @@ import { Env } from "./env";
 import { atom, car, cdr, eq, _do } from "./lisp";
 import { Proc } from "./proc";
 import { SymTable } from "./sym";
-import { Atom, Expr } from "./terms";
+import { Atom, Term } from "./terms";
 
 
-export const evaluate = (e: Expr, a: Env): Expr => {
+export const evaluate = (e: Term, a: Env): Term => {
   // console.log('evaluating:', Utils.toString(e))
-  if (Utils.isSym(e)) return a.get(Utils.toString(e)) as Expr;
+  if (Utils.isSym(e)) return a.get(Utils.toString(e)) as Term;
   else if (!Utils.isList(e)) {
     if (Utils.isString(e) || Utils.isNum(e)) return e;
     throw new Error(`unknown thingy: ${Utils.toString(e, true)}`);
@@ -27,7 +27,7 @@ export const evaluate = (e: Expr, a: Env): Expr => {
       }
       case SymTable.DEFUN: // console.log(`defining function: ${Utils.toString(e[1])}`);
       case SymTable.DEFINE: {
-        const [_def, variable, expr] = e as [Atom, symbol, Expr];
+        const [_def, variable, expr] = e as [Atom, symbol, Term];
         const name = Utils.toString(variable)
         const value = evaluate(expr, a);
         if (Utils.isProc(value)) {
@@ -37,15 +37,15 @@ export const evaluate = (e: Expr, a: Env): Expr => {
         return value;
       }
       case SymTable.BEGIN: {
-        const [_def, ...exprs] = e as [Atom, ...Expr[]];
+        const [_def, ...exprs] = e as [Atom, ...Term[]];
         return exprs.map(expr => evaluate(expr, a)).pop()!
       }
       case SymTable.DO: {
-        const [_def, ...exprs] = e as [Atom, ...Expr[]];
+        const [_def, ...exprs] = e as [Atom, ...Term[]];
         return _do(exprs, a);
       }
       case SymTable.IF: {
-        const [_if, cond, then_, else_] = e as [Atom, Expr, Expr, Expr?];
+        const [_if, cond, then_, else_] = e as [Atom, Term, Term, Term?];
         const c = evaluate(cond, a);
         if (!Utils.isF(c)) return evaluate(then_, a);
         return else_ ? evaluate(else_, a) : UNDEF;
@@ -73,7 +73,7 @@ export const evaluate = (e: Expr, a: Env): Expr => {
     }
   }
 };
-export const evalCond = (c: Expr, a: Env, mm: any): Expr => {
+export const evalCond = (c: Term, a: Env, mm: any): Term => {
   Utils.expect(c, Utils.isEmpty(c) === false, 'Fallthrough condition');
   const [[cond, then], ...rest] = c as any[];
   if (evaluate(cond, a) !== FALSE) {

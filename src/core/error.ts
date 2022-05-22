@@ -1,12 +1,12 @@
-import { Expr } from "./terms";
+import { Term } from "./terms";
 import * as Utils from "../utils";
 import { Position } from "../types";
 import { SyntaxRulesDef } from "./syntax";
 
 export class InvalidEnvArgumentsError extends Error {
   constructor(
-    public params: Expr,
-    public args: Expr
+    public params: Term,
+    public args: Term
   ) {
     super('Error: Invalid Env params');
   }
@@ -17,7 +17,7 @@ export class UndefinedVariableError extends Error {
   }
 }
 export class InvalidCallableExpression extends Error {
-  constructor(expr: Expr) {
+  constructor(expr: Term) {
     super(`Error: expression is not callable: ${Utils.toString(expr, true)}`);
   }
 }
@@ -45,7 +45,7 @@ export class MalformedStringError extends Error {
 export class MatchError extends Error {
   constructor(
     public def: SyntaxRulesDef,
-    public form: Expr,
+    public form: Term,
   ) {
     super(`no matches found for pattern: ${Utils.toStringSafe(form)}`)
   }
@@ -54,7 +54,7 @@ export class MatchError extends Error {
 export class InputError extends Error {
   constructor(
     public def: SyntaxRulesDef,
-    public form: Expr,
+    public form: Term,
   ) {
     super()
   }
