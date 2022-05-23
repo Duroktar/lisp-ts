@@ -1,5 +1,6 @@
-import * as Utils from "../utils";
-import { FALSE, UNDEF } from "./const";
+import assert from "assert";
+import { isEmpty, isF, isList, isNativeFn, isNum, isProc, isString, isSym, toString, toStringSafe } from "../utils";
+import { EMPTY, FALSE } from "./const";
 import { Env } from "./env";
 import { atom, car, cdr, eq, _do } from "./lisp";
 import { Proc } from "./proc";
@@ -8,13 +9,10 @@ import { Atom, Term } from "./terms";
 
 
 export const evaluate = (e: Term, a: Env): Term => {
-  // console.log('evaluating:', Utils.toString(e))
-  if (Utils.isSym(e)) return a.get(Utils.toString(e)) as Term;
-  else if (!Utils.isList(e)) {
-    if (Utils.isString(e) || Utils.isNum(e)) return e;
-    throw new Error(`unknown thingy: ${Utils.toString(e, true)}`);
-  } else {
-    switch (car(e)) {
+  while (true) {
+    if (isSym(e)) return a.getFrom(e);
+    else if (!isList(e)) return e ?? EMPTY;
+    else  switch (e[0]) {
       case SymTable.QUOTE: return e[1];
       case SymTable.ATOM: return atom(evaluate(e[1], a));
       case SymTable.EQ: return eq(evaluate(e[1], a),
@@ -25,56 +23,54 @@ export const evaluate = (e: Term, a: Env): Term => {
       case SymTable.LAMBDA: {
         return new Proc(e[1], e[2], a) as any;
       }
-      case SymTable.DEFUN: // console.log(`defining function: ${Utils.toString(e[1])}`);
+      case SymTable.DEFUN:
       case SymTable.DEFINE: {
         const [_def, variable, expr] = e as [Atom, symbol, Term];
-        const name = Utils.toString(variable)
+        const name = toString(variable)
         const value = evaluate(expr, a);
-        if (Utils.isProc(value)) {
-          value.name = name;
-        }
+        if (isProc(value)) { value.name = name; }
         a.set(name, value);
         return value;
-      }
-      case SymTable.BEGIN: {
-        const [_def, ...exprs] = e as [Atom, ...Term[]];
-        return exprs.map(expr => evaluate(expr, a)).pop()!
       }
       case SymTable.DO: {
         const [_def, ...exprs] = e as [Atom, ...Term[]];
         return _do(exprs, a);
       }
+      case SymTable.BEGIN: {
+        const [_def, ...exprs] = e as [Atom, ...Term[]];
+        exprs.slice(0, -1).forEach(expr => evaluate(expr, a));
+        e = exprs.pop()!
+        break
+      }
       case SymTable.IF: {
-        const [_if, cond, then_, else_] = e as [Atom, Term, Term, Term?];
-        const c = evaluate(cond, a);
-        if (!Utils.isF(c)) return evaluate(then_, a);
-        return else_ ? evaluate(else_, a) : UNDEF;
+        const [_if, cond, then_, else_] = e as [Atom, Term, Term, Term];
+        e = (isF(evaluate(cond, a))) ? else_ : then_;
+        break
       }
       case SymTable.SET: {
-        const [_set, variable, value] = e;
-        Utils.expect(e, Utils.isSym(variable), 'First arg to set! must be a symbol');
-        const r = evaluate(value, a);
-        const name = Utils.toString(variable);
-        Utils.expect(e, a.has(name), 'Variable must be bound');
-        a.sourceEnv(name)!.set(name, r);
+        const [_set, variable, value] = e as [Atom, Atom, Term];
+        assert(a.hasFrom(variable), 'Variable must be bound');
+        const name = toString(variable);
+        a.find(name)!.set(name, evaluate(value, a));
         return [];
       }
       default: {
         const [proc, ...args] = e.map(expr => evaluate(expr, a));
-        if (Utils.isCallable(proc)) {
-          const r = proc.call(args, a);
-          // const c = Utils.toString(car(e));
-          // console.log(`Evaluating procedure: ${proc.name} ${proc.name === c ? '' : c}`)
-          return r;
+        if (isProc(proc)) {
+          e = proc.expr
+          a = new Env(proc.params, args, proc.env)
+          break
         }
-        // console.log('evaluating list')
-        return args;
+        if (!isNativeFn(proc)) console.log('here', e)
+        return proc ? (<any>proc).call(args, a) : [];
+        // return (isNativeFn(proc)) ? proc.call(args, a) : args;
       }
     }
   }
 };
+
 export const evalCond = (c: Term, a: Env, mm: any): Term => {
-  Utils.expect(c, Utils.isEmpty(c) === false, 'Fallthrough condition');
+  assert(isEmpty(c) === false, 'Fallthrough condition');
   const [[cond, then], ...rest] = c as any[];
   if (evaluate(cond, a) !== FALSE) {
     return evaluate([SymTable.BEGIN, ...then], a);

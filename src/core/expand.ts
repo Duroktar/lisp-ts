@@ -1,5 +1,6 @@
 import assert from "assert";
 import * as Utils from "../utils";
+import { UNDEF } from "./const";
 import { Env } from "./env";
 import { macroTable } from "./macro";
 import { Sym, SymTable } from "./sym";
@@ -14,6 +15,11 @@ export const expand = (expr: Term, topLevel = false, env: Env): Term => {
     Utils.expect(e, e.length === 2);
     return e;
   }
+  else if (SymTable.IF === e[0]) {
+    if (e.length === 3) e.push(UNDEF)
+    assert(e.length === 4, `Invalid if form: ${Utils.toStringSafe(e)}`)
+    return e.map(e => expand(e, false, env));
+  }
   else if (SymTable.COND === e[0]) {
     const [_def, ...exprs] = e;
     if (exprs.length > 1) {
@@ -27,6 +33,11 @@ export const expand = (expr: Term, topLevel = false, env: Env): Term => {
       return [_def, preds];
     }
     return [_def, ...exprs];
+  }
+  else if (SymTable.SET === e[0]) {
+    const [_set, variable, value] = e;
+    assert(Utils.isSym(variable), 'First arg to set! must be a symbol');
+    return [_set, variable, value];
   }
   else if (SymTable.BEGIN === e[0]) {
     const [_begin, ...exprs] = e;

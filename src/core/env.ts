@@ -62,13 +62,13 @@ export class Env {
     merger.push(value as Term)
   }
   update(name: string, value: Term | Proc | BaseProcedure): void {
-    let env = this.sourceEnv(name)
+    let env = this.find(name)
     if (env) { env.set(name, value) }
   }
   updateFrom(expr: Term, value: Term | Proc | BaseProcedure): void {
     return this.update(Utils.toString(expr), value)
   }
-  sourceEnv(name: string): Env | undefined {
+  find(name: string): Env | undefined {
     let env = this as Env
     while (env.inner[name] === undefined && env.outer) {
       env = env.outer

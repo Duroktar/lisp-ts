@@ -139,7 +139,7 @@
             (assv x (cdr lst))))
       #f))
 
-; (define assq (x lst) (assv x lst))
+(define assq (x lst) (assv x lst))
 
 (define assoc (x lst)
   (if (pair? lst)

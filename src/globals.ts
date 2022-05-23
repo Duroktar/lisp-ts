@@ -17,6 +17,7 @@ export const env = new Env();
 
 env.set('#t', TRUE);
 env.set('#f', FALSE);
+env.set('#<undef>', UNDEF);
 
 env.set('else', TRUE);
 env.set('otherwise', TRUE);
