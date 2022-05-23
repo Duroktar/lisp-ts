@@ -1,5 +1,6 @@
 /* References: An Optimized R5RS Macro Expander - Jay McCarthy */
 import assert from "assert";
+import { diffChars } from "diff";
 import { isIdent, isList, isAtom, isString, isNum, isSym, isEmpty } from "../utils";
 import { expect, eqC, toString, toStringSafe, first } from "../utils";
 import { Env } from "./env";
@@ -19,9 +20,18 @@ class Den /* Denotation */ {
   toAtom = () => {
     return Sym(this.toString())
   }
-  static from(str: string): Den {
-    const [val, gen] = str.split('.')
-    return new Den(val, Number(gen))
+  static isDenotation(val: Term): boolean {
+    if (!isSym(val))
+      return false
+
+    const repr = toString(val);
+
+    if (!repr.includes('.'))
+      return false
+
+    const [_name, gen, ...rest] = repr.split('.')
+
+    return isEmpty(rest) && typeof parseInt(gen, 10) === 'number'
   }
 }
 
@@ -34,6 +44,10 @@ class IdentifierTypes {
   isLitId = (identifier: Term) => this.literalIds.has(toString(identifier))
   isPatId = (identifier: Term) => this.patternIds.has(toString(identifier))
   isTplId = (identifier: Term) => this.templateIds.has(toString(identifier))
+
+  isDenotation(template: Atom) {
+    throw new Error("Method not implemented.");
+  }
 }
 
 export class SyntaxRulesDef extends BaseProcedure {
@@ -80,7 +94,7 @@ export class SyntaxRulesDef extends BaseProcedure {
   public _call(form: Term, env: Env): Term {
     const gen = SyntaxRulesDef.gen++
 
-    console.log(`Expanding Syntax (${gen}):`.blue.bold, `${toStringSafe(form)}`);
+    // console.log(`Expanding Syntax (${gen}):`.blue.bold, `${toStringSafe(form)}`);
 
     // 1. Match the input syntax against each pattern sequentially until one of
     //    the patterns matches the input syntax. If none match, give up and
@@ -92,14 +106,16 @@ export class SyntaxRulesDef extends BaseProcedure {
     // 2. Create fresh bindings for each template identifier in the corresponding
     //    template that does not refer to a pattern identifier.
 
-    console.log(`Matched Pattern (${gen}):`.green, toString(_pattern));
-    console.log(`Matched Template (${gen}):`.green, toString(template));
+    // console.log(`Matched Pattern (${gen}):`.green, toString(_pattern))
+    // console.log(`Matched Template (${gen}):`.green, toString(template))
 
-    const parsedTemplate = this.generateOutput(template, identifiers, patternEnv, gen);
-    console.log(`Generated Output (${gen}):`.blue, toString(parsedTemplate));
-    // console.log(`Template Identifiers:`.cyan, identifiers.templateIds);
-    // console.log(`Pattern Identifiers:`.cyan, identifiers.patternIds);
-    // console.log(`Literal Identifiers:`.green, identifiers.literalIds);
+    const parsedTemplate = this.rewriteTemplate(template, identifiers, patternEnv, gen)
+
+    // console.log(`Rewritten Template (${gen}):`.cyan, toString(parsedTemplate))
+
+    // console.log(`Template Identifiers:`.cyan, identifiers.templateIds)
+    // console.log(`Pattern Identifiers:`.cyan, identifiers.patternIds)
+    // console.log(`Literal Identifiers:`.green, identifiers.literalIds)
 
     // 3. Create a new environment that merges the pattern environment returned
     //   from the pattern match with the regular identifier environment created
@@ -108,17 +124,17 @@ export class SyntaxRulesDef extends BaseProcedure {
 
     // 4. Use the template and environment from step 3 to generate the output
     //    syntax.
-    // const bound = this.genOutput(template, mergedEnv);
+    const bound = this.generateOutput(parsedTemplate, identifiers, mergedEnv)
 
     // 5. Create an output environment that extends the input syntax environment
     //    with the new fresh identifier bindings created in step 2.
     // 6. Return the output syntax from step 4 with the environment from step 5.
     this.env = env.merge(mergedEnv);
 
-    // console.log(`Expanded Syntax (${gen}):`.blue, toStringSafe(bound))
+    // console.log(`Expanded Syntax (${gen}):`.red, toStringSafe(bound))
 
-    return parsedTemplate
-    // return bound
+    // return parsedTemplate
+    return bound
   }
   // simple wrapper around match
   getMatch(form: Term, gen: number): [List[], Env] {
@@ -255,23 +271,22 @@ export class SyntaxRulesDef extends BaseProcedure {
 
     return new IdentifierTypes(templateIds, patternIds, literalIds);
   }
-  generateOutput(template: Term, ids: IdentifierTypes, env: Env, gen: number): Term {
+  rewriteTemplate(template: Term, ids: IdentifierTypes, env: Env, gen: number): Term {
     if (isList(template)) {
       const items = []
 
       for (let idx = 0; idx < template.length; idx++) {
         const item = template[idx]
         const isSpread = template[idx+1] === Sym('...')
-
-        const name = toString(item);
+        const isListSpread = isSpread && isList(item)
 
         if (isSpread) {
-          const parsed = this.generateOutput(item, ids, env, gen)
-          if (isString(first(parsed))) {
-            debugger
-          }
+          const parsed = this.rewriteTemplate(item, ids, env, gen)
           if (!isEmpty(first(parsed))) {
-            items.push(...<List>parsed)
+            if (isListSpread)
+              items.push(parsed)
+            else
+              items.push(...<List>parsed)
           }
           idx++
         }
@@ -279,17 +294,19 @@ export class SyntaxRulesDef extends BaseProcedure {
           items.push(item)
 
         else if (ids.isPatId(item))
-          items.push(env.getFrom(item))
+          items.push(...env.getFrom<List>(item))
 
         else if (ids.isLitId(item))
           items.push(env.getFrom(item))
 
         else {
-          const denotation = new Den(name, gen).toAtom()
+          const parsed = this.rewriteTemplate(item, ids, env, gen)
 
-          env.mergeFrom(denotation, item)
+          if (!isList(parsed)) {
+            const name = toString(item)
+            env.mergeFrom(new Den(name, gen).toAtom(), item)
+          }
 
-          const parsed = this.generateOutput(item, ids, env, gen)
           items.push(parsed)
         }
       }
@@ -299,8 +316,7 @@ export class SyntaxRulesDef extends BaseProcedure {
 
     const name = toString(template);
 
-    if (isString(template) ||
-        isNum(template))
+    if (isString(template) || isNum(template))
       return env.getFrom(template)
 
     if (ids.isPatId(template))
@@ -316,6 +332,35 @@ export class SyntaxRulesDef extends BaseProcedure {
 
     return denotation
   }
+  generateOutput(template: Term, ids: IdentifierTypes, env: Env): Term {
+    if (isList(template)) {
+      return template.map(t => this.generateOutput(t, ids, env))
+    }
+    else {
+      if (Den.isDenotation(template)) {
+        const value = first(<List>env.getFrom(template));
+        assert(value, `Couldn't find denotation: "${toStringSafe(template)}" in env`)
+        return value
+      }
+      return template
+    }
+  }
 }
 
 const isBound = (identifier: Term, env: Env) => env.hasFrom(identifier)
+
+function printDiff(a: string, b: string) {
+  const diff = diffChars(a, b);
+
+  console.log()
+
+  diff.forEach((part) => {
+    // green for additions, red for deletions
+    // grey for common parts
+    const color = part.added ? 'green' :
+      part.removed ? 'red' : 'grey';
+    process.stderr.write(part.value[color]);
+  });
+
+  console.log()
+}

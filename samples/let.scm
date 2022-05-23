@@ -76,6 +76,20 @@
         (let* ((name2 val2) ...)
           body1 body2 ...)))))
 
+(let* ((x 7) (z (+ x y))) (* z x))
+
+
+; (let ((a 1) (b 2))
+;   (display "adding two numbers\\n")
+;   (+ a b))
+
+; EXPECTED
+;; ((lambda.1 (a b) (display "adding two numbers\n") (+ a b)) 1 2)
+
+;;ACTUAL
+;; ((lambda.1 (a b) ((display "adding two numbers\\n")) (+ a b)) 1 2)
+
+
 ; (define id (x) x)
 
 ; (define-syntax broke
@@ -90,6 +104,6 @@
 ;           (z (+ x y)))
 ;       (* z x)))
 
-(let* ((x 7) (z (+ x y))) (* z x))
+; (let* ((x 7) (z (+ x y))) (* z x))
 
 ; (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x)))

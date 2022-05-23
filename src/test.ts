@@ -1,3 +1,4 @@
+import "colors"
 import { env } from "./globals";
 import { execute } from "./core/lisp";
 
