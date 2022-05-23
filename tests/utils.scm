@@ -27,7 +27,7 @@
         (incr-total)
         (if (equal? *expected* (cadr *result*))
           (begin
-            (if *verbose-test* (prints *test-id* "Passed..."))
+            (if *verbose-test* (prints "Passed..."))
             (incr-passed))
           (begin
             (incr-failed)

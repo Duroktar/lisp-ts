@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "dist/lisp.js",
   "license": "MIT",
+  "bin": {
+    "tscheme": "scripts/repl.sh"
+  },
   "scripts": {
     "build:watch": "ttsc --watch src/start.ts",
     "build": "ttsc src/start.ts",
