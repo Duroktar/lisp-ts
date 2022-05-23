@@ -19,7 +19,6 @@ export const evaluate = (e: Term, a: Env): Term => {
                                   evaluate(e[2], a));
       case SymTable.CAR: return car(evaluate(e[1], a));
       case SymTable.CDR: return cdr(evaluate(e[1], a));
-      case SymTable.COND: return evalCond(e[1], a, e);
       case SymTable.LAMBDA: {
         return new Proc(e[1], e[2], a) as any;
       }
@@ -61,19 +60,9 @@ export const evaluate = (e: Term, a: Env): Term => {
           a = new Env(proc.params, args, proc.env)
           break
         }
-        if (!isNativeFn(proc)) console.log('here', e)
         return proc ? (<any>proc).call(args, a) : [];
         // return (isNativeFn(proc)) ? proc.call(args, a) : args;
       }
     }
   }
-};
-
-export const evalCond = (c: Term, a: Env, mm: any): Term => {
-  assert(isEmpty(c) === false, 'Fallthrough condition');
-  const [[cond, then], ...rest] = c as any[];
-  if (evaluate(cond, a) !== FALSE) {
-    return evaluate([SymTable.BEGIN, ...then], a);
-  }
-  return evalCond(rest, a, mm);
 };

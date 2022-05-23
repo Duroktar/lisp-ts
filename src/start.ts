@@ -11,8 +11,9 @@ import * as Lisp from "./core/lisp";
 // Lisp.execute('(load "samples/fac.scm")', env)
 // Lisp.execute('(load "samples/do.scm")', env)
 // Lisp.execute('(load "samples/hygiene.scm")', env)
-Lisp.execute('(load "samples/let.scm")', env)
+// Lisp.execute('(load "samples/let.scm")', env)
 // Lisp.execute('(load "samples/assoc.scm")', env)
+Lisp.execute('(load "samples/cond.scm")', env)
 
 // Lisp.execute(`(test 'yes (if (> 3 2) 'yes 'no))`, env)
 // Lisp.execute(`(cons "a" '(b c))`, env)

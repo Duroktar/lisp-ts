@@ -20,20 +20,20 @@ export const expand = (expr: Term, topLevel = false, env: Env): Term => {
     assert(e.length === 4, `Invalid if form: ${Utils.toStringSafe(e)}`)
     return e.map(e => expand(e, false, env));
   }
-  else if (SymTable.COND === e[0]) {
-    const [_def, ...exprs] = e;
-    if (exprs.length > 1) {
-      const preds = exprs.map(pair => {
-        const [head, ...tail] = pair as any[];
-        const res = tail.map(x => expand(x, false, env));
-        // console.log([head, res])
-        return [head, res];
-      });
-      Utils.expect(preds, Utils.isList(preds) && preds.every(x => x.length === 2 && x.every(e => Utils.isNone(e) === false)), `found invalid cond entry where (length != 2): (${(Utils.isList(preds) ? preds.find(x => x.length !== 2) : preds)})`);
-      return [_def, preds];
-    }
-    return [_def, ...exprs];
-  }
+  // else if (SymTable.COND === e[0]) {
+  //   const [_def, ...exprs] = e;
+  //   if (exprs.length > 1) {
+  //     const preds = exprs.map(pair => {
+  //       const [head, ...tail] = pair as any[];
+  //       const res = tail.map(x => expand(x, false, env));
+  //       // console.log([head, res])
+  //       return [head, res];
+  //     });
+  //     Utils.expect(preds, Utils.isList(preds) && preds.every(x => x.length === 2 && x.every(e => Utils.isNone(e) === false)), `found invalid cond entry where (length != 2): (${(Utils.isList(preds) ? preds.find(x => x.length !== 2) : preds)})`);
+  //     return [_def, preds];
+  //   }
+  //   return [_def, ...exprs];
+  // }
   else if (SymTable.SET === e[0]) {
     const [_set, variable, value] = e;
     assert(Utils.isSym(variable), 'First arg to set! must be a symbol');
