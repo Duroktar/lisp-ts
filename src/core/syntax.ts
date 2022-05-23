@@ -1,7 +1,7 @@
 /* References: An Optimized R5RS Macro Expander - Jay McCarthy */
 import assert from "assert";
-import { isIdent, isList, isAtom, isString, isNum, isSym, zip } from "../utils";
-import { expect, eqC, toString, toStringSafe } from "../utils";
+import { isIdent, isList, isAtom, isString, isNum, isSym, isEmpty } from "../utils";
+import { expect, eqC, toString, toStringSafe, first } from "../utils";
 import { Env } from "./env";
 import { InputError, MatchError } from "./error";
 import { BaseProcedure } from "./proc";
@@ -91,14 +91,15 @@ export class SyntaxRulesDef extends BaseProcedure {
 
     // 2. Create fresh bindings for each template identifier in the corresponding
     //    template that does not refer to a pattern identifier.
-    const parsedTemplate = this.parseTemplate(template, identifiers, patternEnv, gen);
 
-    console.log('Matched Pattern:'.green, toString(_pattern));
-    console.log('Matched Template:'.green, toString(template));
-    console.log('Parsed Template:'.green, toString(parsedTemplate));
-    // console.log('Template Identifiers:'.cyan, identifiers.templateIds);
-    // console.log('Pattern Identifiers:'.cyan, identifiers.patternIds);
-    // console.log('Literal Identifiers:'.green, identifiers.literalIds);
+    console.log(`Matched Pattern (${gen}):`.green, toString(_pattern));
+    console.log(`Matched Template (${gen}):`.green, toString(template));
+
+    const parsedTemplate = this.generateOutput(template, identifiers, patternEnv, gen);
+    console.log(`Generated Output (${gen}):`.blue, toString(parsedTemplate));
+    // console.log(`Template Identifiers:`.cyan, identifiers.templateIds);
+    // console.log(`Pattern Identifiers:`.cyan, identifiers.patternIds);
+    // console.log(`Literal Identifiers:`.green, identifiers.literalIds);
 
     // 3. Create a new environment that merges the pattern environment returned
     //   from the pattern match with the regular identifier environment created
@@ -107,16 +108,17 @@ export class SyntaxRulesDef extends BaseProcedure {
 
     // 4. Use the template and environment from step 3 to generate the output
     //    syntax.
-    const bound = this.genOutput(parsedTemplate, mergedEnv);
+    // const bound = this.genOutput(template, mergedEnv);
 
     // 5. Create an output environment that extends the input syntax environment
     //    with the new fresh identifier bindings created in step 2.
     // 6. Return the output syntax from step 4 with the environment from step 5.
     this.env = env.merge(mergedEnv);
 
-    console.log(`Expanded Syntax (${gen}):`.blue, toStringSafe(bound))
+    // console.log(`Expanded Syntax (${gen}):`.blue, toStringSafe(bound))
 
-    return bound
+    return parsedTemplate
+    // return bound
   }
   // simple wrapper around match
   getMatch(form: Term, gen: number): [List[], Env] {
@@ -253,141 +255,67 @@ export class SyntaxRulesDef extends BaseProcedure {
 
     return new IdentifierTypes(templateIds, patternIds, literalIds);
   }
-  parseTemplate(template: Term, ids: IdentifierTypes, env: Env, gen: number): List {
+  generateOutput(template: Term, ids: IdentifierTypes, env: Env, gen: number): Term {
     if (isList(template)) {
       const items = []
 
       for (let idx = 0; idx < template.length; idx++) {
         const item = template[idx]
+        const isSpread = template[idx+1] === Sym('...')
 
-        const parsed = this.parseTemplate(item, ids, env, gen);
-        if (template[idx+1] === Sym('...')) {
-          items.push([TemplAstTag.DOTS, parsed, 1])
+        const name = toString(item);
+
+        if (isSpread) {
+          const parsed = this.generateOutput(item, ids, env, gen)
+          if (isString(first(parsed))) {
+            debugger
+          }
+          if (!isEmpty(first(parsed))) {
+            items.push(...<List>parsed)
+          }
           idx++
-          continue
         }
+        else if (isString(item) || isNum(item))
+          items.push(item)
 
-        items.push(parsed)
+        else if (ids.isPatId(item))
+          items.push(env.getFrom(item))
+
+        else if (ids.isLitId(item))
+          items.push(env.getFrom(item))
+
+        else {
+          const denotation = new Den(name, gen).toAtom()
+
+          env.mergeFrom(denotation, item)
+
+          const parsed = this.generateOutput(item, ids, env, gen)
+          items.push(parsed)
+        }
       }
 
-      return [TemplAstTag.LIST, items]
+      return items
     }
 
     const name = toString(template);
 
-    const { DAT, LIT, PAT, REG } = TemplAstTag
-
     if (isString(template) ||
         isNum(template))
-      return [DAT, template]
+      return env.getFrom(template)
 
     if (ids.isPatId(template))
-      return [PAT, template]
+      return env.getFrom(template)
 
     if (ids.isLitId(template))
-      return [LIT, template]
+      return env.getFrom(template)
 
     const denotation =
       new Den(name, gen).toAtom();
 
     env.mergeFrom(denotation, template);
 
-    return [REG, denotation]
+    return denotation
   }
-  genOutput(template: Term, env: Env): Term {
-    assert(Array.isArray(template), '`genOutput` expected an arrray')
-    switch (template[0]) {
-      case TemplAstTag.LIST: {
-        const [_def, patterns] = <any[][]>template;
-        const result: any[] = [];
-
-        patterns.forEach(ptn => {
-          switch (ptn[0]) {
-            case TemplAstTag.LIST:
-              const rv: any = this.genOutput(ptn, env);
-              if (rv.length > 0) result.push(rv);
-              return
-            case TemplAstTag.DOTS: {
-              const items: any = this.genOutput(ptn, env);
-              if (items[0].length > 0) result.push(...items)
-              return
-            }
-            // literal-id
-            case TemplAstTag.LIT:
-            // datum
-            case TemplAstTag.DAT:
-              result.push(ptn[1])
-              return
-            // regular-id
-            case TemplAstTag.REG:
-            // pattern-id
-            case TemplAstTag.PAT: {
-              const id = ptn[1]
-              result.push((<any>env.getFrom(id))[0]);
-              return
-            }
-          }
-          throw new Error('ARRG')
-        })
-
-        return result
-      }
-
-      case TemplAstTag.DOTS: {
-        const [_def, ptn] = <any[][]>template;
-        const result: any[] = [];
-
-        switch (ptn[0]) {
-          case TemplAstTag.LIST: {
-            const items = ptn[1].map((o: any) => this.genOutput(o, env));
-            result.push(...zip(...<any[]>items))
-            break
-          }
-          // literal-id
-          case TemplAstTag.LIT:
-          // datum
-          case TemplAstTag.DAT:
-            result.push(ptn[1])
-            break
-          // regular-id
-          case TemplAstTag.REG:
-          // pattern-id
-          case TemplAstTag.PAT: {
-            const id = ptn[1]
-            const rv = (<any>env.getFrom(id));
-            result.push(rv);
-            break
-          }
-        }
-
-        return result
-      }
-
-      // literal-id
-      case TemplAstTag.LIT:
-      // datum
-      case TemplAstTag.DAT:
-        return template[1]
-      // regular-id
-      case TemplAstTag.REG:
-      // pattern-id
-      case TemplAstTag.PAT: {
-        const id = template[1]
-        return env.getFrom(id)
-      }
-    }
-
-    throw new Error('NOERP')
-  }
-}
-
-const TemplAstTag = {
-  REG: Sym('regular-id'),
-  PAT: Sym('pattern-id'),
-  LIT: Sym('literal-id'),
-  DAT: Sym('datum'),
-  DOTS: Sym('ellipsis-template'),
-  LIST: Sym('tlist'),
 }
 
 const isBound = (identifier: Term, env: Env) => env.hasFrom(identifier)

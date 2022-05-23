@@ -161,3 +161,5 @@ export const mkLambda = (params: string[] | string, body: Term): Term => {
 export const eqC = (a: any) => (b: any) => a === b;
 
 export const searchIdx = (...keys: string[]) => keys.reduce((acc, key) => ({...acc, [key]: 1}), {})
+
+export const first = (a: any) => isList(a) ? a[0] : undefined;
