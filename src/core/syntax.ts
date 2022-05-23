@@ -91,10 +91,12 @@ export class SyntaxRulesDef extends BaseProcedure {
 
   static gen = 1
 
+  private debug = false
+
   public _call(form: Term, env: Env): Term {
     const gen = SyntaxRulesDef.gen++
 
-    // console.log(`Expanding Syntax (${gen}):`.blue.bold, `${toStringSafe(form)}`);
+    this.print(`Expanding Syntax (${gen}):`.blue.bold, `${toStringSafe(form)}`);
 
     // 1. Match the input syntax against each pattern sequentially until one of
     //    the patterns matches the input syntax. If none match, give up and
@@ -106,32 +108,30 @@ export class SyntaxRulesDef extends BaseProcedure {
     // 2. Create fresh bindings for each template identifier in the corresponding
     //    template that does not refer to a pattern identifier.
 
-    // console.log(`Matched Pattern (${gen}):`.green, toString(_pattern))
-    // console.log(`Matched Template (${gen}):`.green, toString(template))
+    this.print(`Matched Pattern (${gen}):`.green, toString(_pattern))
+    this.print(`Matched Template (${gen}):`.green, toString(template))
 
     const parsedTemplate = this.rewriteTemplate(template, identifiers, patternEnv, gen)
 
-    // console.log(`Rewritten Template (${gen}):`.cyan, toString(parsedTemplate))
+    this.print(`Rewritten Template (${gen}):`.cyan, toString(parsedTemplate))
 
-    // console.log(`Template Identifiers:`.cyan, identifiers.templateIds)
-    // console.log(`Pattern Identifiers:`.cyan, identifiers.patternIds)
-    // console.log(`Literal Identifiers:`.green, identifiers.literalIds)
+    // this.print(`Template Identifiers:`.cyan, identifiers.templateIds)
+    // this.print(`Pattern Identifiers:`.cyan, identifiers.patternIds)
+    // this.print(`Literal Identifiers:`.green, identifiers.literalIds)
 
     // 3. Create a new environment that merges the pattern environment returned
     //   from the pattern match with the regular identifier environment created
     //   in step 2.
-    const mergedEnv = new Env([], [], patternEnv);
+    const mergedEnv = env.merge(patternEnv)
 
     // 4. Use the template and environment from step 3 to generate the output
     //    syntax.
-    const bound = this.generateOutput(parsedTemplate, identifiers, mergedEnv)
-
     // 5. Create an output environment that extends the input syntax environment
     //    with the new fresh identifier bindings created in step 2.
     // 6. Return the output syntax from step 4 with the environment from step 5.
-    this.env = env.merge(mergedEnv);
+    const bound = this.generateOutput(parsedTemplate, identifiers, mergedEnv)
 
-    // console.log(`Expanded Syntax (${gen}):`.red, toStringSafe(bound))
+    this.print(`Expanded Syntax (${gen}):`.red, toStringSafe(bound))
 
     // return parsedTemplate
     return bound
@@ -272,65 +272,74 @@ export class SyntaxRulesDef extends BaseProcedure {
     return new IdentifierTypes(templateIds, patternIds, literalIds);
   }
   rewriteTemplate(template: Term, ids: IdentifierTypes, env: Env, gen: number): Term {
-    if (isList(template)) {
-      const items = []
+    const _rewriteTemplate = (template: Term, ids: IdentifierTypes, env: Env, gen: number): Term => {
+      if (isList(template)) {
+        const items = []
 
-      for (let idx = 0; idx < template.length; idx++) {
-        const item = template[idx]
-        const isSpread = template[idx+1] === Sym('...')
-        const isListSpread = isSpread && isList(item)
+        for (let idx = 0; idx < template.length; idx++) {
+          const item = template[idx]
+          const isSpread = template[idx+1] === Sym('...')
+          const isListSpread = isSpread && isList(item)
 
-        if (isSpread) {
-          const parsed = this.rewriteTemplate(item, ids, env, gen)
-          if (!isEmpty(first(parsed))) {
-            if (isListSpread)
-              items.push(parsed)
-            else
-              items.push(...<List>parsed)
+          if (isSpread) {
+            const parsed = _rewriteTemplate(item, ids, env, gen)
+            if (!isEmpty(first(parsed))) {
+              if (isListSpread)
+                items.push(parsed)
+              else
+                items.push(...<List>parsed)
+            }
+            idx++
           }
-          idx++
-        }
-        else if (isString(item) || isNum(item))
-          items.push(item)
+          else if (isString(item) || isNum(item))
+            items.push(item)
 
-        else if (ids.isPatId(item))
-          items.push(...env.getFrom<List>(item))
+          else if (ids.isPatId(item))
+            items.push(...env.getFrom<List>(item))
 
-        else if (ids.isLitId(item))
-          items.push(env.getFrom(item))
+          else if (ids.isLitId(item))
+            items.push(env.getFrom(item))
 
-        else {
-          const parsed = this.rewriteTemplate(item, ids, env, gen)
+          else {
+            const parsed = _rewriteTemplate(item, ids, env, gen)
 
-          if (!isList(parsed)) {
-            const name = toString(item)
-            env.mergeFrom(new Den(name, gen).toAtom(), item)
+            if (!isList(parsed)) {
+              const name = toString(item)
+              env.mergeFrom(new Den(name, gen).toAtom(), item)
+            }
+
+            items.push(parsed)
           }
-
-          items.push(parsed)
         }
+
+        return items
       }
 
-      return items
+      const name = toString(template);
+
+      if (isString(template) || isNum(template))
+        return env.getFrom(template)
+
+      if (ids.isPatId(template))
+        return env.getFrom(template)
+
+      if (ids.isLitId(template))
+        return env.getFrom(template)
+
+      const denotation =
+        new Den(name, gen).toAtom();
+
+      env.mergeFrom(denotation, template);
+
+      return denotation
     }
+    if (isList(template))
+      return _rewriteTemplate(template, ids, env, gen)
 
-    const name = toString(template);
-
-    if (isString(template) || isNum(template))
-      return env.getFrom(template)
-
-    if (ids.isPatId(template))
-      return env.getFrom(template)
-
-    if (ids.isLitId(template))
-      return env.getFrom(template)
-
-    const denotation =
-      new Den(name, gen).toAtom();
-
-    env.mergeFrom(denotation, template);
-
-    return denotation
+    const rewritten = _rewriteTemplate(template, ids, env, gen)
+    const result = first([].concat(<any>rewritten))
+    assert(result, `Error rewritting template: ${toStringSafe(template)}`)
+    return result
   }
   generateOutput(template: Term, ids: IdentifierTypes, env: Env): Term {
     if (isList(template)) {
@@ -344,6 +353,11 @@ export class SyntaxRulesDef extends BaseProcedure {
       }
       return template
     }
+  }
+
+  private print(...args: any[]) {
+    if (this.debug)
+      console.log(...args)
   }
 }
 

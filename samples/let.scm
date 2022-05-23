@@ -1,5 +1,5 @@
 ; macro definition
-; (load "./fac.scm")
+; (load 'stdlib/r5rs)
 
 ; (define-syntax let
 ;   (syntax-rules ()
@@ -60,23 +60,23 @@
 ;       (* z x)))
 ; ) ; => 70
 
-(define-syntax let
-  (syntax-rules ()
-    ((let ((name val) ...) body1 body2 ...)
-      ((lambda (name ...) body1 body2 ...)
-      val ...))))
+; (define-syntax let
+;   (syntax-rules ()
+;     ((let ((name val) ...) body1 body2 ...)
+;       ((lambda (name ...) body1 body2 ...)
+;       val ...))))
 
-(define-syntax let*
-  (syntax-rules ()
-    ((let* () body1 body2 ...)
-      (let () body1 body2 ...))
-    ((let* ((name1 val1) (name2 val2) ...)
-        body1 body2 ...)
-      (let ((name1 val1))
-        (let* ((name2 val2) ...)
-          body1 body2 ...)))))
+; (define-syntax let*
+;   (syntax-rules ()
+;     ((let* () body1 body2 ...)
+;       (let () body1 body2 ...))
+;     ((let* ((name1 val1) (name2 val2) ...)
+;         body1 body2 ...)
+;       (let ((name1 val1))
+;         (let* ((name2 val2) ...)
+;           body1 body2 ...)))))
 
-(let* ((x 7) (z (+ x y))) (* z x))
+; (let* ((x 7) (z (+ x y))) (* z x))
 
 
 ; (let ((a 1) (b 2))
@@ -107,3 +107,16 @@
 ; (let* ((x 7) (z (+ x y))) (* z x))
 
 ; (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x)))
+
+
+; (and (= 2 2) (> 2 1))
+
+(define-syntax and
+  (syntax-rules ()
+    ([and] #t)
+    ([and test] test)
+    ([and test1 test2 ...]
+      (if test1 [and test2 ...] #f))))
+
+; (and (> 2 1))
+(and)
