@@ -1,49 +1,44 @@
-import node_fs from "fs";
-import { Position, Predicate } from "../types";
+import { Predicate } from "../types";
 import { EMPTY, TRUE } from "./const";
-import { FormatErrorOptions, MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./error";
-import { readMacroTable } from "./macro";
+import { Env } from "./env";
+import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./error";
+import { InPort, isEofObject } from "./port";
 import { SymTable } from "./sym";
-import { Term, List } from "./terms";
+import { List, Term } from "./terms";
 
 
   // system
-  export const read = (input: string): Term => {
-    let cursor = 0, end = input.length - 1, line = 1, col = 1;
+  export const read = (port: InPort, readerEnv: Env): Term => {
+    let cursor = port.readChar()
 
     const advance = () => {
-      const char = input[cursor++];
-      if (char === '\n') {
-        line++;
-        col = 0;
-      };
-      col++;
-      return char;
-    };
+      const c = cursor;
+      cursor = port.readChar();
+      return c;
+    }
 
-    const current = () => input[cursor];
-    const isDblQt = () => input[cursor] === '"';
-    const isOpenS = () => input[cursor] === '(';
-    const isCloseS = () => input[cursor] === ')';
-    const isOpenM = () => input[cursor] === '[';
-    const isCloseM = () => input[cursor] === ']';
-    const isOpenP = () => input[cursor] === '{';
-    const isCloseP = () => input[cursor] === '}';
-    const isSpace = () => input[cursor] === ' ';
-    const isNewLine = () => input[cursor] === '\n';
-    const isHash = () => input[cursor] === '#';
-    const isSemi = () => input[cursor] === ';';
-    const isEscape = () => input[cursor] === '\\';
+    const current = () => cursor;
+    const isDblQt = () => cursor === '"';
+    const isOpenS = () => cursor === '(';
+    const isCloseS = () => cursor === ')';
+    const isOpenM = () => cursor === '[';
+    const isCloseM = () => cursor === ']';
+    const isOpenP = () => cursor === '{';
+    const isCloseP = () => cursor === '}';
+    const isSpace = () => cursor === ' ';
+    const isNewLine = () => cursor === '\n';
+    const isHash = () => cursor === '#';
+    const isSemi = () => cursor === ';';
+    const isEscape = () => cursor === '\\';
     const isAlpha = (c: string) => (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')));
     const isDigit = (c: string) => ((c >= '0') && (c <= '9'));
     const isSpecial = (c: string) => ((c === '.') || (c === '_') || (c === '^') || (c === '=') || (c === '?') || (c === '!'));
     const isMathOp = (c: string) => ((c === '+') || (c === '-') || (c === '*') || (c === '/') || (c === '<') || (c === '>'));
     const isAlnum = (c: string) => isAlpha(c) || isDigit(c);
     const isValid = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash() || isEscape();
-    const isEOF = () => cursor > end;
 
     const consumeIgnored = () => {
-      while ((isSemi() || isSpace() || isNewLine()) && !isEOF()) {
+      while ((isSemi() || isSpace() || isNewLine()) && !isEofObject(current)) {
         if (isSemi() === false) advance();
         else advanceAndConsumeToEndOfLine()
       }
@@ -51,7 +46,7 @@ import { Term, List } from "./terms";
 
     const advanceAndConsumeToEndOfLine = () => {
       advance();
-      while (!isNewLine() && !isEOF())
+      while (!isNewLine() && !isEofObject(cursor))
         advance();
     }
 
@@ -59,35 +54,31 @@ import { Term, List } from "./terms";
 
     const parseDelimitedList = (open: Predicate, close: Predicate): Term | undefined => {
       if (open()) {
-        const open = { col, line, cursor };
         advance();
 
         const exprs: Term[] = [];
-        while (!close() && !isEOF()) {
+        while (!close() && !isEofObject(cursor)) {
           exprs.push(parse());
         }
 
         if (close()) { advance(); }
         else
-          throw new MissingParenthesisError(input, error(open));
+          throw new MissingParenthesisError();
 
         return exprs;
       }
 
       else if (current() === ')')
-        throw new UnexpectedParenthesisError(input, error({ col, line, cursor }));
+        throw new UnexpectedParenthesisError();
     }
+
     const listDelimiterPredicates = [
       [isOpenS, isCloseS],
       [isOpenM, isCloseM],
       [isOpenP, isCloseP]
     ];
 
-    const readMacroLocals = { parse, advance, current, eatSpace: consumeIgnored, ...toLisp({ isEOF, isSpace, isNewLine }) };
-
-    const error = (start: Position, message?: string): FormatErrorOptions => {
-      return { end: { line, col, cursor }, message, start };
-    };
+    const readMacroLocals = { parse, advance, current, eatSpace: consumeIgnored, ...toLisp({ isEOF: isEofObject, isSpace, isNewLine }) };
 
     function parseAtom(): Term {
       let atom: string = '';
@@ -95,7 +86,7 @@ import { Term, List } from "./terms";
         if (isEscape())
           advance();
         atom += advance();
-      } while (isValid(current()) && !isEOF());
+      } while (isValid(current()) && !isEofObject(cursor));
       const num = parseInt(atom);
       if (Number.isNaN(num) === false)
         return num;
@@ -127,9 +118,8 @@ import { Term, List } from "./terms";
     }
 
     function parseReadMacro(): Term {
-      if (current() in readMacroTable) {
-        const macro = readMacroTable[current()];
-        advance();
+      if (readerEnv.has(current())) {
+        const macro = readerEnv.get<Function>(advance());
         return macro(readMacroLocals);
       }
       return parseQuote();
@@ -137,18 +127,17 @@ import { Term, List } from "./terms";
 
     function parseString(): Term {
       if (isDblQt()) {
-        const start = { col, line, cursor };
         advance();
 
         let exprs: string = '';
-        while (!isDblQt() && !isNewLine() && !isEOF()) {
+        while (!isDblQt() && !isNewLine() && !isEofObject(cursor)) {
           exprs += advance();
         }
 
         if (isDblQt())
           advance();
         else
-          throw new MalformedStringError(input, error(start));
+          throw new MalformedStringError();
 
         return exprs;
       }
@@ -172,15 +161,15 @@ import { Term, List } from "./terms";
     }
 
     function parseProgram(): Term {
-      const res: List = []
+      const list: List = []
 
-      while (isEOF() === false)
-      { res.push(parse()) }
+      while (!isEofObject(cursor))
+      { list.push(parse()) }
 
-      if (res.length === 1)
-        return res[0]
+      if (list.length === 1)
+        return list[0]
 
-      return [SymTable.BEGIN, ...res];
+      return [SymTable.BEGIN, ...list];
     }
 
     return parseProgram();

@@ -5,15 +5,15 @@
 
 (define *current-test* "none")
 
-(defun incr-passed () (set! *tests-passed* (+ 1 *tests-passed*)))
-(defun incr-failed () (set! *tests-failed* (+ 1 *tests-failed*)))
-(defun incr-total  () (set! *tests-total*  (+ 1 *tests-total*)))
-(defun reset-passed () (set! *tests-passed* 0))
-(defun reset-failed () (set! *tests-failed* 0))
-(defun reset-total  () (set! *tests-total*  0))
+(define (incr-passed)  (set! *tests-passed* (+ 1 *tests-passed*)))
+(define (incr-failed)  (set! *tests-failed* (+ 1 *tests-failed*)))
+(define (incr-total)   (set! *tests-total*  (+ 1 *tests-total*)))
+(define (reset-passed) (set! *tests-passed* 0))
+(define (reset-failed) (set! *tests-failed* 0))
+(define (reset-total)  (set! *tests-total*  0))
 
-(defun set-current-test (name) (set! *current-test* name))
-(defun set-verbose-test (to) (set! *verbose-test* to))
+(define (set-current-test name) (set! *current-test* name))
+(define (set-verbose-test to) (set! *verbose-test* to))
 
 (define-syntax test
   (syntax-rules ()

@@ -1,5 +1,5 @@
-import "colors"
-import { env } from "./globals";
-import { execute } from "./core/lisp";
+// import "colors"
+// import { env } from "./globals";
+// import { execute } from "./core/lisp";
 
-execute('(load "tests/runner.scm")', env);
+// execute('(load "tests/runner.scm")', env);

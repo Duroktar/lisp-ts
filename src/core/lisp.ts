@@ -1,10 +1,12 @@
 
 import * as Utils from "../utils";
-import { Env } from "./env";
+import * as toString from "./toString";
+import type { Env } from "./env";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
+import { InPort, RawText } from "./port";
 import { read } from "./read";
-import { Term, List } from "./terms";
+import type { Term, List } from "./terms";
 
 // primitives (7)
 export const quote = (expr: Term): Term => (<List>expr)[1];
@@ -29,12 +31,12 @@ export const _do = (args: Term[], env: Env) => {
     Utils.expect(var1, Utils.isExpr(init1));
     Utils.expect(var1, Utils.isExpr(step1));
   });
-  Utils.expect(test, Utils.isExpr(test), `Test must be an expression. Got: ${typeof test} .. (value: ${Utils.toString(test)})`);
+  Utils.expect(test, Utils.isExpr(test), `Test must be an expression. Got: ${typeof test} .. (value: ${toString.toString(test)})`);
   expressions.forEach((expression: any) => {
-    Utils.expect(expression, Utils.isExpr(expression), `Not an expression. Got: ${typeof test} .. (value: ${Utils.toString(test)})`);
+    Utils.expect(expression, Utils.isExpr(expression), `Not an expression. Got: ${typeof test} .. (value: ${toString.toString(test)})`);
   });
   commands.forEach((command: any) => {
-    Utils.expect(command, Utils.isExpr(command), `A Command must be an expression. Got: ${typeof command} .. (value: ${Utils.toString(command)})`);
+    Utils.expect(command, Utils.isExpr(command), `A Command must be an expression. Got: ${typeof command} .. (value: ${toString.toString(command)})`);
   });
 
   let bindings: List = [];
@@ -96,13 +98,16 @@ export const _do = (args: Term[], env: Env) => {
   }
 }
 
-export const parse = (code: string, a: Env): Term => {
-  return expand(read(code), true, a);
+export const tokenize = (code: string, r: Env): Term => {
+  return read(new InPort(new RawText(code)), r);
 };
 
-export const execute = (code: string, a: Env): Term => {
-  const parsed = parse(code, a);
-  // console.log('executing code');
+export const parse = (code: string, l: Env, r: Env): Term => {
+  return expand(read(new InPort(new RawText(code)), r), true, l);
+};
 
+export const execute = (code: string, a: Env, l: Env, r: Env): Term => {
+  const parsed = parse(code, l, r);
+  // console.log('executing code', parsed);
   return evaluate(parsed, a);
 };

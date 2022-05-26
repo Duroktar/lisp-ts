@@ -3,12 +3,11 @@
 (require racket/pretty)
 (require macro-debugger/stepper)
 
-(define-syntax let
+(define-syntax macro-or
   (syntax-rules ()
-    ((let ((name val) ...) body1 body2 ...)
-      ((lambda (name ...) body1 body2 ...)
-      val ...))))
+    ([macro-or] #f)
+    ([macro-or x xs ...]
+     (let ((v x))
+      (if v v (macro-or xs ...))))))
 
-(expand/step #'(let ((a 1) (b 2))
-  (display "adding two numbers\n")
-  (+ a b)))
+(expand/step #'(let ((v 2)) (macro-or #f v)))

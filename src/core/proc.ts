@@ -1,28 +1,34 @@
-import { Env } from "./env";
+import type { Env } from "./env";
 import { evaluate } from "./eval";
+import { SyntaxRulesDef } from "./syntax";
 import type { Term } from "./terms";
 
-export abstract class BaseProcedure {
+export abstract class NativeProc {
+  abstract name: string;
   abstract params: Term;
   abstract env: Env;
-  public expr: Term = [];
-  public name = 'λ';
-  public call = (args: Term, env: Env) => {
-    return this._call(args, this.getClosure(args, env));
-  };
+  abstract call(args: Term, env: Env): Term;
+}
 
-  abstract _call(args: Term, env: Env): Term;
-
-  public getClosure(args: Term, env: Env): Env {
-    return new Env(this.params, args, env);
+export class Procedure {
+  constructor(
+    public params: Term,
+    public expr: Term,
+    public env: Env,
+    public name = 'λ',
+  ) {}
+  public call(args: Term, env: Env): Term {
+    return evaluate(args, env)
   }
 }
 
-export class Proc extends BaseProcedure {
-  constructor(public params: Term, public expr: Term, public env: Env) {
-    super()
-  }
-  public _call = (args: Term, env: Env) => {
-    return evaluate(this.expr, env);
-  };
+export const isNativeProc = (x: unknown): x is NativeProc => x instanceof NativeProc;
+export const isProc = (x: unknown): x is Procedure => x instanceof Procedure;
+export const isSyntaxRulesDef = (x: unknown): x is SyntaxRulesDef => x instanceof SyntaxRulesDef;
+
+export const isCallable = (x: unknown): x is Procedure | NativeProc | SyntaxRulesDef => {
+  return isProc(x) || isNativeProc(x) || isSyntaxRulesDef(x);
 }
+
+export type Callable = Procedure | NativeProc | SyntaxRulesDef
+export type Proc = Callable | Function

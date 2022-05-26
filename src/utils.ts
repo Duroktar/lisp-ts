@@ -1,13 +1,8 @@
-import * as Lisp from "./core/lisp";
-import type { Env } from "./core/env";
-import { BaseProcedure, Proc } from "./core/proc";
-import type { Atom, Term, List } from "./core/terms";
-import { TRUE, FALSE, UNDEF } from "./core/const";
+import { FALSE, isPeculiarIdentifier, isSpecialInitial, isSpecialSubsequent, TRUE } from "./core/const";
 import { Sym, SymTable } from "./core/sym";
-import { quotes } from "./core/macro";
-import { SyntaxRulesDef } from "./core/syntax";
-import { TSchemeModule } from "./core/module";
-// import { TSchemeModule } from "./globals";
+import type { Atom, List, Term } from "./core/terms";
+import { toString } from "./core/toString";
+import { whitespace, identifier, initial, letter, subsequent, digit, character } from "./syntax";
 
 export const assert = <T extends any>(p: T, msg = ''): T extends false ? never : T => {
   if (p !== true) {
@@ -16,7 +11,6 @@ export const assert = <T extends any>(p: T, msg = ''): T extends false ? never :
     return p as any;
   }
 };
-
 
 type Exists<P> = Exclude<P, undefined | null>;
 
@@ -41,14 +35,11 @@ export const isList = (x: unknown): x is List => !isSym(x) && Array.isArray(x);
 export const isAtom = (x: unknown): x is Atom => isSym(x);
 export const isSym = (x: unknown): x is symbol => typeof x === 'symbol';
 export const isNum = (x: unknown): x is number => typeof x === 'number';
-export const isString = (x: unknown): x is string => typeof x === 'string';
+export const isString = (c: any): c is string => typeof c === 'string';
 export const isChar = (x: unknown): x is string & {length: 1} => isString(x) && x.length === 1;
 export const isEmpty = (x: unknown): x is [] => isList(x) && x.length === 0;
 export const isNone = (x: unknown): x is undefined | null => x === undefined || x === null;
-export const isCallable = (x: unknown): x is Proc | BaseProcedure => isProc(x) || isNativeFn(x);
-export const isProc = (x: unknown): x is Proc => x instanceof Proc;
-export const isNativeFn = (x: unknown): x is BaseProcedure => x instanceof BaseProcedure;
-export const isExpr = (x: unknown): x is Term => isAtom(x) || isList(x) || isCallable(x) || isString(x) || isNum(x);
+export const isExpr = (x: unknown): x is Term => isAtom(x) || isList(x) || isString(x) || isNum(x);
 export const isConst = (x: unknown) => isNum(x) || isString(x)
 export const isIdent = isSym
 export const isEqual = (x: unknown, y: unknown) => {
@@ -63,11 +54,36 @@ export const isEq = (x: unknown, y: unknown) => {
 
 export const symName = (s: symbol): string => s.description!;
 
+export const isTruthy = (e: Term): boolean => !isF(e) && !isNil(e);
+export const isNil = (e: Term): boolean => e === Sym('nil');
 export const isF = (e: Term): boolean => e === FALSE;
 export const isT = (e: Term): boolean => e === TRUE;
 export const toL = (e: boolean): Term => e ? TRUE : FALSE;
 
 export const zip = (...rows: Term[][]) => isEmpty(rows) ? [[], []] : rows[0].map((_, c) => rows.map(row => row[c]));
+export const zipUp = (...rows: (Term[] | Term)[]) => {
+  if (isEmpty(rows)) return []
+  const h: ProxyHandler<any> = {
+    get(target, prop) {
+      switch (prop) {
+        case "length": return 1
+        default: {
+          if (typeof prop === "string" && prop.match(/[0-9]*/)) {
+            return target[0]
+          }
+          return target[prop]
+        }
+      }
+    }
+  };
+  const stuffz = rows.map(i => isList(i) ? i : new Proxy([i], h));
+  const runs = Math.max(...stuffz.map(i => i.length));
+  const entries = []
+  for (let c = 0; c < runs; c++) {
+    entries.push(stuffz.map((row: any) => row[c]))
+  }
+  return entries;
+}
 
 export const map = (func: (m: Term) => Term, m: Term): Term => {
   if (isList(m)) {
@@ -92,68 +108,6 @@ export const getSafe = <T>(a: T[] | any, i: number) => {
   return undefined
 }
 
-export const toStringSafe = (expr: Term, inspect = false, lambdaSymbol = 'lambda'): string => {
-  try {
-    return toString(expr, inspect, lambdaSymbol)
-  } catch (e) {
-    return UNDEF.description!
-  }
-}
-
-export const toString = (expr: Term, inspect = false, lambdaSymbol = 'lambda'): string => {
-  if (expr === undefined) return UNDEF.description!
-  if (isSym(expr)) {
-    // if (inspect) return String(expr)
-    return expr?.description!;
-  }
-  if (expr instanceof BaseProcedure) {
-    return `(nativefunc ${expr.name})`;
-  }
-  if (expr instanceof TSchemeModule) {
-    return `(module "${expr.basename}")`;
-  }
-  if (expr instanceof Proc || expr instanceof SyntaxRulesDef) {
-    if (inspect) {
-      const parms = toString(expr.params, inspect, lambdaSymbol);
-      const body = toString(expr.expr, inspect, lambdaSymbol);
-      return `(${lambdaSymbol} ${expr.name} ${parms} ${body})`;
-    }
-    return `(${lambdaSymbol} ${expr.name})`;
-  }
-  if (isString(expr))
-    return `"${expr}"`;
-  if (isNone(expr))
-    return expr;
-  if (isNum(expr))
-    return String(expr);
-  if (isEmpty(expr))
-    return '()';
-  if (Lisp.car(expr) === SymTable.LAMBDA) {
-    const repr = (<any>Lisp.cdr(expr)).map((x: any) => toString(x, inspect, lambdaSymbol)).join(' ');
-    return `(${lambdaSymbol} ${repr})`;
-  }
-  if (symName(<symbol>Lisp.car(expr)) in quotes) {
-    const val = toString(expr[1], inspect, lambdaSymbol);
-    return `${quotes[symName(<symbol>Lisp.car(expr))]}${val}`;
-  }
-  return `(${expr.map(c => toString(c, inspect, lambdaSymbol)).join(' ')})`;
-};
-export const print = (e: Term, inspect = false, lambdaSymbol = 'lambda'/* λ */): void => {
-  console.log(toString(e, inspect, lambdaSymbol));
-};
-
-export function mkNativeFunc(env: Env, name: string, params: string[], cb: (args: Term, env: Env) => any): Term | BaseProcedure {
-  const func = new class extends BaseProcedure {
-    public name = name;
-    public env = env;
-    public params = params.map(Sym);
-    public _call = cb;
-  };
-
-  env.set(name, func);
-  return func;
-}
-
 export const mkLambda = (params: string[] | string, body: Term): Term => {
   return [SymTable.LAMBDA, isList(params) ? params.map(Sym) : Sym(params), body];
 };
@@ -163,3 +117,16 @@ export const eqC = (a: any) => (b: any) => a === b;
 export const searchIdx = (...keys: string[]) => keys.reduce((acc, key) => ({...acc, [key]: 1}), {})
 
 export const first = (a: any) => isList(a) ? a[0] : undefined;
+
+export const isNewline = (c: any): c is whitespace => c === '\n'
+export const isWhiteSpace = (c: any): c is whitespace => c === ' ' || c === '\t' || isNewline(c)
+export const isIdentifier = (c: any): c is identifier => {
+  const [x, ...xs] = isString(c) ? c : []
+  return (isInitial(x) && xs.every(isSubsequent)) || isPeculiarIdentifier(c)
+};
+export const isInitial = (c: any): c is initial => isLetter(c) || isSpecialInitial(c)
+export const isLetter = (c: any): c is letter => !! (isString(c) && c.match(/^[A-z]*$/));
+export const isSubsequent = (c: any): c is subsequent => isInitial(c) || isDigit(c) || isSpecialSubsequent(c);
+export const isDigit = (c: any): c is digit => !! (isString(c) && c.match(/^[0-9]*$/));
+export const isNumber = (c: any): c is number => typeof c === 'number';
+export const isCharacter = (c: any): c is character => !! (isString(c) && c.match(/^#\\([A-z]|(space|newline)){1}$/));

@@ -1,72 +1,75 @@
+import assert from "assert";
+import { isList, isSym } from "../utils";
+import { toString } from "./toString";
 import * as Errors from "./error";
-import type { BaseProcedure, Proc } from "./proc";
-import type { Atom, Term, List } from "./terms";
-import * as Utils from "../utils";
+import type { Proc } from "./proc";
 import { Sym } from "./sym";
+import type { Atom, List, Term } from "./terms";
 
 export class Env {
   constructor(params: Term = [], args: Term = [], public outer?: Env) {
-    if (Utils.isList(params) && Utils.isList(args) && params.every(Utils.isSym)) {
+    if (isList(params) && isList(args) && params.every(isSym)) {
       const getParams = (params: List, args: List): [string, any][] => {
         if (params.length === 0) return []
         if (params[0] === Sym('...')) {
-          if (params.slice(1).length !== 0) {
-            debugger
-          }
-          Utils.expect(params, params.slice(1).length === 0, 'no args allowed after `...`')
-          return [[Utils.toString(params[0]), args]]
+          assert(params.slice(1).length === 0, 'no args allowed after `...`')
+          return [[toString(params[0]), args]]
         }
         if (params[0] === Sym('.')) {
-          Utils.expect(params, params.slice(2).length === 0, 'only one arg allowed after `.`')
-          return [[Utils.toString(params[1]), args]]
+          assert(params.slice(2).length === 0, 'only one arg allowed after `.`')
+          return [[toString(params[1]), args]]
         }
         const [x0, ...xs0] = params
         const [x1, ...xs1] = args
-        return [[Utils.toString(x0), x1], ...getParams(xs0, xs1)]
+        return [[toString(x0), x1], ...getParams(xs0, xs1)]
       }
       const formals = getParams(params, args);
       this.inner = Object.fromEntries(formals);
-    } else if (Utils.isSym(params)) {
+    } else if (isSym(params)) {
       this.inner = { [params.description!]: args };
     }
     else {
       throw new Errors.InvalidEnvArgumentsError(params, args);
     }
   }
-  get<T extends Term | Proc | BaseProcedure>(name: string): T {
+  get<T extends Term | Proc>(name: string): T {
     const result = this.inner[name] ?? this.outer?.get(name);
     if (result === undefined) {
       throw new Errors.UndefinedVariableError(String(name));
     }
     return result as T;
   }
-  getFrom<T extends Term | Proc | BaseProcedure>(expr: Term): T {
-    return this.get(Utils.toString(expr)) as T
+  getFrom<T extends Term | Proc>(expr: Term): T {
+    return this.get(toString(expr)) as T
   }
-  getOrDefault<T extends Term | Proc | BaseProcedure, R = T>(name: string, d?: R): T | R {
+  getOrDefault<T extends Term | Proc, R = T>(name: string, d?: R): T | R {
     const result = this.inner[name] ?? this.outer?.getOrDefault(name);
     return (result ?? d) as any;
   }
-  set(name: string, value: Term | Proc | BaseProcedure): void {
+  set(name: string, value: Term | Proc): void {
     this.inner[name] = value;
   }
-  setFrom(expr: Term, value: Term | Proc | BaseProcedure): void {
-    this.inner[Utils.toString(expr)] = value;
+  setFrom(expr: Term, value: Term | Proc): void {
+    this.inner[toString(expr)] = value;
   }
-  mergeFrom(expr: Term, value: Term | Proc | BaseProcedure): void {
+  mergeFrom(expr: Term, value: Term | Proc): void {
     if (!this.hasFrom(expr)) {
       this.setFrom(expr, [<any>value]);
       return
     }
     const merger: List = this.getFrom(expr)
-    merger.push(value as Term)
+    if (isList(merger)) {
+      merger.push(value as Term)
+    } else {
+      this.setFrom(expr, [merger, <any>value])
+    }
   }
-  update(name: string, value: Term | Proc | BaseProcedure): void {
+  update(name: string, value: Term | Proc): void {
     let env = this.find(name)
     if (env) { env.set(name, value) }
   }
-  updateFrom(expr: Term, value: Term | Proc | BaseProcedure): void {
-    return this.update(Utils.toString(expr), value)
+  updateFrom(expr: Term, value: Term | Proc): void {
+    return this.update(toString(expr), value)
   }
   find(name: string): Env | undefined {
     let env = this as Env
@@ -85,7 +88,7 @@ export class Env {
     }
   }
   hasFrom(expr: Term): boolean {
-    const name = Utils.toString(expr)
+    const name = toString(expr)
     try {
       return (this.inner[name] ?? this.outer?.get(name)) !== undefined;
     } catch {
@@ -103,11 +106,10 @@ export class Env {
     return accum
   }
   merge(env: Env): Env {
-    const n = new Env([], [], this)
     for (let [key, value] of env.entries()) {
-      n.set(key, value)
+      this.set(key, value)
     }
-    return n
+    return this
   }
   keys(): string[] {
     return this.map(([key, _]) => key)
@@ -118,5 +120,5 @@ export class Env {
   entries(): [string, Term][] {
     return this.map(([key, value]) => [key, value])
   }
-  private inner: Record<Atom, Term | Proc | BaseProcedure>;
+  private inner: Record<Atom, Term | Proc>;
 }

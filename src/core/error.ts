@@ -1,7 +1,7 @@
-import { Term } from "./terms";
-import * as Utils from "../utils";
-import { Position } from "../types";
-import { SyntaxRulesDef } from "./syntax";
+import type { Term } from "./terms";
+import type { Position } from "../types";
+import type { SyntaxRulesDef } from "./syntax";
+import { toString, toStringSafe } from "./toString";
 
 export class InvalidEnvArgumentsError extends Error {
   constructor(
@@ -18,36 +18,30 @@ export class UndefinedVariableError extends Error {
 }
 export class InvalidCallableExpression extends Error {
   constructor(expr: Term) {
-    super(`Error: expression is not callable: ${Utils.toString(expr, true)}`);
+    super(`Error: expression is not callable: ${toString(expr, true)}`);
   }
 }
 export class UnexpectedParenthesisError extends Error {
-  constructor(source: string, options: FormatErrorOptions) {
-    super(`Error: Unexpected ")" @ Ln ${options.end.line}, Col ${options.end.col})`);
-    this.formattedError = formatError(source, { ...options, message: this.message });
+  constructor() {
+    super(`Error: Unexpected ")"`);
   }
-  public formattedError: string;
 }
 export class MissingParenthesisError extends Error {
-  constructor(source: string, options: FormatErrorOptions) {
-    super(`Error: Missing ')' @ Ln ${options.end.line}, Col ${options.end.col})`);
-    this.formattedError = formatError(source, { ...options, message: this.message });
+  constructor() {
+    super(`Error: Missing ')'`);
   }
-  public formattedError: string;
 }
 export class MalformedStringError extends Error {
-  constructor(source: string, options: FormatErrorOptions) {
-    super(`Error: Missing '"' @ Ln ${options.end.line}, Col ${options.end.col})`);
-    this.formattedError = formatError(source, { ...options, message: this.message });
+  constructor() {
+    super(`Error: Missing '"'`);
   }
-  public formattedError: string;
 }
 export class MatchError extends Error {
   constructor(
     public def: SyntaxRulesDef,
     public form: Term,
   ) {
-    super(`no matches found for pattern: ${Utils.toStringSafe(form)}`)
+    super(`no matches found for pattern: ${toStringSafe(form)}`)
   }
 }
 

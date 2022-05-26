@@ -1,141 +1,108 @@
-import assert from "assert";
+// import assert from "assert";
 
-const Tag = {
-  REG: 'regular-id',
-  PAT: 'pattern-id',
-  LIT: 'literal-id',
-  DAT: 'datum',
-  DOTS: 'ellipsis-template',
-  LIST: 'tlist',
-}
+// type token =
+//   | identifier | bool | character | number | string
+//   | '(' | ')' | '#(' | "'" | '`' | ',' | ',@' | '.'
 
-export class Env {
-  constructor(params: any = [], args: any = [], public outer?: Env) {
-    if (Array.isArray(params) && Array.isArray(args)) {
-      const getParams = (params: any[], args: any[]): [string, any][] => {
-        if (params.length === 0) return []
-        if (params[0] === '...') {
-          if (params.slice(1).length !== 0) {
-            debugger
-          }
-          return [[params[0], args]]
-        }
-        if (params[0] === '.') {
-          return [[params[1], args]]
-        }
-        const [x0, ...xs0] = params
-        const [x1, ...xs1] = args
-        return [[x0, x1], ...getParams(xs0, xs1)]
-      }
-      const formals = getParams(params, args);
-      this.inner = Object.fromEntries(formals);
-    } else if (typeof params === 'string') {
-      this.inner = { [params]: args };
-    }
-    else {
-      throw new Error(`${{params, args}}`);
-    }
-  }
-  getFrom<T extends any>(expr: any): T {
-    return this.inner[expr]
-  }
-  private inner: any = {}
-}
+// type delimiter = whitespace | '(' | ')' | '"' | ';'
+// type whitespace = ' ' | '\t' | '\n'
 
-class Test {
-  genOutput(template: any, env: Env): any {
-    assert(Array.isArray(template), '`genOutput` expected an arrray')
-    switch (template[0]) {
-      case Tag.LIST: {
-        const [_def, patterns] = template
-        let values: any[] = []
+// type identifier = `${initial}${subsequent|""}` | peculiarIdentifier
+// type initial = letter | specialInitial
+// type letter = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h'
+//   | 'i' | 'j' | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q'
+//   | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
+// type specialInitial = '!' | '$' | '%' | '&' | '*' | '/'
+//   | ':' | '<' | '=' | '>' | '?' | '~' | '_' | '^'
+// type subsequent = initial | digit | specialSubsequent
+// type digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+// type specialSubsequent = '+' | '-' | '.' | '@'
+// type peculiarIdentifier = '+' | '-' | '...'
+// type syntacticKeyword = expressionKeyword
+//   | 'else' | '=>' | 'define'
+//   | 'unquote' | 'unquote-splicing'
+// type expressionKeyword = 'quote' | 'lambda' | 'if'
+//   | 'set!' | 'begin' | 'cond' | 'and' | 'or' | 'case'
+//   | 'let' | 'let*' | 'letrec' | 'do' | 'delay'
+//   | 'quasiquote'
 
-        for (const ptn of <any[]>patterns) {
-          const output = this.genOutput(ptn, env);
+// type variable = Exclude<identifier, syntacticKeyword>
 
-          switch (ptn[0]) {
-            case Tag.DOTS:
-              if ((output).length > 0)
-                values.push(...output)
-              break
-            // regular-id
-            case Tag.REG:
-            // pattern-id
-            case Tag.PAT:
-              values.push(output)
-              break
-            // literal-id
-            case Tag.LIT:
-            // datum
-            case Tag.DAT:
-            case Tag.LIST:
-            default: {
-              values.push(output)
-              break
-            }
-          }
-        }
+// type bool = '#t' | '#f'
+// type character = `#\\${letter | characterName}`
+// type characterName = 'space' | 'newline'
 
-        return values
-      }
-      case Tag.DOTS: {
-        const [___, pat] = <any>template
-        let items = this.genOutput(pat, env);
-        if (pat[0] === Tag.LIST) {
-          return (<any[]>items).map(item => item[0])
-        }
+// ////////////////////////////////////////////////////////////////
 
-        return items
-      }
+// const specialInitials     = new Set('! $ % & * / : = < > ? ~ _ ^'.split(' '));
+// const specialSubsequents  = new Set('+ - . @'.split(' '));
+// const peculiarIdentifiers = new Set('+ - ...'.split(' '));
+// const delimiters          = new Set('( ) " ;'.split(' '));
 
-      // literal-id
-      case Tag.LIT:
-      // datum
-      case Tag.DAT:
-        return template[1]
-      // regular-id
-      case Tag.REG:
-      // pattern-id
-      case Tag.PAT: {
-        const id = template[1]
-        return env.getFrom(id);
-      }
+// const expressionKeywords  = new Set([
+//   'quote', 'lambda', 'if', 'set!', 'begin',
+//   'cond', 'and', 'or', 'case', 'let', 'let*',
+//   'letrec', 'do', 'delay', 'quasiquote']);
 
-      default: {
-        throw new Error();
-      }
-    }
-  }
-}
+// const syntacticKeywords = new Set([...expressionKeywords,
+//   'else', '=>', 'define', 'unquote', 'unquote-splicing']);
 
 
-export const zip = (...rows: any[][]) => (rows.length === 0) ? [[], []] : rows[0].map((_, c) => rows.map(row => row[c]));
+// const isDelimiter = (c: any): c is delimiter => isWhiteSpace(c) || delimiters.has(c);
+// const isWhiteSpace = (c: any): c is whitespace => c === ' ' || c === '\t' || c === '\n'
+// const isIdentifier = (c: any): c is identifier => {
+//   const [x, ...xs] = isString(c) ? c : []
+//   return (isInitial(x) && xs.every(isSubsequent)) || isPeculiarIdentifier(c)
+// };
+// const isInitial = (c: any): c is initial => isLetter(c) || isSpecialInitial(c)
+// const isLetter = (c: any): c is letter => !! (isString(c) && c.match(/^[A-z]*$/));
+// const isSpecialInitial = (c: any): c is specialInitial => specialInitials.has(c);
+// const isSubsequent = (c: any): c is subsequent => isInitial(c) || isDigit(c) || isSpecialSubsequent(c);
+// const isDigit = (c: any): c is digit => !! (isString(c) && c.match(/^[0-9]*$/));
+// const isSpecialSubsequent = (c: any): c is specialSubsequent => specialSubsequents.has(c);
+// const isPeculiarIdentifier = (c: any): c is peculiarIdentifier => peculiarIdentifiers.has(c);
+// const isSyntacticKeyword = (c: any): c is syntacticKeyword => syntacticKeywords.has(c);
+// const isExpressionKeyword = (c: any): c is expressionKeyword => expressionKeywords.has(c);
+// const isNumber = (c: any): c is number => typeof c === 'number';
+// const isString = (c: any): c is string => typeof c === 'string';
+// const isBoolean = (c: any): c is bool => !! (isString(c) && c.match(/^#[t|f]$/));
+// const isCharacter = (c: any): c is character => !! (isString(c) && c.match(/^#\\([A-z]|(space|newline)){1}$/));
 
-const r = zip(...Object.entries({
-  name1: ['a', 'b'],
-  name2: ['c', 'd'],
-  body1: [['*', 'z', 'z']],
-  body2: [[]],
-  "print.1": 'print',
-}));
+// namespace ScratchTests {
+//   function tryProve<T>(fn: (t: T) => boolean, o: {proofs: T[], counters: any[]}): void {
+//     o.proofs.forEach(p => assert(!!fn(p), `found proof that doesn't hold: ${p}`))
+//     o.counters.forEach(c => assert(!fn(c), `found counter-proof that doesn't hold: ${c}`))
+//   }
 
-const e = new Env(...r)
-const t = new Test()
+//   tryProve(isBoolean, {
+//     proofs: ['#t', '#f'],
+//     counters: ['#a', 'd34', '12kjh', '#t5', 234, undefined, null],
+//   })
 
-console.log(zip(['abc']));
-console.log(zip(['abc'], [1]));
-console.log(zip(['a', 'b'], [1, 2]));
+//   tryProve(isDigit, {
+//     proofs: ['1', '3', '123', '6', ...'123456789'.split('')],
+//     counters: ['a', 'd34', '12kjh', Infinity, 234, undefined, null],
+//   })
 
-console.log(t.genOutput([Tag.LIST, []], e));
+//   tryProve(isLetter, {
+//     proofs: ['asdf', 'f', 'HJKdkdfDFijf'],
+//     counters: ['sdf4', '35df', '123', 234, undefined, null],
+//   })
 
-console.log(t.genOutput(
-  [Tag.LIST,
-    [[Tag.REG, "print.1"],
-     [Tag.LIST, [[Tag.DOTS, [Tag.LIST, [[Tag.PAT, 'name1'], [Tag.PAT, 'name2']]], 1]]],
-     [Tag.PAT, 'body1'],
-     [Tag.DOTS, [Tag.PAT, 'body2'], 1],
-  ]], e));
+//   tryProve(isCharacter, {
+//     proofs: ['#\\a', '#\\d', '#\\Z', '#\\space', '#\\newline'],
+//     counters: ['#\\df3', '#\\4d', '35', 234, undefined, null],
+//   })
 
 
-console.log(
-  t.genOutput([Tag.LIST, [[Tag.DOTS, [Tag.PAT, 'name1'], [Tag.DOTS, [Tag.PAT, 'name1']]]]], e));
+//   tryProve(isIdentifier, {
+//     proofs: [
+//       'lambda'            , 'q',
+//       'list->vector'      , 'soup',
+//       '+'                 , 'V17a',
+//       '<=?'               , 'a34kTMNs',
+//       'the-word-recursion-has-many-meanings'
+//     ],
+//     counters: [undefined, null],
+//   })
+// }

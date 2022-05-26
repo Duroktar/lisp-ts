@@ -1,11 +1,25 @@
 ; macro definition
 ; (load 'stdlib/r5rs)
 
-; (define-syntax let
-;   (syntax-rules ()
-;     ((let ((name val) ...) body1 body2 ...)
-;      ((lambda (name ...) body1 body2 ...)
-;       val ...))))
+(define-syntax let
+  (syntax-rules ()
+    ((let ((name val) ...) body1 body2 ...)
+     ((lambda (name ...) body1 body2 ...)
+      val ...))))
+
+(define-syntax let*
+  (syntax-rules ()
+    ((let* () body1 body2 ...)
+      (let () body1 body2 ...))
+    ((let* ((name1 val1) (name2 val2) ...)
+        body1 body2 ...)
+      (let ((name1 val1))
+        (let* ((name2 val2) ...)
+          body1 body2 ...)))))
+
+(let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x)))
+;  (let* ((z (+ x y))) (* z x))
+; (let ((x 2) (y 3)) (* x y))
 
 ; (tlist
 ;   ((tlist
@@ -121,4 +135,4 @@
 ; (and (> 2 1))
 ; (and)
 
-(if (> 3 2) 'yes 'no)
+; (if (> 3 2) 'yes 'no)
