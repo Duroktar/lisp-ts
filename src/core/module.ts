@@ -9,9 +9,10 @@ export class TSchemeModule {
     this.basename = basename(path);
     this.dirname = dirname(path);
   }
-  static loaderCache = new Map<Atom, TSchemeModule>();
 
   get name(): string {
     return this.basename.split('.').shift()!;
   }
+
+  static loaderCache = new Map<Atom, TSchemeModule>();
 }

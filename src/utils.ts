@@ -1,7 +1,9 @@
+import { Character } from "./core/char";
 import { FALSE, isPeculiarIdentifier, isSpecialInitial, isSpecialSubsequent, TRUE } from "./core/const";
 import { Sym, SymTable } from "./core/sym";
 import type { Atom, List, Term } from "./core/terms";
 import { toString } from "./core/toString";
+import { Vector } from "./core/vec";
 import { whitespace, identifier, initial, letter, subsequent, digit, character } from "./syntax";
 
 export const assert = <T extends any>(p: T, msg = ''): T extends false ? never : T => {
@@ -35,8 +37,9 @@ export const isList = (x: unknown): x is List => !isSym(x) && Array.isArray(x);
 export const isAtom = (x: unknown): x is Atom => isSym(x);
 export const isSym = (x: unknown): x is symbol => typeof x === 'symbol';
 export const isNum = (x: unknown): x is number => typeof x === 'number';
+export const isVec = (x: unknown): x is Vector => x instanceof Vector;
 export const isString = (c: any): c is string => typeof c === 'string';
-export const isChar = (x: unknown): x is string & {length: 1} => isString(x) && x.length === 1;
+export const isChar = (x: unknown): x is Character => x instanceof Character;
 export const isEmpty = (x: unknown): x is [] => isList(x) && x.length === 0;
 export const isNone = (x: unknown): x is undefined | null => x === undefined || x === null;
 export const isExpr = (x: unknown): x is Term => isAtom(x) || isList(x) || isString(x) || isNum(x);

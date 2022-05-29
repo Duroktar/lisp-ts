@@ -1,10 +1,15 @@
+import assert from "assert";
 import { Predicate } from "../types";
+import { isList } from "../utils";
+import { Character } from "./char";
 import { EMPTY, TRUE } from "./const";
 import { Env } from "./env";
 import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./error";
 import { InPort, isEofObject } from "./port";
-import { SymTable } from "./sym";
+import { Sym, SymTable } from "./sym";
 import { List, Term } from "./terms";
+import { toString } from "./toString";
+import { Vector } from "./vec";
 
 
   // system
@@ -36,6 +41,7 @@ import { List, Term } from "./terms";
     const isMathOp = (c: string) => ((c === '+') || (c === '-') || (c === '*') || (c === '/') || (c === '<') || (c === '>'));
     const isAlnum = (c: string) => isAlpha(c) || isDigit(c);
     const isValid = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash() || isEscape();
+    const isValidAndSameLine = () => isValid(current()) && !isEofObject(cursor)
 
     const consumeIgnored = () => {
       while ((isSemi() || isSpace() || isNewLine()) && !isEofObject(current)) {
@@ -83,15 +89,13 @@ import { List, Term } from "./terms";
     function parseAtom(): Term {
       let atom: string = '';
       do {
-        if (isEscape())
-          advance();
+        if (isEscape()) { advance(); }
         atom += advance();
-      } while (isValid(current()) && !isEofObject(cursor));
+      } while (isValidAndSameLine());
       const num = parseInt(atom);
       if (Number.isNaN(num) === false)
         return num;
       if (atom === 'undefined') {
-        debugger
         return atom
       }
       return Symbol.for(atom);
@@ -117,12 +121,50 @@ import { List, Term } from "./terms";
       return parseAtom();
     }
 
+    function parseHashPrefix(): Term {
+      if (current() === "#") {
+        advance();
+
+        if (current() === "(") {
+          const items = parseList()
+          assert(isList(items), "what is going on?")
+          return new Vector(<List>items)
+        }
+
+        if (current() === "\\") {
+          advance();
+
+          const val = parseAtom();
+
+          if (typeof val === 'symbol') {
+            const char = val.description
+            assert(
+              char &&
+              (char.length === 1 || char.match(/^(newline|space)$/i)),
+
+              `error parsing character: #\\${char}`
+            )
+            return new Character(val) as any
+          }
+
+          throw new Error('What am i doing here?')
+        }
+
+        const val = parseAtom();
+        assert(val && typeof val === 'symbol')
+
+        return Sym(`#${toString(val)}`)
+      }
+
+      return parseQuote()
+    }
+
     function parseReadMacro(): Term {
       if (readerEnv.has(current())) {
         const macro = readerEnv.get<Function>(advance());
         return macro(readMacroLocals);
       }
-      return parseQuote();
+      return parseHashPrefix();
     }
 
     function parseString(): Term {
@@ -156,21 +198,8 @@ import { List, Term } from "./terms";
     function parse(): Term {
       consumeIgnored();
       const expr = parseList();
-      consumeIgnored();
       return expr;
     }
 
-    function parseProgram(): Term {
-      const list: List = []
-
-      while (!isEofObject(cursor))
-      { list.push(parse()) }
-
-      if (list.length === 1)
-        return list[0]
-
-      return [SymTable.BEGIN, ...list];
-    }
-
-    return parseProgram();
+    return parse();
   };

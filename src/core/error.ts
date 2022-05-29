@@ -45,6 +45,8 @@ export class MatchError extends Error {
   }
 }
 
+export class NotImplementedError extends Error {}
+
 export class InputError extends Error {
   constructor(
     public def: SyntaxRulesDef,

@@ -8,7 +8,7 @@ const {readerEnv} = createEnvironment()
 test("(read) (eq 'x 'y) => (eq (quote x) (quote y))", () => {
   expect(
     toString(read(
-      InPort.fromText("(eq 'x 'y)"),
+      InPort.fromString("(eq 'x 'y)"),
       readerEnv,
     ))).toBe(
       "(eq (quote x) (quote y))"

@@ -1,12 +1,12 @@
 import assert from "assert";
 import { isList, isSym, isTruthy } from "../utils";
-import { toString } from "./toString";
 import { EMPTY } from "./const";
 import { Env } from "./env";
 import { atom, car, cdr, _do } from "./lisp";
 import { isNativeProc, isProc, Procedure } from "./proc";
 import { SymTable } from "./sym";
 import type { Atom, Term } from "./terms";
+import { toString } from "./toString";
 
 export const evaluate = (e: Term, a: Env): Term => {
   while (true) {
@@ -28,7 +28,7 @@ export const evaluate = (e: Term, a: Env): Term => {
         const value = evaluate(expr, a);
         if (isProc(value)) { value.name = name; }
         a.set(name, value);
-        return value;
+        return undefined as any
       }
       case SymTable.DO: {
         const [_def, ...exprs] = e as [Atom, ...Term[]];
@@ -54,7 +54,7 @@ export const evaluate = (e: Term, a: Env): Term => {
         assert(a.hasFrom(variable), 'Variable must be bound');
         const name = toString(variable);
         a.find(name)!.set(name, evaluate(value, a));
-        return [];
+        return undefined as any
       }
       default: {
         const [proc, ...args] = e.map(expr => evaluate(expr, a));
@@ -68,7 +68,7 @@ export const evaluate = (e: Term, a: Env): Term => {
           break
         }
         else
-          return []
+          return undefined as any
       }
     }
   }

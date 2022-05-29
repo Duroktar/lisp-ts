@@ -119,11 +119,6 @@ function expandLambda(e: List, env: Env) {
 
 function expandDefun(e: List, env: Env): Term {
   let [_def, name, args, body] = e;
-    // if (Utils.isList(args) && args[0] === SymTable.LAMBDA) {
-    //   const [_def, args_, body_] = args as any
-    //   args = args_
-    //   body = body_
-    // }
     Utils.expect(e, Utils.isSym(name), `Can only define a symbol`);
     Utils.expect(e, Utils.isList(args) || Utils.isSym(args), `Invalid args`);
     const expr = expand([SymTable.LAMBDA, args, body], false, env);

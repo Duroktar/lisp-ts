@@ -7,7 +7,7 @@ export const NIL:   symbol = Sym('nil');
 export const TRUE:  symbol = Sym('#t');
 export const FALSE: symbol = Sym('#f');
 export const UNDEF: symbol = Sym('#<undef>');
-export const EOF = '#<eof-object>'
+export const EOF: symbol   = Sym('#<eof-object>')
 
 export const specialInitials     = new Set('! $ % & * / : = < > ? ~ _ ^'.split(' '));
 export const specialSubsequents  = new Set('+ - . @'.split(' '));

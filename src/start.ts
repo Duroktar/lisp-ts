@@ -1,16 +1,16 @@
 import 'colors';
-import { tokenize } from './core/lisp';
-import { toString } from "./core/toString";
 import { createEnvironment } from './env';
 import * as Lisp from './core/lisp'
 
-const {env, lexicalEnv, readerEnv} = createEnvironment()
+const env = createEnvironment()
 
-const r = tokenize(`(load "stdlib/r5rs.scm")`, readerEnv);
-
-Lisp.execute('(load "stdlib/r5rs.scm")', env, lexicalEnv, readerEnv)
+// const r = tokenize(`(load "stdlib/r5rs.scm")`, readerEnv);
 
 // Lisp.execute('(debug-macro! #t)', env)
+
+Lisp.execute('(load "stdlib/r5rs.scm")', env)
+Lisp.execute('(begin (write-char #\\() (newline))', env)
+// Lisp.execute('(display (read (open-input-string "hello world")))', env)
 
 // Lisp.execute('(load "tests/runner.scm")', env)
 // Lisp.execute('(load "tests/utils.scm")', env)
@@ -32,5 +32,5 @@ Lisp.execute('(load "stdlib/r5rs.scm")', env, lexicalEnv, readerEnv)
 // Lisp.execute(`(cond ((> 3 2) 'greater) ((< 3 2) 'less))`, env)
 // Lisp.execute(`(test '#4.1.1     28  (begin (define x 28) x))`, env)
 
-console.log(r)
-console.log(toString(r))
+// console.log(r)
+// console.log(toString(r))

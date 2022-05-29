@@ -1,5 +1,7 @@
-// import "colors"
-// import { env } from "./globals";
-// import { execute } from "./core/lisp";
+import "colors"
+import { createEnvironment } from "./env";
+import { execute } from "./core/lisp";
 
-// execute('(load "tests/runner.scm")', env);
+const env = createEnvironment()
+
+execute('(load "tests/runner.scm")', env);

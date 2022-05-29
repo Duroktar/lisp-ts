@@ -10,7 +10,7 @@ import * as Errors from "./core/error";
 import * as Lisp from "./core/lisp";
 import { toString } from "./core/toString";
 import { evaluate } from './core/eval';
-import { createEnvironment } from './env';
+import { createEnvironment, Environment } from './env';
 import type { Env } from './core/env';
 
 const APPDATA = Utils.exists(getPath('appdata'), 'Error looking up appdata directory!');
@@ -19,25 +19,25 @@ const HISTORY_FILE_PTH = join(APPDATA, 'lisp-ts', 'repl', 'history', '0.log');
 const LANGUAGE_ID = 'scheme';
 const LANGUAGE_VERSION = '1.0';
 
-export const initializeREPL = (env: Env, lexicalEnv: Env, readerEnv: Env) => {
+export const initializeREPL = (env: Environment) => {
 
   if (existsSync(HISTORY_FILE_PTH) === false) {
       mkdirSync(path.dirname(HISTORY_FILE_PTH), { recursive: true })
       writeFileSync(HISTORY_FILE_PTH, '')
   }
 
-  Lisp.execute(`(load "stdlib/r5rs.scm")`, env, lexicalEnv, readerEnv)
+  Lisp.execute(`(load "stdlib/r5rs.scm")`, env)
 
   console.error(`Welcome to ${'lisp-ts'.blue} ${('v' + LANGUAGE_VERSION).yellow}`)
-
 }
 
 export const start = (prompt: string) => {
-  const { env, lexicalEnv, readerEnv } = createEnvironment()
+  const env = createEnvironment()
+
   function _eval(cmd: string, context: any, filename: string, callback: any) {
     try {
-      const x = Lisp.parse(cmd, lexicalEnv, readerEnv)
-      const val = evaluate(x, env)
+      const x = Lisp.parse(cmd, env)
+      const val = evaluate(x, env.env)
       callback(null, toString(val))
     } catch (err) {
       errorHandler(err, callback)
@@ -82,7 +82,7 @@ export const start = (prompt: string) => {
 
   const prettyOpts = { colorize: colorizer }
 
-  initializeREPL(env, lexicalEnv, readerEnv)
+  initializeREPL(env)
 
   repl
     .start({ eval: _eval, writer, prompt, ignoreUndefined: true, ...prettyOpts })

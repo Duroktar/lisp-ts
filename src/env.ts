@@ -1,12 +1,18 @@
 import { Env } from "./core/env";
 import { addGlobals } from "./globals";
 
-export function createEnvironment(globals = true) {
-  const env = new Env();
+export type Environment = {
+  readerEnv: Env
+  lexicalEnv: Env
+  env: Env
+}
+
+export function createEnvironment(globals = true): Environment {
   const readerEnv = new Env();
   const lexicalEnv = new Env();
+  const env = new Env();
 
-  if (globals) addGlobals(env, lexicalEnv, readerEnv)
+  if (globals) addGlobals({env, readerEnv, lexicalEnv})
 
   return {env, readerEnv, lexicalEnv}
 }

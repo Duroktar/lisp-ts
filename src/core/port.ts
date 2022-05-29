@@ -1,21 +1,22 @@
 import assert from "assert"
 import { existsSync, readFileSync, readSync, writeSync } from "fs"
 import type { delimiter, whitespace } from "../syntax"
-import { isNewline } from "../utils"
-import { delimiters, EOF } from "./const"
+import { delimiters } from "./const"
 import { quotes } from "./macro"
 
-interface File {
-  read(): string
-  write(text: string): void
+export abstract class File {
+  abstract read(): string
+  abstract write(text: string): void
+  static EOF_STRING = '#<eof-object>'
 }
+
 
 export class SourceFile implements File {
   constructor(filepath: string) {
     this.data = String(readFileSync(filepath))
   }
   read(): string {
-    const x = this.data[0] ?? EOF
+    const x = this.data[0] ?? File.EOF_STRING
     this.data = this.data.slice(1)
     return x
   }
@@ -28,7 +29,7 @@ export class SourceFile implements File {
 export class RawText implements File {
   constructor(private data: string) {}
   read(): string {
-    const x = this.data[0] ?? EOF
+    const x = this.data[0] ?? File.EOF_STRING
     this.data = this.data.slice(1)
     return x
   }
@@ -55,12 +56,14 @@ export class StdIn implements File {
 }
 
 export class StdOut implements File {
-  write(text: string): void {
-    assert(text.length === 1)
-    putcharSync(text.charCodeAt(0))
-    // for (let char of text) {
-    //   putcharSync(char.charCodeAt(0))
-    // }
+  write(output: string | number): void {
+    if (typeof output !== "number") {
+      for (let char of String(output)) {
+        putcharSync(char.charCodeAt(0))
+      }
+      return
+    }
+    putcharSync(output)
   }
   read(): string {
     throw new Error("Method not implemented.")
@@ -68,8 +71,10 @@ export class StdOut implements File {
 }
 
 export abstract class Port {
-  constructor(public file: File) {
-  }
+  constructor(
+    public file: File,
+    public name: string,
+  ) {}
 
   public close() {
     this.closed = true
@@ -79,16 +84,22 @@ export abstract class Port {
 }
 
 export class InPort extends Port {
-  static fromFile(file: string) {
-    return new InPort(new SourceFile(file))
+  constructor(file: File, name: string) {
+    super(file, `input-port:${name}`)
   }
-  static fromText(text: string) {
-    return new InPort(new RawText(text))
+  static fromFile(file: string) {
+    return new InPort(new SourceFile(file), 'file')
+  }
+  static fromString(text: string) {
+    return new InPort(new RawText(text), 'string')
+  }
+  static fromStdIn() {
+    return new InPort(new StdIn(), 'stdin')
   }
   public readChar(): string {
     if (!this.closed) {
       if (this.char === '') this.char = this.file.read()
-      if (this.char === '') return EOF
+      if (this.char === '') return File.EOF_STRING
       const char = this.char; this.char = '';
       return char
     }
@@ -101,61 +112,25 @@ export class InPort extends Port {
     }
     return this.char
   }
-  public peekCharNonWhitespace(): string {
-    const c = this.peekChar()
-    if (isEofObject(c))
-      return EOF
-
-    if (!isWhiteSpace(c))
-      if (c === ';')
-        return this.skipComment()
-      else
-        return c
-
-    this.readChar()
-
-    return this.peekCharNonWhitespace()
+  public charReady() {
+    return this.char !== ''
   }
-  public skipComment(): string {
-    const c = this.readChar()
-
-    if (isEofObject(c))
-      return EOF
-
-    if (isNewline(c))
-      return this.peekCharNonWhitespace()
-    else return this.skipComment()
-  }
-  // public readToken(): string {
-  //   let acc = this.readChar()
-  //   while (isWhiteSpace(acc))
-  //     acc = this.readChar()
-  //   if (acc === '(') {
-  //     // read-list
-  //     return acc
-  //   }
-  //   if (acc === '#') {
-  //     acc += this.readChar()
-  //     if (isBoolean(acc))
-  //       return acc
-  //     else if (acc[1] === 'x' || acc[1] === 'X') {
-  //       // "#x" or "#X"
-  //       // read-hex
-  //       throw new Error('hex numbers not supported')
-  //     } else {
-  //       // assume: "#("
-  //       return acc // list->vector
-  //     }
-  //   }
-  //   if (acc === "'")
-  //     return acc
-  //   return acc
-  // }
-
   private char = ''
 }
 
 export class OutPort extends Port {
+  constructor(file: File, name: string) {
+    super(file, `output-port:${name}`)
+  }
+  static fromFile(file: string) {
+    return new OutPort(new SourceFile(file), 'file')
+  }
+  static fromString(text: string) {
+    return new OutPort(new RawText(text), 'string')
+  }
+  static fromStdOut() {
+    return new OutPort(new StdOut(), 'stdout')
+  }
   public write(text: string): void {
     if (this.closed)
       throw new Error('attempted to write to closed port')
@@ -174,15 +149,15 @@ export const callWithOutputFile = (file: string, proc: Function) => {
 
 // procedure
 export const isInputPort = (obj: any) => {
-  // return toL(obj instanceof InPort)
+  return obj instanceof InPort
 }
 // procedure
 export const isOutputPort = (obj: any) => {
-  // return toL(obj instanceof OutPort)
+  return obj instanceof OutPort
 }
 
-let inputPort = new InPort(new StdIn());
-let outputPort = new OutPort(new StdOut());
+let inputPort = InPort.fromStdIn();
+let outputPort = OutPort.fromStdOut();
 
 // procedure
 export const currentInputPort = () => inputPort
@@ -202,11 +177,11 @@ export const withOutputFromFile = (str: string, proc: Function) => {
 
 // procedure
 export const openInputFile = (filename: string) => {
-  return new InPort(new SourceFile(filename))
+  return InPort.fromFile(filename)
 }
 // procedure
 export const openOutputFile = (filename: string) => {
-  return new OutPort(new SourceFile(filename))
+  return OutPort.fromFile(filename)
 }
 
 // procedure
@@ -223,13 +198,7 @@ export const peekChar = (port = currentInputPort()) => {
   return port.peekChar()
 }
 
-export const peekCharNonWhitespace = (port = currentInputPort()) => {
-  let c = peekChar(port)
-  if (isEofObject(c))
-    return -1
-}
-
-export const isEofObject = (obj: any) => obj === EOF
+export const isEofObject = (obj: any) => obj === File.EOF_STRING
 export const isDelimiter = (c: any): c is delimiter => isWhiteSpace(c) || delimiters.has(c);
 export const isQuoteChar = (c: any): boolean => quotes[c] !== undefined;
 export const isWhiteSpace = (c: any): c is whitespace => c === ' ' || c === '\t' || c === '\n'

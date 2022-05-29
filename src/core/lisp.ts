@@ -4,9 +4,10 @@ import * as toString from "./toString";
 import type { Env } from "./env";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
-import { InPort, RawText } from "./port";
+import { InPort } from "./port";
 import { read } from "./read";
 import type { Term, List } from "./terms";
+import { Environment } from "../env";
 
 // primitives (7)
 export const quote = (expr: Term): Term => (<List>expr)[1];
@@ -98,16 +99,16 @@ export const _do = (args: Term[], env: Env) => {
   }
 }
 
-export const tokenize = (code: string, r: Env): Term => {
-  return read(new InPort(new RawText(code)), r);
+export const tokenize = (code: string, env: Environment): Term => {
+  return read(InPort.fromString(code), env.readerEnv);
 };
 
-export const parse = (code: string, l: Env, r: Env): Term => {
-  return expand(read(new InPort(new RawText(code)), r), true, l);
+export const parse = (code: string, {readerEnv}: Environment): Term => {
+  return expand(read(InPort.fromString(code), readerEnv), true, readerEnv);
 };
 
-export const execute = (code: string, a: Env, l: Env, r: Env): Term => {
-  const parsed = parse(code, l, r);
+export const execute = (code: string, env: Environment): Term => {
+  const parsed = parse(code, env);
   // console.log('executing code', parsed);
-  return evaluate(parsed, a);
+  return evaluate(parsed, env.env);
 };

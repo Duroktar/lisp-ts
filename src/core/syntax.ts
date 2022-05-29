@@ -1,6 +1,6 @@
 /* References: An Optimized R5RS Macro Expander - Jay McCarthy */
 import assert from "assert";
-import { eqC, expect, first, isAtom, isEmpty, isIdent, isList, isNum, isString, isSym, zip, zipUp } from "../utils";
+import { eqC, expect, first, isAtom, isChar, isEmpty, isIdent, isList, isNum, isString, isSym, isVec, zip, zipUp } from "../utils";
 import { toString, toStringSafe } from "./toString";
 import { InputError, MatchError } from "./error";
 import { Sym } from "./sym";
@@ -204,6 +204,12 @@ export class SyntaxRulesDef {
         if (fTail.length === 0) {
           if (isAtom(pTail)) {
             this.match([], pTail, env);
+          }
+          else if (isChar(pTail)) {
+            this.match([], pTail, env)
+          }
+          else if (isVec(pTail)) {
+            pTail.data.forEach(p => this.match([], p, env))
           }
           else {
             pTail.forEach(p => this.match([], p, env))

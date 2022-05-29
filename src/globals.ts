@@ -1,20 +1,26 @@
 import assert from "assert";
 import { FALSE, NIL, TRUE, UNDEF } from "./core/const";
 import { Env } from "./core/env";
-import { InvalidCallableExpression } from "./core/error";
+import { InvalidCallableExpression, NotImplementedError } from "./core/error";
 import { evaluate } from "./core/eval";
 import { expand } from "./core/expand";
 import * as Lisp from "./core/lisp";
+import { currentInputPort, currentOutputPort, InPort, isEofObject, isInputPort, isOutputPort, OutPort } from "./core/port";
 import { isNativeProc, isProc, NativeProc } from "./core/proc";
+import { read } from "./core/read";
 import { Sym } from "./core/sym";
 import { SyntaxRulesDef } from "./core/syntax";
 import type { List, Term } from "./core/terms";
 import * as toString from "./core/toString";
+import { Vector } from "./core/vec";
+import { Environment } from "./env";
 import { loadFile } from "./load";
 import { gcd, lcm } from "./math";
 import * as Util from "./utils";
 
-export function addGlobals(env: Env, l: Env, r: Env) {
+export function addGlobals(global: Environment) {
+  const {env, readerEnv, lexicalEnv} = global
+
   env.set('#t', TRUE);
   env.set('#f', FALSE);
   env.set('#<undef>', UNDEF);
@@ -75,7 +81,7 @@ export function addGlobals(env: Env, l: Env, r: Env) {
   mkNativeProc(env, 'locals', [], (_, a) => { return a.keys().map(Sym); });
   mkNativeProc(env, 'env', [], () => { return env; });
   mkNativeProc(env, 'env->size', [], () => { return env.size(); });
-  mkNativeProc(env, 'env->keys', [], () => { return env.keys(); });
+  mkNativeProc(env, 'env->keys', [], () => { return env.keys().map(Sym); });
   mkNativeProc(env, 'env->values', [], () => { return env.values(); });
   mkNativeProc(env, 'env->entries', [], () => { return env.entries(); });
 
@@ -99,10 +105,10 @@ export function addGlobals(env: Env, l: Env, r: Env) {
   mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
   mkNativeProc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(toString.toString(a) === toString.toString(b)));
 
-  mkNativeProc(env, 'assv', ['x', 'lst'], ([x, lst]: any) => {
+  // mkNativeProc(env, 'assv', ['x', 'lst'], ([x, lst]: any) => {
 
-    return Sym('#f')
-  });
+  //   return Sym('#f')
+  // });
 
   mkNativeProc(env, 'length', ['list'], ([list]: any) => Util.isList(list) && list.length);
   mkNativeProc(env, 'reverse', ['list'], ([list]: any) => Util.isList(list) && [...list].reverse());
@@ -162,15 +168,11 @@ export function addGlobals(env: Env, l: Env, r: Env) {
     Util.assert(Util.isNum(n), `"number->string" procedure takes a 'number' as an argument`);
     return (<number>n).toString(radix ?? 10);
   });
-  mkNativeProc(env, 'string->number', ['n', 'radix?'], ([n, radix]: any) => {
-    Util.assert(Util.isString(n), `"string->number" procedure takes a 'string' as an argument`);
-    return parseInt(n, radix ?? 10);
-  });
-  mkNativeProc(env, 'string->symbol', ['n'], ([n]: any) => {
-    Util.assert(Util.isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
-    return Sym(n)
-  });
+
+
+  // 6.3.5 Strings
   mkNativeProc(env, 'string?', ['n'], ([n]: any) => Util.toL(Util.isString(n)));
+  mkNativeProc(env, 'string', ['args'], ([args]: any) => args.join(''));
   mkNativeProc(env, 'string-length', ['n'], ([n]: any) => {
     Util.assert(Util.isString(n))
     return n.length
@@ -179,11 +181,23 @@ export function addGlobals(env: Env, l: Env, r: Env) {
     Util.assert(Util.isString(string) && string.length >= k)
     return string[k]
   });
-  mkNativeProc(env, 'string-set', ['string', 'k', 'char'], ([string, k, char]: any) => {
+  mkNativeProc(env, 'string-set!', ['string', 'k', 'char'], ([string, k, char]: any) => {
     Util.assert(Util.isString(string) && string.length >= k)
     Util.assert(Util.isChar(char))
     string[k] = char
     return UNDEF
+  });
+  mkNativeProc(env, 'string->number', ['n', 'radix?'], ([n, radix]: any) => {
+    Util.assert(Util.isString(n), `"string->number" procedure takes a 'string' as an argument`);
+    return parseInt(n, radix ?? 10);
+  });
+  mkNativeProc(env, 'string->symbol', ['n'], ([n]: any) => {
+    Util.assert(Util.isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
+    return Sym(n)
+  });
+  mkNativeProc(env, 'string->input-port', ['string'], ([string]: any) => {
+    assert(typeof string === 'string')
+    return InPort.fromString(string)
   });
   mkNativeProc(env, 'string=?', ['string1', 'string2'], ([string1, string2]: any) => {
     Util.assert(Util.isString(string1) && Util.isString(string2))
@@ -273,7 +287,7 @@ export function addGlobals(env: Env, l: Env, r: Env) {
   });
 
   mkNativeProc(env, 'set-macro-character', ['char', 'cb'], ([char, cb]: any, env) => {
-    l.setFrom(char, (locals: any) => {
+    global.lexicalEnv.setFrom(char, (locals: any) => {
       const proc = evaluate(cb, env);
       if (isProc(proc)) {
         mkNativeProc(proc.env, 'read', ['read'], ([locals]: any) => locals.parse());
@@ -312,7 +326,7 @@ export function addGlobals(env: Env, l: Env, r: Env) {
 
   const parseLoadSymbol = (sym: symbol, ext = '.scm') => {
     const repr = sym.description
-    assert(repr, 'A symbol has no name.. - Some Guy')
+    assert(repr, 'A symbol has no name..')
     assert(
       repr.includes('/') &&
       repr.split('/')[0] in importableNameIndex,
@@ -324,15 +338,143 @@ export function addGlobals(env: Env, l: Env, r: Env) {
 
   mkNativeProc(env, 'load', ['file'], ([file]: any) => {
     if (Util.isSym(file)) {
-      return loadFile(parseLoadSymbol(file), env, l, r)
+      return loadFile(parseLoadSymbol(file), global)
     }
-    return loadFile(file, env, l, r)
+    return loadFile(file, global)
   });
 
   mkNativeProc(env, 'reload', ['file'], ([file]: any) => {
     if (Util.isSym(file)) {
-      return loadFile(parseLoadSymbol(file), env, l, r, true)
+      return loadFile(parseLoadSymbol(file), global, true)
     }
-    return loadFile(file, env, l, r, true)
+    return loadFile(file, global, true)
+  });
+
+  // 6.6 Input and output
+
+  // - 6.6.1 Ports
+  mkNativeProc(env, 'call-with-input-file', ['string', 'proc'], ([string, proc]: any) => {
+    throw new NotImplementedError('call-with-input-file')
+  });
+
+  mkNativeProc(env, 'input-port?', ['obj'], ([obj]: any) => Util.toL(isInputPort(obj)));
+  mkNativeProc(env, 'output-port?', ['obj'], ([obj]: any) => Util.toL(isOutputPort(obj)));
+
+  mkNativeProc(env, 'current-input-port', [], () => currentInputPort());
+  mkNativeProc(env, 'current-output-port', [], () => currentOutputPort());
+
+  mkNativeProc(env, 'open-input-file', ['filename'], ([filename]: any) => {
+    assert(typeof filename === 'string')
+    return InPort.fromFile(filename)
+  });
+
+  mkNativeProc(env, 'open-output-file', ['filename'], ([filename]: any) => {
+    assert(typeof filename === 'string')
+    return OutPort.fromFile(filename)
+  });
+
+  // SRFI 6: Basic String Ports
+  mkNativeProc(env, 'open-input-string', ['string'], ([string]: any) => {
+    assert(typeof string === 'string')
+    return InPort.fromString(string)
+  });
+  /// END SRFI 6
+
+  // - 6.3.4 Characters
+  mkNativeProc(env, 'char?', ['obj'], ([obj]: any) => {
+    return Util.toL(Util.isChar(obj))
+  });
+
+  // - 6.3.6 Vectors
+  mkNativeProc(env, 'vector?', ['obj'], ([obj]: any) => {
+    return Util.toL(Util.isVec(obj))
+  });
+  mkNativeProc(env, 'make-vector', ['k', 'fill?'], ([k, fill]: any) => {
+    assert(fill === undefined, 'make-vector fill option not implemented')
+    return new Vector(k)
+  });
+  mkNativeProc(env, 'vector', ['args'], ([args]: any) => {
+    return new Vector(args)
+  });
+  mkNativeProc(env, 'vector->length', ['vec'], ([vec]: any) => {
+    assert(Util.isVec(vec), `vector-length expected a Vector. Got: ${typeof vec}`)
+    return (<Vector>vec).data.length
+  });
+  mkNativeProc(env, 'vector->ref', ['vec', 'k'], ([vec, k]: any) => {
+    assert(Util.isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
+    assert(Util.isNumber(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
+    return (<Vector>vec).data[k]
+  });
+  mkNativeProc(env, 'vector->set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any) => {
+    assert(Util.isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
+    assert(Util.isNumber(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
+    assert(obj, `vector-ref [arg(3)] is undefined`)
+    return (<Vector>vec).data[k] = obj
+  });
+  mkNativeProc(env, 'vector->list', ['vec'], ([vec]: any) => {
+    assert(Util.isVec(vec), `vector-list expected a Vector. Got: ${typeof vec}`)
+    return (<Vector>vec).data
+  });
+  mkNativeProc(env, 'list->vector', ['list'], ([list]: any) => {
+    assert(Util.isList(list), `list->vector expected a list. Got: ${typeof list}`)
+    return new Vector(list)
+  });
+  mkNativeProc(env, 'vector->fill!', ['vec', 'fill'], ([vec, fill]: any) => {
+    assert(Util.isVec(vec), `vector-list expected a Vector. Got: ${typeof vec}`)
+    assert(fill, `vector-list [arg(2)] expected an argument`)
+    for (let i = 0; i < vec.data.length; i++) {
+      vec.data[i] = fill
+    }
+  });
+
+  // - 6.4 Control Features
+  mkNativeProc(env, 'procedure?', ['obj'], ([obj]: any) => {
+    return Util.toL(isProc(obj) || isNativeProc(obj))
+  });
+
+  // - 6.6.2 Input
+  mkNativeProc(env, 'read', ['port'], ([port]: any) => {
+    const p: InPort = port = port ?? currentInputPort()
+    return read(p, readerEnv)
+  });
+
+  mkNativeProc(env, 'read-char', ['port'], ([port]: any) => {
+    const p: InPort = port = port ?? currentInputPort()
+    return p.readChar()
+  });
+
+  mkNativeProc(env, 'peek-char', ['port'], ([port]: any) => {
+    const p: InPort = port = port ?? currentInputPort()
+    return p.peekChar()
+  });
+
+  mkNativeProc(env, 'eof-object?', ['obj'], ([obj]: any) => Util.toL(isEofObject(obj)));
+
+  mkNativeProc(env, 'char-ready?', ['port'], ([port]: any) => {
+    const p: InPort = port = port ?? currentInputPort()
+    return Util.toL(isEofObject(p) || p.charReady())
+  });
+
+  // - 6.6.3 Output
+  mkNativeProc(env, 'putchar', ['char', 'port?'], ([obj, port]: any) => {
+    const p: OutPort = port = port ?? currentOutputPort()
+    return p.write(obj)
+  });
+  mkNativeProc(env, 'write', ['obj', 'port?'], ([obj, port]: any) => {
+    const p: OutPort = port = port ?? currentOutputPort()
+    return p.write(obj)
+  });
+  mkNativeProc(env, 'display', ['obj', 'port?'], ([obj, port]: any) => {
+    const p: OutPort = port = port ?? currentOutputPort()
+    return p.write(obj)
+  });
+  mkNativeProc(env, 'newline', ['port?'], ([port]: any) => {
+    const p: OutPort = port = port ?? currentOutputPort()
+    return p.write('\n')
+  });
+  mkNativeProc(env, 'write-char', ['char', 'port?'], ([char, port]: any) => {
+    assert(Util.isChar(char), `not a character: ${char}`)
+    const p: OutPort = port = port ?? currentOutputPort()
+    return p.write(char.displayText)
   });
 }
