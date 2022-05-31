@@ -9,15 +9,15 @@ const env = createEnvironment();
 // Lisp.execute('(debug-macro! #t)', env)
 
 (async () => {
-  await Lisp.execute('(load "stdlib/r5rs.scm")', env)
+  // await Lisp.execute('(load "stdlib/r5rs.scm")', env)
 
-  await Lisp.execute('(repl)', env)
+  // await Lisp.execute('(repl)', env)
   // Lisp.execute('(begin (write-char #\\() (newline))', env)
   // Lisp.execute('(display (read (open-input-string "hello world")))', env)
 
   // await Lisp.debugExecute('(load "tests/runner.scm")', env);
 
-  // Lisp.execute('(load "tests/runner.scm")', env)
+  await Lisp.execute('(load "tests/runner.scm")', env)
   // Lisp.execute('(load "tests/utils.scm")', env)
   // Lisp.execute('(load "tests/spec.scm")', env)
   // Lisp.execute('(load "tests/r5rs.scm")', env)

@@ -1,7 +1,9 @@
 
 (test-begin "spec")
 
-; (test '#4.1.1     28  (begin (define x 28) x))
+(test '#4.1.1     28  (begin (define x 28) x))
+; (print (macroexpand '(test '#4.1.1     28  (begin (define x 28) x))))
+; (print (macroexpand (read (string->input-port "(test '#4.1.1     28  (begin (define x 28) x))"))))
 
 ; (test '#4.1.2-a   'a  (quote a))
 ; ; (test '#4.1.2-b   '() (quote #(a b c)))
@@ -38,17 +40,6 @@
 ;       (even? 1001)
 ;       (odd?  1000))))
 
-(defun wrap (v) (list v))
-
-(define-syntax wrap-macro
-  (syntax-rules ()
-    ([wrap-macro v]
-    (wrap v))))
-
-(wrap-macro 1)
-
-(let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1))
-
 ; (begin
 ;   (defun wrap (v) (list v))
 
@@ -60,6 +51,7 @@
 ;   (wrap-macro 1)
 
 ;   (let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1)))
+
 ;   ; (test "Referential Transparency" (list 1)
 ;   ;   (let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1))))
 

@@ -3,6 +3,6 @@
 (require racket/pretty)
 
 (pretty-print 
-  '((lambda () ((define even? (lambda (n) (if (zero? n) #t (odd? (- n 1))))) (define odd? (lambda (n) (if (zero? n) #f (even? (- n 1)))))) (list (even? 1000) (even? 1001) (odd? 1000))))
+  '(begin (define *result* (try (lambda () (begin (define x 28) x)))) (define *expected* 28) (define *test-id* (if (not (eq? ''#4 '28)) (inspect '#4) " ")) (incr-total) (if (equal? *expected* (cadr *result*)) (begin (if *verbose-test* (prints "Passed...")) (incr-passed)) (begin (incr-failed) (if *verbose-test* (begin (newline) (prints "!!! Failure !!!") (if (not (eq? ''#4 '28)) (prints (string-pad-end " - Test Name:" 16) *test-id*)) (prints (string-pad-end " - Expression:" 16) (inspect '(begin (define x 28) x))) (prints (string-pad-end " - Expected:" 16) (inspect *expected*)) (prints (string-pad-end " - Actual:" 16) (inspect (cadr *result*))))))))
   
 )

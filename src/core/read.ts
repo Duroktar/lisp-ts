@@ -8,7 +8,7 @@ import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisErr
 import { InPort, isEofString } from "./port";
 import { Sym, SymTable } from "./sym";
 import { List, Term } from "./terms";
-import { toString } from "./toString";
+import { toStringSafe } from "./toString";
 import { Vector } from "./vec";
 
 // system
@@ -34,16 +34,17 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
   const isHash = () => cursor === '#';
   const isSemi = () => cursor === ';';
   const isEscape = () => cursor === '\\';
+  const isEOF = () => isEofString(cursor)
   const isAlpha = (c: string) => (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')));
   const isDigit = (c: string) => ((c >= '0') && (c <= '9'));
   const isSpecial = (c: string) => ((c === '.') || (c === '_') || (c === '^') || (c === '=') || (c === '?') || (c === '!'));
   const isMathOp = (c: string) => ((c === '+') || (c === '-') || (c === '*') || (c === '/') || (c === '<') || (c === '>'));
   const isAlnum = (c: string) => isAlpha(c) || isDigit(c);
   const isValid = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash() || isEscape();
-  const isValidAndSameLine = () => isValid(current()) && !isEofString(cursor)
+  const isValidAndSameLine = () => isValid(current()) && !isEOF()
 
   const consumeIgnored = async () => {
-    while ((isSemi() || isSpace() || isNewLine()) && !isEofString(current)) {
+    while ((isSemi() || isSpace() || isNewLine()) && !isEOF()) {
       if (isSemi() === false) await advance();
       else await advanceAndConsumeToEndOfLine()
     }
@@ -62,7 +63,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
       await advance();
 
       const exprs: Term[] = [];
-      while (!close() && !isEofString(cursor)) {
+      while (!close() && !isEOF()) {
         exprs.push(await parse());
       }
 
@@ -150,9 +151,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
       }
 
       const val = await parseAtom();
-      assert(val && typeof val === 'symbol')
-
-      return Sym(`#${toString(val)}`)
+      return Sym(`#${toStringSafe(val)}`)
     }
 
     return await parseQuote()
@@ -172,7 +171,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
       await advance();
 
       let exprs: string = '';
-      while (!isDblQt() && !isNewLine() && !isEofString(cursor)) {
+      while (!isDblQt() && !isNewLine() && !isEOF()) {
         exprs += await advance();
       }
 

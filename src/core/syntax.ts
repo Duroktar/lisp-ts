@@ -47,7 +47,7 @@ export class SyntaxRulesDef {
 
   static gen = 1
 
-  static debug = false
+  static debug = true
 
   public call(form: Term, env: Env): Term {
     const gen = SyntaxRulesDef.gen++
@@ -348,8 +348,6 @@ export class SyntaxRulesDef {
       return template.map(t => this.generateOutput(t, ids, env))
     }
     else {
-      if (SyntaxRulesDef.gen === 14)
-        debugger
       if (Den.isDenotation(template)) {
         const value = env.getFrom(template)
         assert(value, `missing alias: "${toStringSafe(template)}"`)

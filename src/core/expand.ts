@@ -9,8 +9,9 @@ import type { List, Term } from "./terms";
 import { toString, toStringSafe } from "./toString";
 
 export const expand = async (e: Term, topLevel = false, env: Env): Promise<Term> => {
-  assert(Utils.isEmpty(e) === false, `() => Error`)
+  // assert(Utils.isEmpty(e) === false, `() => Error`)
   if (!Utils.isList(e)) { return e }
+  if (Utils.isEmpty(e)) { return e }
   else if (SymTable.QUOTE === e[0]) {
     Utils.expect(e, e.length === 2);
     return e;
@@ -63,7 +64,8 @@ export const expand = async (e: Term, topLevel = false, env: Env): Promise<Term>
     const proc = env.getFrom<Proc>(e[0]);
     const form = e.slice(1);
     if (isCallable(proc)) {
-      return await proc.call(form, env);
+      const result = await proc.call(form, env);
+      return await expand(result, false, env);
     }
     // allow functions as well
     return await expand(await proc(...form), topLevel, env);

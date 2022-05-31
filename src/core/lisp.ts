@@ -115,29 +115,27 @@ export const execute = async (code: string, env: Environment): Promise<Term> => 
 
 export const debugExecute = async (code: string, env: Environment): Promise<Term> => {
   try {
-    const parsed = await parse(code, env);
-    const result = await evaluate(parsed, env.env);
+    // console.log('executing:', code)
+    const result = await execute(code, env);
+    // console.log('done executing:', result)
     return result;
-  } catch (err) {
-    if (err instanceof Error) {
+  } catch (outerError) {
+    if (outerError instanceof Error) {
       try {
         return await debugExecute(`
           (begin (
-            (write ${JSON.stringify(err.message)})
+            (write ${JSON.stringify(outerError.message)})
             (newline)
             (write "Entering REPL...")
             (newline)
             (repl)))`, env)
-      } catch (err) {
-        if (err instanceof Resume) {
-
+      } catch (innerError) {
+        if (innerError instanceof Resume) {
           return await debugExecute(code, env)
         }
-
-        throw err
+        throw innerError
       }
     }
-
-    throw err
+    throw outerError
   }
 };

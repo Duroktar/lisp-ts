@@ -1,4 +1,5 @@
 import assert from "assert";
+import { existsSync } from "fs";
 import { isAbsolute, join, relative } from "path";
 import { EOF } from "./core/const";
 import { evaluate } from "./core/eval";
@@ -22,14 +23,18 @@ export const readFile = async (path: string, global: Environment): Promise<Term[
 export const parseFile = async (path: string, global: Environment): Promise<Term[]> => {
   const file = await readFile(path, global);
   const rv: Term[] = []
-  file.forEach(async f => rv.push(await expand(f, true, global.lexicalEnv)))
+  for (let f of file) {
+    rv.push(await expand(f, true, global.lexicalEnv))
+  }
   return rv;
 };
 
 export const executeFile = async (path: string, global: Environment): Promise<Term[]> => {
   const file = await parseFile(path, global);
   const rv: Term[] = []
-  file.forEach(async f => rv.push(await evaluate(f, global.env)))
+  for (let f of file) {
+    rv.push(await evaluate(f, global.env))
+  }
   return rv;
 };
 
@@ -38,15 +43,20 @@ export const loadFile = async (file: string, global: Environment, bustCache = tr
     const cacheData = new TSchemeModule(file)
 
     if (isAbsolute(file)) {
-      await executeFile(join(global.env.get('#cwd'), file), global);
+      const absPath = join(global.env.get('#cwd'), file);
+      await executeFile(absPath, global);
     } else {
       const fromPath = global.env.get('#cwd');
 
       assert(typeof fromPath === 'string',
         `can't resolve path to imported file`);
 
-      const relpath = relative(fromPath, file);
-      await executeFile(relpath, global);
+      const relPath = relative(fromPath, file);
+
+      assert(existsSync(relPath),
+        `import not found: ${relPath}`)
+
+      await executeFile(relPath, global);
     }
     TSchemeModule.loaderCache.set(file, cacheData);
   }
