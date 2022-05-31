@@ -9,32 +9,36 @@ import { read } from "./core/read";
 import { Term } from "./core/terms";
 import { Environment } from "./env";
 
-export const readFile = (path: string, global: Environment): Term[] => {
+export const readFile = async (path: string, global: Environment): Promise<Term[]> => {
   const port = new InPort(new SourceFile(path), 'file');
-  const getNext = () => read(port, global.readerEnv);
+  const getNext = async () => await read(port, global.readerEnv);
   let terms = []
-  for (let next = getNext(); next !== EOF; next = getNext()) {
+  for (let next = await getNext(); next !== EOF; next = await getNext()) {
     terms.push(next);
   }
   return terms;
 };
 
-export const parseFile = (path: string, global: Environment): Term[] => {
-  const file = readFile(path, global);
-  return file.map(f => expand(f, true, global.lexicalEnv));
+export const parseFile = async (path: string, global: Environment): Promise<Term[]> => {
+  const file = await readFile(path, global);
+  const rv: Term[] = []
+  file.forEach(async f => rv.push(await expand(f, true, global.lexicalEnv)))
+  return rv;
 };
 
-export const executeFile = (path: string, global: Environment) => {
-  const file = parseFile(path, global);
-  return file.map(f => evaluate(f, global.env));
+export const executeFile = async (path: string, global: Environment): Promise<Term[]> => {
+  const file = await parseFile(path, global);
+  const rv: Term[] = []
+  file.forEach(async f => rv.push(await evaluate(f, global.env)))
+  return rv;
 };
 
-export const loadFile = (file: string, global: Environment, bustCache = true) => {
+export const loadFile = async (file: string, global: Environment, bustCache = true) => {
   if (!TSchemeModule.loaderCache.has(file) || bustCache) {
     const cacheData = new TSchemeModule(file)
 
     if (isAbsolute(file)) {
-      executeFile(join(global.env.get('#cwd'), file), global);
+      await executeFile(join(global.env.get('#cwd'), file), global);
     } else {
       const fromPath = global.env.get('#cwd');
 
@@ -42,7 +46,7 @@ export const loadFile = (file: string, global: Environment, bustCache = true) =>
         `can't resolve path to imported file`);
 
       const relpath = relative(fromPath, file);
-      executeFile(relpath, global);
+      await executeFile(relpath, global);
     }
     TSchemeModule.loaderCache.set(file, cacheData);
   }

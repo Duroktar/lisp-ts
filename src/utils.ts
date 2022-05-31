@@ -40,7 +40,7 @@ export const isNum = (x: unknown): x is number => typeof x === 'number';
 export const isVec = (x: unknown): x is Vector => x instanceof Vector;
 export const isString = (c: any): c is string => typeof c === 'string';
 export const isChar = (x: unknown): x is Character => x instanceof Character;
-export const isEmpty = (x: unknown): x is [] => isList(x) && x.length === 0;
+export const isEmpty = (x: unknown): boolean => isList(x) && x.length === 0;
 export const isNone = (x: unknown): x is undefined | null => x === undefined || x === null;
 export const isExpr = (x: unknown): x is Term => isAtom(x) || isList(x) || isString(x) || isNum(x);
 export const isConst = (x: unknown) => isNum(x) || isString(x)

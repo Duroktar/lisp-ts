@@ -7,7 +7,9 @@ export class Character {
   ) {
     assert(isSym(sym), 'Characters require a symbol');
     assert(sym.description, 'Invalid Character Symbol description')
-    this.displayText = sym.description
+    this.displayText = sym.description.toLowerCase() === 'newline' ? '\n' :
+                       sym.description.toLowerCase() === 'space'   ? ' ' :
+                       /* otherwise */ sym.description
   }
 
   public displayText: string

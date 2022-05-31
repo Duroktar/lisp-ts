@@ -1,7 +1,7 @@
 import "colors"
 import { createEnvironment } from "./env";
-import { execute } from "./core/lisp";
+import { debugExecute } from "./core/lisp";
 
-const env = createEnvironment()
+const env = createEnvironment();
 
-execute('(load "tests/runner.scm")', env);
+debugExecute('(load "tests/runner.scm")', env);

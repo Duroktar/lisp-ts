@@ -8,6 +8,7 @@ import { InPort } from "./port";
 import { read } from "./read";
 import type { Term, List } from "./terms";
 import { Environment } from "../env";
+import { Resume } from "./cont";
 
 // primitives (7)
 export const quote = (expr: Term): Term => (<List>expr)[1];
@@ -17,7 +18,7 @@ export const car = (expr: Term): Term => Utils.expect(<any>expr, Utils.isList, '
 export const cdr = (expr: Term): Term => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
 // END primitives
 
-export const _do = (args: Term[], env: Env) => {
+export const _do = async (args: Term[], env: Env) => {
   /*
   (do ((<variable1> <init1> <step1>) ...)
         (<test> <expression> ...)
@@ -59,8 +60,8 @@ export const _do = (args: Term[], env: Env) => {
   // - the <step> expressions are evaluated in some unspecified order,
   // - the <variable>s are bound to fresh locations holding the results,
   // Then the next iteration begins.
-  const iterate = (depth = 0): Term => {
-    const testResult = evaluate(test, env);
+  const iterate = async (depth = 0): Promise<Term> => {
+    const testResult = await evaluate(test, env);
     if (!Utils.isT(testResult)) {
       commands.forEach((command: any) => {
         evaluate(command, env);
@@ -89,7 +90,7 @@ export const _do = (args: Term[], env: Env) => {
     }
   };
 
-  return iterate();
+  return await iterate();
 
   function processBindings() {
     while (bindings.length) {
@@ -99,16 +100,44 @@ export const _do = (args: Term[], env: Env) => {
   }
 }
 
-export const tokenize = (code: string, env: Environment): Term => {
-  return read(InPort.fromString(code), env.readerEnv);
+export const tokenize = async (code: string, env: Environment): Promise<Term> => {
+  return await read(InPort.fromString(code), env.readerEnv);
 };
 
-export const parse = (code: string, {readerEnv}: Environment): Term => {
-  return expand(read(InPort.fromString(code), readerEnv), true, readerEnv);
+export const parse = async (code: string, {readerEnv}: Environment): Promise<Term> => {
+  return await expand(await read(InPort.fromString(code), readerEnv), true, readerEnv);
 };
 
-export const execute = (code: string, env: Environment): Term => {
-  const parsed = parse(code, env);
-  // console.log('executing code', parsed);
-  return evaluate(parsed, env.env);
+export const execute = async (code: string, env: Environment): Promise<Term> => {
+  const parsed = await parse(code, env);
+  return await evaluate(parsed, env.env);
+};
+
+export const debugExecute = async (code: string, env: Environment): Promise<Term> => {
+  try {
+    const parsed = await parse(code, env);
+    const result = await evaluate(parsed, env.env);
+    return result;
+  } catch (err) {
+    if (err instanceof Error) {
+      try {
+        return await debugExecute(`
+          (begin (
+            (write ${JSON.stringify(err.message)})
+            (newline)
+            (write "Entering REPL...")
+            (newline)
+            (repl)))`, env)
+      } catch (err) {
+        if (err instanceof Resume) {
+
+          return await debugExecute(code, env)
+        }
+
+        throw err
+      }
+    }
+
+    throw err
+  }
 };

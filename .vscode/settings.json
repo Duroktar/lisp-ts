@@ -4,5 +4,20 @@
         "titleBar.activeBackground": "#890601",
         "titleBar.activeForeground": "#FFFBFB"
     },
-    "typescript.tsdk": "node_modules/typescript/lib"
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/.classpath": true,
+        "**/.project": true,
+        "**/.settings": true,
+        "**/.antlr": true,
+        "**/.gradle": true,
+        "**/.factorypath": true,
+        "**/node_modules": true
+    }
 }

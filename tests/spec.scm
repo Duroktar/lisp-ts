@@ -38,18 +38,29 @@
 ;       (even? 1001)
 ;       (odd?  1000))))
 
-(begin
-  (defun wrap (v) (list v))
+(defun wrap (v) (list v))
 
-  (define-syntax wrap-macro
-    (syntax-rules ()
-      ([wrap-macro v]
-      (wrap v))))
+(define-syntax wrap-macro
+  (syntax-rules ()
+    ([wrap-macro v]
+    (wrap v))))
 
-  (wrap-macro 1)
+(wrap-macro 1)
 
-  (let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1)))
-  ; (test "Referential Transparency" (list 1)
-  ;   (let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1))))
+(let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1))
+
+; (begin
+;   (defun wrap (v) (list v))
+
+;   (define-syntax wrap-macro
+;     (syntax-rules ()
+;       ([wrap-macro v]
+;       (wrap v))))
+
+;   (wrap-macro 1)
+
+;   (let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1)))
+;   ; (test "Referential Transparency" (list 1)
+;   ;   (let ((wrap (lambda (v) (+ v 100)))) (wrap-macro 1))))
 
 (test-end)

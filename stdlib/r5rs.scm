@@ -322,3 +322,16 @@
 ; (define (putchar2 c1 c2)
 ;   (putchar c1)
 ;   (putchar c2))
+
+
+; (define repl () (begin
+;   (putchar 62)
+;   (putchar 32)
+;   (let ((expr (read)))
+;     (if (eof-object? expr)
+;         ; (newline)
+;         ; #t
+;         (begin
+;           (write (eval expr))
+;           (newline)
+;           (repl))))))

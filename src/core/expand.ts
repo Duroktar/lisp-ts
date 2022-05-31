@@ -8,7 +8,7 @@ import { SyntaxRulesDef } from "./syntax";
 import type { List, Term } from "./terms";
 import { toString, toStringSafe } from "./toString";
 
-export const expand = (e: Term, topLevel = false, env: Env): Term => {
+export const expand = async (e: Term, topLevel = false, env: Env): Promise<Term> => {
   assert(Utils.isEmpty(e) === false, `() => Error`)
   if (!Utils.isList(e)) { return e }
   else if (SymTable.QUOTE === e[0]) {
@@ -18,7 +18,7 @@ export const expand = (e: Term, topLevel = false, env: Env): Term => {
   else if (SymTable.IF === e[0]) {
     if (e.length === 3) e.push(UNDEF)
     assert(e.length === 4, `Invalid if form: ${toStringSafe(e)}`)
-    return e.map(e => expand(e, false, env));
+    return await Promise.all(e.map(e => expand(e, false, env)));
   }
   else if (SymTable.SET === e[0]) {
     const [_set, variable, value] = e;
@@ -28,7 +28,7 @@ export const expand = (e: Term, topLevel = false, env: Env): Term => {
   else if (SymTable.BEGIN === e[0]) {
     const [_begin, ...exprs] = e;
     Utils.expect(e, exprs.length >= 1, 'expand begin');
-    const rrv = exprs.map(x => expand(x, topLevel, env));
+    const rrv = await Promise.all(exprs.map(x => expand(x, topLevel, env)));
     return [_begin, ...rrv];
   }
   else if (SymTable.DEFINESYNTAX === e[0]) {
@@ -43,35 +43,35 @@ export const expand = (e: Term, topLevel = false, env: Env): Term => {
     }
     const [_, name, args, ...body] = e;
     if (Utils.isEmpty(body)) {
-      return [_def, name, expand(args, false, env)];
+      return [_def, name, await expand(args, false, env)];
     }
-    return expand([SymTable.DEFUN, name, args, ...body], false, env);
+    return await expand([SymTable.DEFUN, name, args, ...body], false, env);
   }
   else if (SymTable.DEFUN === e[0]) {
     Utils.expect(e, e.length >= 3, 'expand defun');
-    return expandDefun(e, env);
+    return await expandDefun(e, env);
   }
   else if (SymTable.LAMBDA === e[0]) {
     Utils.expect(e, e.length >= 3, 'expand lambda');
-    return expandLambda(e, env);
+    return await expandLambda(e, env);
   }
   else if (SymTable.QUASIQUOTE === e[0]) {
     Utils.expect(e, e.length === 2, 'expand quasi-quote');
-    return expandQuasiquote(e[1]);
+    return await expandQuasiquote(e[1]);
   }
   else if (env.hasFrom(e[0])) {
     const proc = env.getFrom<Proc>(e[0]);
     const form = e.slice(1);
     if (isCallable(proc)) {
-      return proc.call(form, env);
+      return await proc.call(form, env);
     }
     // allow functions as well
-    return expand(proc(...form), topLevel, env);
+    return await expand(await proc(...form), topLevel, env);
   }
-  return e.map(x => expand(x, false, env));
+  return await Promise.all(e.map(x => expand(x, false, env)));
 };
 
-export const expandQuasiquote = (x: Term): Term => {
+export const expandQuasiquote = async (x: Term): Promise<Term> => {
   if (!Utils.isPair(x)) return [SymTable.QUOTE, x];
   Utils.expect(x, x !== SymTable.UNQUOTESPLICING, "can't slice here");
   if (Array.isArray(x)) {
@@ -81,16 +81,16 @@ export const expandQuasiquote = (x: Term): Term => {
     }
     if (Utils.isList(x[0]) && x[0][0] === SymTable.UNQUOTESPLICING) {
       Utils.expect(x, Utils.isList(x[0]) && x[0].length === 2);
-      return [SymTable.APPEND, x[0][1], expandQuasiquote(x.slice(1))];
+      return [SymTable.APPEND, x[0][1], await expandQuasiquote(x.slice(1))];
     }
     else {
-      return [SymTable.CONS, expandQuasiquote(x[0]), expandQuasiquote(x.slice(1))];
+      return [SymTable.CONS, await expandQuasiquote(x[0]), await expandQuasiquote(x.slice(1))];
     }
   }
   throw new Error('unexpected state (expandQuasiquote)')
 };
 
-function expandDefineSyntax(e: List, topLevel: boolean, env: Env) {
+async function expandDefineSyntax(e: List, topLevel: boolean, env: Env) {
   let [_def, name, ...rest] = e;
   Utils.expect(e, topLevel, 'define-syntax only allowed at top level');
   Utils.expect(rest, Utils.isList(rest[0]) && rest[0][0] === Sym('syntax-rules'));
@@ -108,20 +108,20 @@ function expandDefineSyntax(e: List, topLevel: boolean, env: Env) {
   return [];
 }
 
-function expandLambda(e: List, env: Env) {
+async function expandLambda(e: List, env: Env) {
   const [_lambda, params, ...expression] = e;
   const allAtoms = Utils.isList(params) && params.every(Utils.isSym);
   assert(allAtoms || Utils.isSym(params), `Invalid lambda args. Expected a list of atoms or a single atom but instead got: ${toString(params)}, ${toString(e)}`);
   assert(expression.length >= 1, `lambda expression empty`);
   const body = (expression.length > 1) && [SymTable.BEGIN, ...expression]
-  return [_lambda, params, expand(body || expression[0], false, env)];
+  return [_lambda, params, await expand(body || expression[0], false, env)];
 }
 
-function expandDefun(e: List, env: Env): Term {
+async function expandDefun(e: List, env: Env): Promise<Term> {
   let [_def, name, args, body] = e;
     Utils.expect(e, Utils.isSym(name), `Can only define a symbol`);
     Utils.expect(e, Utils.isList(args) || Utils.isSym(args), `Invalid args`);
-    const expr = expand([SymTable.LAMBDA, args, body], false, env);
+    const expr = await expand([SymTable.LAMBDA, args, body], false, env);
     return [_def, name, expr]
 }
 

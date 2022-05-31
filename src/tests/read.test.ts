@@ -5,9 +5,9 @@ import { createEnvironment } from "../env";
 
 const {readerEnv} = createEnvironment()
 
-test("(read) (eq 'x 'y) => (eq (quote x) (quote y))", () => {
+test("(read) (eq 'x 'y) => (eq (quote x) (quote y))", async () => {
   expect(
-    toString(read(
+    toString(await read(
       InPort.fromString("(eq 'x 'y)"),
       readerEnv,
     ))).toBe(

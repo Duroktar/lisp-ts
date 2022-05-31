@@ -1,11 +1,19 @@
+import rlSYnc from "readline-sync"
 import assert from "assert"
-import { existsSync, readFileSync, readSync, writeSync } from "fs"
+import { fromEvent, Observable, withLatestFrom, first, firstValueFrom, map, flatMap, mergeMap, takeUntil, ReplaySubject, lastValueFrom, Subject } from 'rxjs';
+import { existsSync, readFileSync, writeSync } from "fs"
+import { Server, Socket } from "socket.io"
+import { io, Socket as Client } from "socket.io-client";
 import type { delimiter, whitespace } from "../syntax"
 import { delimiters } from "./const"
 import { quotes } from "./macro"
+import { isEmpty, isNewline } from "../utils";
+import { Queue } from "../lib/queue";
+import { Environment } from "../env";
+rlSYnc.setDefaultOptions({prompt: ''});
 
 export abstract class File {
-  abstract read(): string
+  abstract read(): Promise<string>
   abstract write(text: string): void
   static EOF_STRING = '#<eof-object>'
 }
@@ -15,7 +23,12 @@ export class SourceFile implements File {
   constructor(filepath: string) {
     this.data = String(readFileSync(filepath))
   }
-  read(): string {
+  async readline(): Promise<string> {
+    const [line, ...lines] = this.data.split('\n')
+    this.data = lines.join('\n')
+    return line
+  }
+  async read(): Promise<string> {
     const x = this.data[0] ?? File.EOF_STRING
     this.data = this.data.slice(1)
     return x
@@ -28,7 +41,12 @@ export class SourceFile implements File {
 
 export class RawText implements File {
   constructor(private data: string) {}
-  read(): string {
+  async readline(): Promise<string> {
+    const [line, ...lines] = this.data.split('\n')
+    this.data = lines.join('\n')
+    return line
+  }
+  async read(): Promise<string> {
     const x = this.data[0] ?? File.EOF_STRING
     this.data = this.data.slice(1)
     return x
@@ -47,26 +65,99 @@ export class RawText implements File {
 }
 
 export class StdIn implements File {
-  write(text: string): void {
-    throw new Error("Method not implemented.")
+  async readline(): Promise<string> {
+    return rlSYnc.prompt({hideEchoBack: false, history: true, prompt: ''})
   }
-  read(): string {
-    return String.fromCodePoint(getcharSync())
+  async read(): Promise<string> {
+    if (isEmpty(this._buffer)) {
+      const rv = rlSYnc.prompt({ hideEchoBack: false, history: false, prompt: '' });
+      this._buffer.push(...rv, File.EOF_STRING)
+    }
+    return this._buffer.shift()!
+  }
+  write(text: string): void {
+    throw new Error("Cannot write to stdin")
+  }
+  private _buffer: string[] = []
+}
+
+export class SocketClient implements File {
+  public data = []
+  private observable: Observable<any>;
+  private socket: Client
+  constructor(address: string) {
+    this.socket = io(address, {})
+    this.socket.on('connection', (connection) => {
+    })
+    this.observable = fromEvent(this.socket, 'data')
+      .pipe(mergeMap(data => data.split()))
+    // this.socket.on("data", (socket: any) => {
+    //   this.data += socket.getData();
+    // });
+  }
+  async readline(): Promise<string> {
+    // return await firstValueFrom(this.observable.pipe(map(takeUntil(val => val === '\n'))))
+    let data
+    do { data = await this.read() }
+    while (!isNewline(data) && !isEofString(data))
+    return data
+  }
+  async read(): Promise<string> {
+    const x = await firstValueFrom(this.observable)
+    return x ?? File.EOF_STRING
+  }
+  write(text: string): void {
+    this.socket.send(text)
+  }
+  close() {
+    this.socket.close()
+  }
+}
+
+export class SocketServer implements File {
+  public data: string[] = []
+  private socket: Server
+  private fifo = new Queue()
+  constructor(port: string | number) {
+    this.socket = new Server(Number(port), {})
+    this.socket.on('connection', (connection) => {
+      connection.on('data', data => {
+        this.fifo.putNowait(data)
+        this.fifo.putNowait('\n')
+      })
+    })
+  }
+  // async readline(): Promise<string> {
+  //   let data
+  //   do { data = await this.read() }
+  //   while (!isNewline(data) && !isEofString(data))
+  //   return data
+  // }
+  async read(): Promise<string> {
+    if (this.data.length === 0) {
+      const x = await this.fifo.get()
+      assert(typeof x === 'string', 'data must be a string (SocketServer)')
+      this.data.push(...x)
+    }
+    return this.data.shift() ?? File.EOF_STRING
+  }
+  write(text: string): void {
+    this.socket.send(text)
   }
 }
 
 export class StdOut implements File {
   write(output: string | number): void {
-    if (typeof output !== "number") {
-      for (let char of String(output)) {
-        putcharSync(char.charCodeAt(0))
-      }
-      return
-    }
-    putcharSync(output)
+    if (typeof output !== "number")
+      process.stdout.write(output)
+    else
+      process.stdout.write(String(output))
   }
-  read(): string {
-    throw new Error("Method not implemented.")
+  readline(): Promise<string> {
+    throw new Error("Cannot read from stdout")
+  }
+  read(): Promise<string> {
+    throw new Error("Cannot read from stdout")
   }
 }
 
@@ -96,18 +187,24 @@ export class InPort extends Port {
   static fromStdIn() {
     return new InPort(new StdIn(), 'stdin')
   }
-  public readChar(): string {
+  static fromSocketClient(address: string): any {
+    return new InPort(new SocketClient(address), `socket-client:${address}`)
+  }
+  static fromSocketServer(port: string | number): any {
+    return new InPort(new SocketServer(port), `socket-server:${port}`)
+  }
+  public async readChar(): Promise<string> {
     if (!this.closed) {
-      if (this.char === '') this.char = this.file.read()
+      if (this.char === '') this.char = await this.file.read()
       if (this.char === '') return File.EOF_STRING
       const char = this.char; this.char = '';
       return char
     }
     throw new Error('attempted to read from closed port')
   }
-  public peekChar(): string {
+  public async peekChar(): Promise<string> {
     if (this.char === '') {
-      const char = this.readChar()
+      const char = await this.readChar()
       this.char = char
     }
     return this.char
@@ -130,6 +227,12 @@ export class OutPort extends Port {
   }
   static fromStdOut() {
     return new OutPort(new StdOut(), 'stdout')
+  }
+  static fromSocketClient(address: string): any {
+    return new OutPort(new SocketClient(address), 'socket-client')
+  }
+  static fromSocketServer(port: string | number): any {
+    return new OutPort(new SocketServer(port), 'socket-server')
   }
   public write(text: string): void {
     if (this.closed)
@@ -156,13 +259,10 @@ export const isOutputPort = (obj: any) => {
   return obj instanceof OutPort
 }
 
-let inputPort = InPort.fromStdIn();
-let outputPort = OutPort.fromStdOut();
-
 // procedure
-export const currentInputPort = () => inputPort
+export const currentInputPort = (ctx: Environment): InPort => ctx.env.get<any>('*current-input-port*')
 // procedure
-export const currentOutputPort = () => outputPort
+export const currentOutputPort = (ctx: Environment): OutPort => ctx.env.get<any>('*current-output-port*')
 
 class UnimplementedOptionalProcedureError extends Error {}
 
@@ -190,30 +290,15 @@ export const closeInputPort = (port: InPort) => {}
 export const closeOutputPort = (port: OutPort) => {}
 
 
-export const readChar = (port = currentInputPort()) => {
+export const readChar = (port: InPort) => {
   return port.readChar()
 }
 
-export const peekChar = (port = currentInputPort()) => {
+export const peekChar = (port: InPort) => {
   return port.peekChar()
 }
 
-export const isEofObject = (obj: any) => obj === File.EOF_STRING
+export const isEofString = (obj: any) => obj === File.EOF_STRING
 export const isDelimiter = (c: any): c is delimiter => isWhiteSpace(c) || delimiters.has(c);
 export const isQuoteChar = (c: any): boolean => quotes[c] !== undefined;
 export const isWhiteSpace = (c: any): c is whitespace => c === ' ' || c === '\t' || c === '\n'
-
-export const putcharSync = (c: number) => {
-  assert(typeof c === 'number')
-  let buffer = Buffer.alloc(1);
-  buffer[0] = c;
-  writeSync(1, buffer, 0, 1);
-  return c;
-};
-
-export const getcharSync = () => {
-  let buffer = Buffer.alloc(1);
-  if (readSync(0, buffer, 0, 1, <any>undefined))
-    return buffer[0];
-  return -1;
-};

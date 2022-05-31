@@ -17,8 +17,8 @@ export class Procedure {
     public env: Env,
     public name = 'λ',
   ) {}
-  public call(args: Term, env: Env): Term {
-    return evaluate(args, env)
+  public async call(args: Term, env: Env): Promise<Term> {
+    return await evaluate(args, env)
   }
 }
 
