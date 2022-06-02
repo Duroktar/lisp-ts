@@ -11,7 +11,6 @@ import { List, Term } from "./terms";
 import { toStringSafe } from "./toString";
 import { Vector } from "./vec";
 
-// system
 export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
   let cursor = await port.readChar()
 
@@ -21,22 +20,24 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
     return c;
   }
 
-  const current = () => cursor;
-  const isDblQt = () => cursor === '"';
-  const isOpenS = () => cursor === '(';
-  const isCloseS = () => cursor === ')';
-  const isOpenM = () => cursor === '[';
-  const isCloseM = () => cursor === ']';
-  const isOpenP = () => cursor === '{';
-  const isCloseP = () => cursor === '}';
-  const isSpace = () => cursor === ' ';
-  const isNewLine = () => cursor === '\n';
-  const isHash = () => cursor === '#';
-  const isSemi = () => cursor === ';';
-  const isEscape = () => cursor === '\\';
-  const isEOF = () => isEofString(cursor)
+  const peek = async () => await port.peekChar();
+  const current = (c = cursor) => c;
+  const isDblQt = (c = cursor) => c === '"';
+  const isOpenS = (c = cursor) => c === '(';
+  const isCloseS = (c = cursor) => c === ')';
+  const isOpenM = (c = cursor) => c === '[';
+  const isCloseM = (c = cursor) => c === ']';
+  const isOpenP = (c = cursor) => c === '{';
+  const isCloseP = (c = cursor) => c === '}';
+  const isSpace = (c = cursor) => c === ' ';
+  const isNewLine = (c = cursor) => c === '\n';
+  const isHash = (c = cursor) => c === '#';
+  const isSemi = (c = cursor) => c === ';';
+  const isEscape = (c = cursor) => c === '\\';
+  const isEOF = (c = cursor) => isEofString(c)
   const isAlpha = (c: string) => (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')));
   const isDigit = (c: string) => ((c >= '0') && (c <= '9'));
+  const isDelimiter = (c: string) => '([{}])'.includes(c);
   const isSpecial = (c: string) => ((c === '.') || (c === '_') || (c === '^') || (c === '=') || (c === '?') || (c === '!'));
   const isMathOp = (c: string) => ((c === '+') || (c === '-') || (c === '*') || (c === '/') || (c === '<') || (c === '>'));
   const isAlnum = (c: string) => isAlpha(c) || isDigit(c);
@@ -86,18 +87,21 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
 
   const readMacroLocals = { parse, advance, current, eatSpace: consumeIgnored, ...toLisp({ isEOF: isEofString, isSpace, isNewLine }) };
 
-  async function parseAtom(): Promise<Term> {
+  async function parseWhileValid(): Promise<string> {
     let atom: string = '';
     do {
       if (isEscape()) { await advance(); }
       atom += await advance();
     } while (isValidAndSameLine());
+    assert(atom !== 'undefined', "parseWhileValid parsed 'undefined'")
+    return atom;
+  }
+
+  async function parseAtom(): Promise<Term> {
+    let atom = await parseWhileValid()
     const num = parseInt(atom);
     if (Number.isNaN(num) === false)
       return num;
-    if (atom === 'undefined') {
-      return atom
-    }
     return Symbol.for(atom);
   }
 
@@ -124,14 +128,15 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
   async function parseHashPrefix(): Promise<Term> {
     if (current() === "#") {
       await advance();
+      const lookahead = current();
 
-      if (current() === "(") {
+      if (lookahead === "(") {
         const items = await parseList()
         assert(isList(items), "what is going on?")
         return new Vector(<List>items)
       }
 
-      if (current() === "\\") {
+      if (lookahead === "\\") {
         await advance();
 
         const val = await parseAtom();
@@ -139,19 +144,31 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
         if (typeof val === 'symbol') {
           const char = val.description
           assert(
-            char &&
-            (char.length === 1 || char.match(/^(newline|space)$/i)),
+            char && (char.length === 1 || char.match(/^(newline|space)$/i)),
 
             `error parsing character: #\\${char}`
           )
+
           return new Character(val) as any
         }
 
         throw new Error('What am i doing here?')
       }
 
-      const val = await parseAtom();
-      return Sym(`#${toStringSafe(val)}`)
+      if (lookahead === 't' || lookahead === 'f') {
+        const next = await peek();
+        const valid = isDelimiter(next) || isSpace(next) || isNewLine(next) || isEOF(next);
+        assert(valid, `bad-syntax \`#${lookahead + next}\``)
+
+        await advance()
+        return Sym(`#${lookahead}`)
+      }
+
+      if ('eibodx'.includes(lookahead)) {
+        assert(false, 'numbers not implemented yet')
+      }
+
+      throw new SyntaxError(`bad-syntax \`#${lookahead}\``)
     }
 
     return await parseQuote()

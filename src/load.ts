@@ -10,6 +10,18 @@ import { read } from "./core/read";
 import { Term } from "./core/terms";
 import { Environment } from "./env";
 
+export function parseLoadSymbol(sym: symbol, ext = '.scm') {
+  const repr = sym.description
+  assert(repr, 'A symbol has no name..')
+  assert(
+    repr.includes('/') &&
+    repr.split('/')[0].match(/^(stdlib|tests|samples)$/),
+
+    `Must import from a known namespace (eg: stdlib, etc.)`
+  )
+  return repr + ext
+}
+
 export const readFile = async (path: string, global: Environment): Promise<Term[]> => {
   const port = new InPort(new SourceFile(path), 'file');
   const getNext = async () => await read(port, global.readerEnv);

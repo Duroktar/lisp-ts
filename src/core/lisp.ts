@@ -114,28 +114,35 @@ export const execute = async (code: string, env: Environment): Promise<Term> => 
 };
 
 export const debugExecute = async (code: string, env: Environment): Promise<Term> => {
-  try {
-    // console.log('executing:', code)
-    const result = await execute(code, env);
-    // console.log('done executing:', result)
-    return result;
-  } catch (outerError) {
-    if (outerError instanceof Error) {
-      try {
-        return await debugExecute(`
-          (begin (
-            (write ${JSON.stringify(outerError.message)})
-            (newline)
-            (write "Entering REPL...")
-            (newline)
-            (repl)))`, env)
-      } catch (innerError) {
-        if (innerError instanceof Resume) {
-          return await debugExecute(code, env)
+  async function innerDebugExecute(level = 1): Promise<any> {
+    try {
+      const result = await execute(code, env);
+      return result;
+    } catch (outerError) {
+      if (outerError instanceof Error) {
+        // console.error('outerError')
+        console.error(outerError.stack)
+        try {
+          return await execute(`
+            (begin (
+              (write ${JSON.stringify(outerError.message)})
+              (newline)
+              (write "Entering REPL...")
+              (newline)
+              (repl)))`, env)
+        } catch (innerError) {
+          // console.error('innerError')
+          // console.error(innerError)
+          if (innerError instanceof Resume) {
+            return await innerDebugExecute(level++)
+          }
+          // throw innerError
         }
-        throw innerError
       }
+      throw outerError
     }
-    throw outerError
   }
+
+  await execute(`(load "stdlib/io.scm")`, env)
+  return await innerDebugExecute();
 };

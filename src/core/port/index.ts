@@ -4,20 +4,20 @@ import { fromEvent, Observable, withLatestFrom, first, firstValueFrom, map, flat
 import { existsSync, readFileSync, writeSync } from "fs"
 import { Server, Socket } from "socket.io"
 import { io, Socket as Client } from "socket.io-client";
-import type { delimiter, whitespace } from "../syntax"
-import { delimiters } from "./const"
-import { quotes } from "./macro"
-import { isEmpty, isNewline } from "../utils";
-import { Queue } from "../lib/queue";
-import { Environment } from "../env";
+import type { delimiter, whitespace } from "../../syntax"
+import { delimiters } from "../const"
+import { quotes } from "../macro"
+import { isEmpty, isNewline } from "../../utils";
+import { Queue } from "../../lib/queue";
+import { Environment } from "../../env";
 rlSYnc.setDefaultOptions({prompt: ''});
 
 export abstract class File {
   abstract read(): Promise<string>
   abstract write(text: string): void
+  abstract close(): void
   static EOF_STRING = '#<eof-object>'
 }
-
 
 export class SourceFile implements File {
   constructor(filepath: string) {
@@ -36,6 +36,7 @@ export class SourceFile implements File {
   write(text: string): void {
     this.data = this.data.concat(text)
   }
+  close() { }
   private data: string = ''
 }
 
@@ -54,14 +55,7 @@ export class RawText implements File {
   write(text: string): void {
     this.data = this.data.concat(text)
   }
-  close(): void {
-    this.closed = true
-  }
-  open(): void {
-    this.closed = false
-  }
-  get isClosed() { return this.closed }
-  private closed = false
+  close(): void { }
 }
 
 export class StdIn implements File {
@@ -78,71 +72,80 @@ export class StdIn implements File {
   write(text: string): void {
     throw new Error("Cannot write to stdin")
   }
+  close(): void { }
   private _buffer: string[] = []
 }
 
 export class SocketClient implements File {
-  public data = []
-  private observable: Observable<any>;
+  private data: string[] = []
   private socket: Client
+  private fifo = new Queue()
+  private connection?: Socket;
   constructor(address: string) {
     this.socket = io(address, {})
-    this.socket.on('connection', (connection) => {
+    this.socket.on('connection', connection => {
+      this.connection = connection
+      connection.on('data', (data: string) => {
+        this.fifo.putNowait(data)
+        this.fifo.putNowait('\n')
+      })
     })
-    this.observable = fromEvent(this.socket, 'data')
-      .pipe(mergeMap(data => data.split()))
-    // this.socket.on("data", (socket: any) => {
-    //   this.data += socket.getData();
-    // });
   }
   async readline(): Promise<string> {
-    // return await firstValueFrom(this.observable.pipe(map(takeUntil(val => val === '\n'))))
     let data
     do { data = await this.read() }
     while (!isNewline(data) && !isEofString(data))
     return data
   }
   async read(): Promise<string> {
-    const x = await firstValueFrom(this.observable)
-    return x ?? File.EOF_STRING
+    if (this.data.length === 0) {
+      const x = await this.fifo.get()
+      assert(typeof x === 'string', 'data must be a string (SocketServer)')
+      this.data.push(...x)
+    }
+    return this.data.shift()!
   }
   write(text: string): void {
     this.socket.send(text)
   }
   close() {
+    delete this.connection
     this.socket.close()
   }
 }
 
 export class SocketServer implements File {
-  public data: string[] = []
+  private data: string[] = []
   private socket: Server
   private fifo = new Queue()
+  private connection?: Socket;
   constructor(port: string | number) {
     this.socket = new Server(Number(port), {})
     this.socket.on('connection', (connection) => {
+      this.connection = connection
       connection.on('data', data => {
         this.fifo.putNowait(data)
         this.fifo.putNowait('\n')
       })
     })
   }
-  // async readline(): Promise<string> {
-  //   let data
-  //   do { data = await this.read() }
-  //   while (!isNewline(data) && !isEofString(data))
-  //   return data
-  // }
   async read(): Promise<string> {
     if (this.data.length === 0) {
       const x = await this.fifo.get()
       assert(typeof x === 'string', 'data must be a string (SocketServer)')
       this.data.push(...x)
     }
-    return this.data.shift() ?? File.EOF_STRING
+    return this.data.shift()!
   }
-  write(text: string): void {
-    this.socket.send(text)
+  write(output: string | number): void {
+    if (this.connection)
+      this.socket.emit('data', String(output))
+    else
+      console.log('no connection!')
+  }
+  close() {
+    delete this.connection
+    this.socket.close()
   }
 }
 
@@ -153,12 +156,10 @@ export class StdOut implements File {
     else
       process.stdout.write(String(output))
   }
-  readline(): Promise<string> {
-    throw new Error("Cannot read from stdout")
-  }
   read(): Promise<string> {
     throw new Error("Cannot read from stdout")
   }
+  close(): void { }
 }
 
 export abstract class Port {
@@ -168,10 +169,57 @@ export abstract class Port {
   ) {}
 
   public close() {
+    this.file.close()
     this.closed = true
   }
 
   public closed = false
+}
+
+export class IOPort extends Port {
+  constructor(file: File, name: string) {
+    super(file, `input-port:${name}`)
+  }
+  static fromFile(file: string) {
+    return new IOPort(new SourceFile(file), 'file')
+  }
+  static fromString(text: string) {
+    return new IOPort(new RawText(text), 'string')
+  }
+  static fromStdIn() {
+    return new IOPort(new StdIn(), 'stdin')
+  }
+  static fromSocketClient(address: string): any {
+    return new IOPort(new SocketClient(address), `socket-client:${address}`)
+  }
+  static fromSocketServer(port: string | number): any {
+    return new IOPort(new SocketServer(port), `socket-server:${port}`)
+  }
+  public async readChar(): Promise<string> {
+    if (!this.closed) {
+      if (this.char === '') this.char = await this.file.read()
+      if (this.char === '') return File.EOF_STRING
+      const char = this.char; this.char = '';
+      return char
+    }
+    throw new Error('attempted to read from closed port')
+  }
+  public async peekChar(): Promise<string> {
+    if (this.char === '') {
+      const char = await this.readChar()
+      this.char = char
+    }
+    return this.char
+  }
+  public charReady() {
+    return this.char !== ''
+  }
+  public write(text: string): void {
+    if (this.closed)
+      throw new Error('attempted to write to closed port')
+    this.file.write(text)
+  }
+  private char = ''
 }
 
 export class InPort extends Port {

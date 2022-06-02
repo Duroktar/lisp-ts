@@ -11,7 +11,7 @@ socket.on('connect', function () {
             process.exit(0);  
         }, someDelay);
     } else {
-        console.log('usage: ./client.js <event> <data>');
+        console.log('usage: ./client.sh <event> <data>');
         process.exit(1);
     }
 });

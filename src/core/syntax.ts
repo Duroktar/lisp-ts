@@ -47,7 +47,7 @@ export class SyntaxRulesDef {
 
   static gen = 1
 
-  static debug = true
+  static debug = false
 
   public call(form: Term, env: Env): Term {
     const gen = SyntaxRulesDef.gen++
