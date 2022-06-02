@@ -1,10 +1,12 @@
 import { Character } from "./core/char";
 import { FALSE, isPeculiarIdentifier, isSpecialInitial, isSpecialSubsequent, TRUE } from "./core/const";
 import { Sym, SymTable } from "./core/sym";
-import type { Atom, List, Term } from "./core/terms";
+import type { Atom, List, Form } from "./core/forms";
 import { toString } from "./core/toString";
 import { Vector } from "./core/vec";
 import { whitespace, identifier, initial, letter, subsequent, digit, character } from "./syntax";
+
+export type Predicate = (...args: any[]) => boolean
 
 export const assert = <T extends any>(p: T, msg = ''): T extends false ? never : T => {
   if (p !== true) {
@@ -42,7 +44,7 @@ export const isString = (c: any): c is string => typeof c === 'string';
 export const isChar = (x: unknown): x is Character => x instanceof Character;
 export const isEmpty = (x: unknown): boolean => isList(x) && x.length === 0;
 export const isNone = (x: unknown): x is undefined | null => x === undefined || x === null;
-export const isExpr = (x: unknown): x is Term => isAtom(x) || isList(x) || isString(x) || isNum(x);
+export const isExpr = (x: unknown): x is Form => isAtom(x) || isList(x) || isString(x) || isNum(x);
 export const isConst = (x: unknown) => isNum(x) || isString(x)
 export const isIdent = isSym
 export const isEqual = (x: unknown, y: unknown) => {
@@ -57,14 +59,14 @@ export const isEq = (x: unknown, y: unknown) => {
 
 export const symName = (s: symbol): string => s.description!;
 
-export const isTruthy = (e: Term): boolean => !isF(e) && !isNil(e);
-export const isNil = (e: Term): boolean => e === Sym('nil');
-export const isF = (e: Term): boolean => e === FALSE;
-export const isT = (e: Term): boolean => e === TRUE;
-export const toL = (e: boolean): Term => e ? TRUE : FALSE;
+export const isTruthy = (e: Form): boolean => !isF(e) && !isNil(e);
+export const isNil = (e: Form): boolean => e === Sym('nil');
+export const isF = (e: Form): boolean => e === FALSE;
+export const isT = (e: Form): boolean => e === TRUE;
+export const toL = (e: boolean): Form => e ? TRUE : FALSE;
 
-export const zip = (...rows: Term[][]) => isEmpty(rows) ? [[], []] : rows[0].map((_, c) => rows.map(row => row[c]));
-export const zipUp = (...rows: (Term[] | Term)[]) => {
+export const zip = (...rows: Form[][]) => isEmpty(rows) ? [[], []] : rows[0].map((_, c) => rows.map(row => row[c]));
+export const zipUp = (...rows: (Form[] | Form)[]) => {
   if (isEmpty(rows)) return []
   const h: ProxyHandler<any> = {
     get(target, prop) {
@@ -88,13 +90,13 @@ export const zipUp = (...rows: (Term[] | Term)[]) => {
   return entries;
 }
 
-export const map = (func: (m: Term) => Term, m: Term): Term => {
+export const map = (func: (m: Form) => Form, m: Form): Form => {
   if (isList(m)) {
     return m.map(child => map(func, child));
   }
   return func(m);
 };
-export const find = (func: (m: Term, i: number) => boolean, m: Term, __i = 0): Term | undefined => {
+export const find = (func: (m: Form, i: number) => boolean, m: Form, __i = 0): Form | undefined => {
   if (isList(m)) {
     for (const child of m) {
       const r = find(func, child, __i++);
@@ -111,7 +113,7 @@ export const getSafe = <T>(a: T[] | any, i: number) => {
   return undefined
 }
 
-export const mkLambda = (params: string[] | string, body: Term): Term => {
+export const mkLambda = (params: string[] | string, body: Form): Form => {
   return [SymTable.LAMBDA, isList(params) ? params.map(Sym) : Sym(params), body];
 };
 
@@ -133,3 +135,27 @@ export const isSubsequent = (c: any): c is subsequent => isInitial(c) || isDigit
 export const isDigit = (c: any): c is digit => !! (isString(c) && c.match(/^[0-9]*$/));
 export const isNumber = (c: any): c is number => typeof c === 'number';
 export const isCharacter = (c: any): c is character => !! (isString(c) && c.match(/^#\\([A-z]|(space|newline)){1}$/));
+
+export function gcd(x: number, y: number) {
+  x = Math.abs(x);
+  y = Math.abs(y);
+  while (y) {
+    var t = y;
+    y = x % y;
+    x = t;
+  }
+  return x;
+}
+
+export function lcm(n1: number, n2: number) {
+  //Find the gcd first
+  let gcdr = gcd(n1, n2);
+
+  //then calculate the lcm
+  return Math.abs((n1 * n2) / gcdr);
+}
+
+export function tryProve<T>(fn: (t: T) => boolean, o: {proofs: T[], counters: any[]}): void {
+  o.proofs.forEach(p => assert(!!fn(p), `found proof that doesn't hold: ${p}`))
+  o.counters.forEach(c => assert(!fn(c), `found counter-proof that doesn't hold: ${c}`))
+}

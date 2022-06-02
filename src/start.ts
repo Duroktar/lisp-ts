@@ -2,13 +2,13 @@ import 'colors';
 import { createEnvironment } from './env';
 import * as Lisp from './core/lisp'
 
-const env = createEnvironment();
-
-// const r = tokenize(`(load "stdlib/r5rs.scm")`, readerEnv);
-
-// Lisp.execute('(debug-macro! #t)', env)
 
 (async () => {
+  const env = await createEnvironment();
+
+  // const r = tokenize(`(load "stdlib/r5rs.scm")`, readerEnv);
+
+  // Lisp.execute('(debug-macro! #t)', env)
   // await Lisp.execute('(load "stdlib/r5rs.scm")', env)
 
   await Lisp.execute('(repl)', env)

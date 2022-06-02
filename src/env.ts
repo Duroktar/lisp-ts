@@ -7,12 +7,12 @@ export type Environment = {
   env: Env
 }
 
-export function createEnvironment(globals = true): Environment {
+export async function createEnvironment(globals = true): Promise<Environment> {
   const readerEnv = new Env();
   const lexicalEnv = new Env();
   const env = new Env();
 
-  if (globals) addGlobals({env, readerEnv, lexicalEnv})
+  if (globals) await addGlobals({env, readerEnv, lexicalEnv})
 
   return {env, readerEnv, lexicalEnv}
 }

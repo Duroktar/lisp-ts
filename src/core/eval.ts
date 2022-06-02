@@ -5,13 +5,13 @@ import { Env } from "./env";
 import { atom, car, cdr, _do } from "./lisp";
 import { isNativeProc, isProc, Procedure } from "./proc";
 import { SymTable } from "./sym";
-import type { Atom, Term } from "./terms";
+import type { Atom, Form } from "./forms";
 import { toString } from "./toString";
 
-export const evaluate = async (e: Term, a: Env): Promise<Term> => {
+export const evaluate = async (e: Form, a: Env): Promise<Form> => {
   while (true) {
     // console.log('evaluating term:', toStringSafe(e));
-    if (isSym(e)) return a.getFrom<Term>(e);
+    if (isSym(e)) return a.getFrom<Form>(e);
     else if (!isList(e)) return e ?? EMPTY;
     else switch (e[0]) {
       case SymTable.QUOTE: return e[1];
@@ -23,7 +23,7 @@ export const evaluate = async (e: Term, a: Env): Promise<Term> => {
       }
       case SymTable.DEFUN:
       case SymTable.DEFINE: {
-        const [_def, variable, expr] = e as [Atom, symbol, Term];
+        const [_def, variable, expr] = e as [Atom, symbol, Form];
         const name = toString(variable)
         const value = await evaluate(expr, a);
         if (isProc(value)) { value.name = name; }
@@ -31,18 +31,18 @@ export const evaluate = async (e: Term, a: Env): Promise<Term> => {
         return undefined as any
       }
       case SymTable.DO: {
-        const [_def, ...exprs] = e as [Atom, ...Term[]];
+        const [_def, ...exprs] = e as [Atom, ...Form[]];
         return _do(exprs, a);
       }
       case SymTable.BEGIN: {
-        const [_def, ...exprs] = e as [Atom, ...Term[]];
+        const [_def, ...exprs] = e as [Atom, ...Form[]];
         exprs.slice(0, -1)
           .forEach(async expr => await evaluate(expr, a));
         e = exprs.pop()!
         break
       }
       case SymTable.IF: {
-        const [_if, cond, then_, else_] = e as [Atom, Term, Term, Term];
+        const [_if, cond, then_, else_] = e as [Atom, Form, Form, Form];
         if (isTruthy(await evaluate(cond, a)))
           e = then_;
         else
@@ -51,7 +51,7 @@ export const evaluate = async (e: Term, a: Env): Promise<Term> => {
         break
       }
       case SymTable.SET: {
-        const [_set, variable, value] = e as [Atom, Atom, Term];
+        const [_set, variable, value] = e as [Atom, Atom, Form];
         assert(a.hasFrom(variable), 'Variable must be bound');
         const name = toString(variable);
         a.find(name)!.set(name, await evaluate(value, a));

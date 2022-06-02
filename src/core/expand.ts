@@ -5,10 +5,10 @@ import type { Env } from "./env";
 import { isCallable, Proc } from "./proc";
 import { Sym, SymTable } from "./sym";
 import { SyntaxRulesDef } from "./syntax";
-import type { List, Term } from "./terms";
+import type { List, Form } from "./forms";
 import { toString, toStringSafe } from "./toString";
 
-export const expand = async (e: Term, topLevel = false, env: Env): Promise<Term> => {
+export const expand = async (e: Form, topLevel = false, env: Env): Promise<Form> => {
   // assert(Utils.isEmpty(e) === false, `() => Error`)
   if (!Utils.isList(e)) { return e }
   if (Utils.isEmpty(e)) { return e }
@@ -73,7 +73,7 @@ export const expand = async (e: Term, topLevel = false, env: Env): Promise<Term>
   return await Promise.all(e.map(x => expand(x, false, env)));
 };
 
-export const expandQuasiquote = async (x: Term): Promise<Term> => {
+export const expandQuasiquote = async (x: Form): Promise<Form> => {
   if (!Utils.isPair(x)) return [SymTable.QUOTE, x];
   Utils.expect(x, x !== SymTable.UNQUOTESPLICING, "can't slice here");
   if (Array.isArray(x)) {
@@ -119,7 +119,7 @@ async function expandLambda(e: List, env: Env) {
   return [_lambda, params, await expand(body || expression[0], false, env)];
 }
 
-async function expandDefun(e: List, env: Env): Promise<Term> {
+async function expandDefun(e: List, env: Env): Promise<Form> {
   let [_def, name, args, body] = e;
     Utils.expect(e, Utils.isSym(name), `Can only define a symbol`);
     Utils.expect(e, Utils.isList(args) || Utils.isSym(args), `Invalid args`);

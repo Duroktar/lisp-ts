@@ -40,7 +40,7 @@ export const initializeREPL = async (env: Environment, options: TSchemeReplOptio
 }
 
 export async function start(prompt: string, options: TSchemeReplOptions) {
-  const env = createEnvironment()
+  const env = await createEnvironment()
 
   const prettyOpts = options.colors ? { colorize: colorizer } : {}
 

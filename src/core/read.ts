@@ -1,17 +1,15 @@
 import assert from "assert";
-import { Predicate } from "../types";
-import { isList } from "../utils";
+import { isList, Predicate } from "../utils";
 import { Character } from "./char";
 import { EMPTY, TRUE } from "./const";
 import { Env } from "./env";
 import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./error";
 import { InPort, isEofString } from "./port";
 import { Sym, SymTable } from "./sym";
-import { List, Term } from "./terms";
-import { toStringSafe } from "./toString";
+import { List, Form } from "./forms";
 import { Vector } from "./vec";
 
-export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
+export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
   let cursor = await port.readChar()
 
   const advance = async () => {
@@ -57,13 +55,17 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
       await advance();
   }
 
-  const toLisp = (funcs: Record<string, any>) => Object.entries(funcs).reduce((acc: any, [key, val]: any) => { acc[key] = (...args: any[]) => val(...args) ? TRUE : EMPTY; return acc; }, {} as Record<string, any>);
+  const listDelimiterPredicates = [
+    [isOpenS, isCloseS],
+    [isOpenM, isCloseM],
+    [isOpenP, isCloseP]
+  ];
 
-  const parseDelimitedList = async (open: Predicate, close: Predicate): Promise<Term | undefined> => {
+  const parseDelimitedList = async (open: Predicate, close: Predicate): Promise<Form | undefined> => {
     if (open()) {
       await advance();
 
-      const exprs: Term[] = [];
+      const exprs: Form[] = [];
       while (!close() && !isEOF()) {
         exprs.push(await parse());
       }
@@ -79,13 +81,12 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
       throw new UnexpectedParenthesisError();
   }
 
-  const listDelimiterPredicates = [
-    [isOpenS, isCloseS],
-    [isOpenM, isCloseM],
-    [isOpenP, isCloseP]
-  ];
+  const toLisp = (funcs: Record<string, any>) => Object.entries(funcs).reduce((acc: any, [key, val]: any) => { acc[key] = (...args: any[]) => val(...args) ? TRUE : EMPTY; return acc; }, {} as Record<string, any>);
 
-  const readMacroLocals = { parse, advance, current, eatSpace: consumeIgnored, ...toLisp({ isEOF: isEofString, isSpace, isNewLine }) };
+  const readMacroLocals = {
+    parse, advance, current, eatSpace: consumeIgnored,
+    ...toLisp({ isEOF: isEofString, isSpace, isNewLine })
+  };
 
   async function parseWhileValid(): Promise<string> {
     let atom: string = '';
@@ -97,7 +98,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
     return atom;
   }
 
-  async function parseAtom(): Promise<Term> {
+  async function parseAtom(): Promise<Form> {
     let atom = await parseWhileValid()
     const num = parseInt(atom);
     if (Number.isNaN(num) === false)
@@ -105,7 +106,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
     return Symbol.for(atom);
   }
 
-  async function parseQuote(): Promise<Term> {
+  async function parseQuote(): Promise<Form> {
     if (current() === "'") {
       await advance();
       return [SymTable.QUOTE, await parse()];
@@ -125,7 +126,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
     return await parseAtom();
   }
 
-  async function parseHashPrefix(): Promise<Term> {
+  async function parseHashPrefix(): Promise<Form> {
     if (current() === "#") {
       await advance();
       const lookahead = current();
@@ -174,7 +175,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
     return await parseQuote()
   }
 
-  async function parseReadMacro(): Promise<Term> {
+  async function parseReadMacro(): Promise<Form> {
     if (readerEnv.has(current())) {
       const value = await advance();
       const macro = readerEnv.get<Function>(value);
@@ -183,7 +184,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
     return await parseHashPrefix();
   }
 
-  async function parseString(): Promise<Term> {
+  async function parseString(): Promise<Form> {
     if (isDblQt()) {
       await advance();
 
@@ -203,7 +204,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
     return await parseReadMacro();
   }
 
-  async function parseList(): Promise<Term> {
+  async function parseList(): Promise<Form> {
     for (let [open, close] of listDelimiterPredicates) {
       const result = await parseDelimitedList(open, close)
       if (result) return result;
@@ -211,7 +212,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Term> => {
     return await parseString();
   }
 
-  async function parse(): Promise<Term> {
+  async function parse(): Promise<Form> {
     await consumeIgnored();
     const expr = await parseList();
     return expr;

@@ -7,7 +7,7 @@ import { expand } from "./core/expand";
 import { TSchemeModule } from "./core/module";
 import { InPort, SourceFile } from "./core/port";
 import { read } from "./core/read";
-import { Term } from "./core/terms";
+import { Form } from "./core/forms";
 import { Environment } from "./env";
 
 export function parseLoadSymbol(sym: symbol, ext = '.scm') {
@@ -22,7 +22,7 @@ export function parseLoadSymbol(sym: symbol, ext = '.scm') {
   return repr + ext
 }
 
-export const readFile = async (path: string, global: Environment): Promise<Term[]> => {
+export async function readFile(path: string, global: Environment): Promise<Form[]> {
   const port = new InPort(new SourceFile(path), 'file');
   const getNext = async () => await read(port, global.readerEnv);
   let terms = []
@@ -32,25 +32,25 @@ export const readFile = async (path: string, global: Environment): Promise<Term[
   return terms;
 };
 
-export const parseFile = async (path: string, global: Environment): Promise<Term[]> => {
+export async function parseFile(path: string, global: Environment): Promise<Form[]> {
   const file = await readFile(path, global);
-  const rv: Term[] = []
+  const rv: Form[] = []
   for (let f of file) {
     rv.push(await expand(f, true, global.lexicalEnv))
   }
   return rv;
 };
 
-export const executeFile = async (path: string, global: Environment): Promise<Term[]> => {
+export async function executeFile(path: string, global: Environment): Promise<Form[]> {
   const file = await parseFile(path, global);
-  const rv: Term[] = []
+  const rv: Form[] = []
   for (let f of file) {
     rv.push(await evaluate(f, global.env))
   }
   return rv;
 };
 
-export const loadFile = async (file: string, global: Environment, bustCache = true) => {
+export async function loadFile(file: string, global: Environment, bustCache = true) {
   if (!TSchemeModule.loaderCache.has(file) || bustCache) {
     const cacheData = new TSchemeModule(file)
 

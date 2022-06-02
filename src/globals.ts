@@ -11,12 +11,11 @@ import { isNativeProc, isProc, NativeProc } from "./core/proc";
 import { read } from "./core/read";
 import { Sym } from "./core/sym";
 import { SyntaxRulesDef } from "./core/syntax";
-import type { List, Term } from "./core/terms";
+import type { List, Form } from "./core/forms";
 import { print, toString, toStringSafe } from "./core/toString";
 import { Vector } from "./core/vec";
 import { Environment } from "./env";
 import { loadFile, parseLoadSymbol } from "./load";
-import { gcd, lcm } from "./math";
 import * as Util from "./utils";
 
 type AddGlobalsOptions = {
@@ -37,7 +36,7 @@ const defaultOptions: AddGlobalsOptions = {
   sockets: true,
 }
 
-export function addGlobals(
+export async function addGlobals(
   global: Environment,
   opts: AddGlobalsOptions = {}
 ) {
@@ -108,10 +107,100 @@ export function addGlobals(
   //#endregion
 
   // #region [ rgba(0, 50, 150, 0.5) ] - r5rs
-  //  - 6. Standard procedures
+  // - r5rs
 
   if (options.r5rs) {
+    //  - 4.2 Derived Expressions
+    await Lisp.execute(`
 
+      ; - 4.2 Derived expression types
+      (define-syntax cond
+        (syntax-rules (else =>)
+          ((cond (else result1 result2 ...))
+          (begin result1 result2 ...))
+          ((cond (test => result))
+          (let ((temp test))
+            (if temp (result temp))))
+          ((cond (test => result) clause1 clause2 ...)
+          (let ((temp test))
+            (if temp
+                (result temp)
+                (cond clause1 clause2 ...))))
+          ((cond (test)) test)
+          ((cond (test) clause1 clause2 ...)
+          (let ((temp test))
+            (if temp
+                temp
+                (cond clause1 clause2 ...))))
+          ((cond (test result1 result2 ...))
+          (if test (begin result1 result2 ...)))
+          ((cond (test result1 result2 ...)
+                clause1 clause2 ...)
+          (if test
+              (begin result1 result2 ...)
+              (cond clause1 clause2 ...)))))
+
+      (define-syntax case
+        (syntax-rules (else)
+          ((case (key ...)
+            clauses ...)
+          (let ((atom-key (key ...)))
+            (case atom-key clauses ...)))
+          ((case key
+            (else result1 result2 ...))
+          (begin result1 result2 ...))
+          ((case key
+            ((atoms ...) result1 result2 ...))
+          (if (memv key '(atoms ...))
+              (begin result1 result2 ...)))
+          ((case key
+            ((atoms ...) result1 result2 ...)
+            clause clauses ...)
+          (if (memv key '(atoms ...))
+              (begin result1 result2 ...)
+              (case key clause clauses ...)))))
+
+      (define-syntax and
+        (syntax-rules ()
+          ([and] #t)
+          ([and test] test)
+          ([and test1 test2 ...]
+            (if test1 [and test2 ...] #f))))
+
+      (define-syntax or
+        (syntax-rules ()
+          ([or] #f)
+          ([or test] test)
+          ([or test1 test2 ...]
+            (let ([x test1])
+              (if x x (or test2 ...))))))
+
+      (define-syntax let
+        (syntax-rules ()
+          ((let ((name val) ...) body1 body2 ...)
+            ((lambda (name ...) body1 body2 ...)
+            val ...))))
+
+      (define-syntax let*
+        (syntax-rules ()
+          ((let* () body1 body2 ...)
+            (let () body1 body2 ...))
+          ((let* ((name1 val1) (name2 val2) ...)
+              body1 body2 ...)
+            (let ((name1 val1))
+              (let* ((name2 val2) ...)
+                body1 body2 ...)))))
+
+      ;; from: https://stackoverflow.com/questions/2835582/what-if-any-is-wrong-with-this-definition-of-letrec-in-scheme
+      (define-syntax letrec
+        (syntax-rules ()
+          ((letrec ((name val) ...) body bodies ...)
+          ((lambda ()
+            (define name val) ... body bodies ...)))))
+
+    `, global)
+
+    //  - 6. Standard procedures
     // - 6.1 Equivalence Predicates
     mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
     mkNativeProc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
@@ -154,8 +243,8 @@ export function addGlobals(
     mkNativeProc(env, 'quotient', ['x', 'y'], ([x, y]: any) => x/y|0);
     // procedure: remainder n1 n2
     // procedure: modulo n1 n2
-    mkNativeProc(env, 'gcd', ['a', 'b'], ([a, b]: any) => { return gcd(a, b) });
-    mkNativeProc(env, 'lcm', ['a', 'b'], ([a, b]: any) => { return lcm(a, b) });
+    mkNativeProc(env, 'gcd', ['a', 'b'], ([a, b]: any) => { return Util.gcd(a, b) });
+    mkNativeProc(env, 'lcm', ['a', 'b'], ([a, b]: any) => { return Util.lcm(a, b) });
     // procedure: numerator q
     // procedure: denominator q
     mkNativeProc(env, 'floor', ['n'], ([n]: any) => Math.floor(n));
@@ -448,7 +537,7 @@ export function addGlobals(
       });
       try {
         if (isNativeProc(proc)) {
-          return proc.call([throw_ as Term], env);
+          return proc.call([throw_ as Form], env);
         }
         throw new InvalidCallableExpression(proc);
       } catch (err) {
@@ -719,8 +808,8 @@ export function addGlobals(
 
   function mkNativeProc(
     env: Env, name: string, params: string[],
-    cb: (args: Term, env: Env) => any
-  ): Term | NativeProc {
+    cb: (args: Form, env: Env) => any
+  ): Form | NativeProc {
 
     const func = new class extends NativeProc {
       public name = name;

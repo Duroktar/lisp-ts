@@ -4,11 +4,11 @@ import { TSchemeModule } from "./module";
 import { NativeProc, Procedure } from "./proc";
 import { SymTable } from "./sym";
 import { SyntaxRulesDef } from "./syntax";
-import { Term } from "./terms";
+import { Form } from "./forms";
 import { isSym, isString, isNone, isNum, isEmpty, symName, isChar, isVec } from "../utils";
 import { Port } from "./port";
 
-export const toString = (expr: Term, inspect = false, lambdaSymbol = 'lambda'): string => {
+export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): string => {
   if (expr === undefined)
     return expr
   if (isSym(expr))
@@ -53,7 +53,7 @@ export const toString = (expr: Term, inspect = false, lambdaSymbol = 'lambda'): 
   return `(${expr.map(c => toString(c, inspect, lambdaSymbol)).join(' ')})`;
 };
 
-export const toStringSafe = (expr: Term, inspect = false, lambdaSymbol = 'lambda'): string => {
+export const toStringSafe = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): string => {
   try {
     return toString(expr, inspect, lambdaSymbol);
   } catch (e) {
@@ -61,6 +61,6 @@ export const toStringSafe = (expr: Term, inspect = false, lambdaSymbol = 'lambda
   }
 };
 
-export const print = (e: Term, inspect = false, lambdaSymbol = 'lambda' /* λ */): void => {
+export const print = (e: Form, inspect = false, lambdaSymbol = 'lambda' /* λ */): void => {
   console.log(toString(e, inspect, lambdaSymbol));
 };

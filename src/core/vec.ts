@@ -1,4 +1,4 @@
-import type { List } from "./terms";
+import type { List } from "./forms";
 
 export class Vector {
   constructor(public data: List) {}

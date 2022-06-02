@@ -1,5 +1,5 @@
 import { basename, dirname } from "path";
-import { Atom } from "./terms";
+import { Atom } from "./forms";
 
 
 export class TSchemeModule {

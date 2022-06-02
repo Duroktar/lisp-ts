@@ -8,7 +8,7 @@ import type { delimiter, whitespace } from "../../syntax"
 import { delimiters } from "../const"
 import { quotes } from "../macro"
 import { isEmpty, isNewline } from "../../utils";
-import { Queue } from "../../lib/queue";
+import { Queue } from "../queue";
 import { Environment } from "../../env";
 rlSYnc.setDefaultOptions({prompt: ''});
 

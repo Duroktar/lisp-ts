@@ -4,7 +4,7 @@ import { eqC, expect, first, isAtom, isChar, isEmpty, isIdent, isList, isNum, is
 import { toString, toStringSafe } from "./toString";
 import { InputError, MatchError } from "./error";
 import { Sym } from "./sym";
-import type { Atom, List, Term } from "./terms";
+import type { Atom, List, Form } from "./forms";
 import { Env } from "./env";
 
 export class SyntaxRulesDef {
@@ -37,7 +37,7 @@ export class SyntaxRulesDef {
 
   */
   constructor(
-    public symbol: Term,
+    public symbol: Form,
     public env: Env,
     public syntaxRules: any[],
     public literals: Atom[],
@@ -49,7 +49,7 @@ export class SyntaxRulesDef {
 
   static debug = false
 
-  public call(form: Term, env: Env): Term {
+  public call(form: Form, env: Env): Form {
     const gen = SyntaxRulesDef.gen++
 
     this.print(`Expanding Syntax (${gen}):`.blue.bold, `${toStringSafe([this.symbol].concat(form))}`);
@@ -103,9 +103,9 @@ export class SyntaxRulesDef {
     return bound
   }
   // simple wrapper around match
-  getMatch(form: Term, _gen: number): [List[], Env] {
+  getMatch(form: Form, _gen: number): [List[], Env] {
     for (let rule of this.syntaxRules) {
-      const [[_id, ...pattern], _template] = rule as [matcher: List, template: Term];
+      const [[_id, ...pattern], _template] = rule as [matcher: List, template: Form];
       try {
         // console.log(`trying pattern (${gen}): ${toStringSafe(rule[0])}`)
         return [rule, this.match(form, pattern, new Env())];
@@ -123,7 +123,7 @@ export class SyntaxRulesDef {
     }
     throw new MatchError(this, form)
   }
-  match(form: Term, pattern: Term, env: Env): Env {
+  match(form: Form, pattern: Form, env: Env): Env {
     /*
       - A subpattern followed by ... can match zero or more elements of the
         input.
@@ -235,7 +235,7 @@ export class SyntaxRulesDef {
 
     throw new InputError(this, form)
   }
-  parseIdentifiers(template: Term, patternEnv: Env, env: Env): IdentifierTypes {
+  parseIdentifiers(template: Form, patternEnv: Env, env: Env): IdentifierTypes {
     let templateIds = new Set<string>(),
         patternIds  = new Set<string>(),
         literalIds  = new Set<string>(this.literals.map(l => toString(l)));
@@ -244,7 +244,7 @@ export class SyntaxRulesDef {
       isBound(id, env) ? templateIds.add(id) :
       /* otherwise */    patternIds.add(id))
 
-    const visit = (t: Term): Term => {
+    const visit = (t: Form): Form => {
       if (!isList(t)) {
         if (isSym(t)) {
           const id = toString(t);
@@ -263,8 +263,8 @@ export class SyntaxRulesDef {
 
     return new IdentifierTypes(templateIds, patternIds, literalIds);
   }
-  bindTemplateIds(template: Term, ids: IdentifierTypes, env: Env, gen: number): Term {
-    const _rewriteTemplate = (template: Term, ids: IdentifierTypes, env: Env, gen: number): Term => {
+  bindTemplateIds(template: Form, ids: IdentifierTypes, env: Env, gen: number): Form {
+    const _rewriteTemplate = (template: Form, ids: IdentifierTypes, env: Env, gen: number): Form => {
       if (isList(template)) {
         const items = []
 
@@ -343,7 +343,7 @@ export class SyntaxRulesDef {
     assert(result, `Error rewritting template: ${toStringSafe(template)}`)
     return result
   }
-  generateOutput(template: Term, ids: IdentifierTypes, env: Env): Term {
+  generateOutput(template: Form, ids: IdentifierTypes, env: Env): Form {
     if (isList(template)) {
       return template.map(t => this.generateOutput(t, ids, env))
     }
@@ -353,7 +353,7 @@ export class SyntaxRulesDef {
         assert(value, `missing alias: "${toStringSafe(template)}"`)
         if (isSym(value) && isBound(value, env))
           return template
-        return value as Term
+        return value as Form
       }
       return template
     }
@@ -376,7 +376,7 @@ class Den /* Denotation */ {
   toAtom = () => {
     return Sym(this.toString())
   }
-  static isDenotation(val: Term): boolean {
+  static isDenotation(val: Form): boolean {
     if (!isSym(val))
       return false
 
@@ -398,16 +398,16 @@ class IdentifierTypes {
     public patternIds:  Set<string>,
     public literalIds:  Set<string>,
   ) {}
-  isLitId = (identifier: Term) => this.literalIds.has(toString(identifier))
-  isPatId = (identifier: Term) => this.patternIds.has(toString(identifier))
-  isTplId = (identifier: Term) => this.templateIds.has(toString(identifier))
+  isLitId = (identifier: Form) => this.literalIds.has(toString(identifier))
+  isPatId = (identifier: Form) => this.patternIds.has(toString(identifier))
+  isTplId = (identifier: Form) => this.templateIds.has(toString(identifier))
 
   setAlias = (val: string, alt: string) => {
     this.aliases.set(val, alt)
   }
 }
 
-const isBound = (identifier: Term, env: Env) => {
+const isBound = (identifier: Form, env: Env) => {
   const rv = env.hasFrom(identifier)
   if (rv)
     console.log('bound:', toStringSafe(identifier))

@@ -1,12 +1,17 @@
-import type { Term } from "./terms";
-import type { Position } from "../types";
+import type { Form } from "./forms";
 import type { SyntaxRulesDef } from "./syntax";
 import { toString, toStringSafe } from "./toString";
 
+export type Position = {
+  line: number;
+  col: number;
+  cursor: number;
+};
+
 export class InvalidEnvArgumentsError extends Error {
   constructor(
-    public params: Term,
-    public args: Term
+    public params: Form,
+    public args: Form
   ) {
     super('Error: Invalid Env params');
   }
@@ -17,7 +22,7 @@ export class UndefinedVariableError extends Error {
   }
 }
 export class InvalidCallableExpression extends Error {
-  constructor(expr: Term) {
+  constructor(expr: Form) {
     super(`Error: expression is not callable: ${toString(expr, true)}`);
   }
 }
@@ -39,7 +44,7 @@ export class MalformedStringError extends Error {
 export class MatchError extends Error {
   constructor(
     public def: SyntaxRulesDef,
-    public form: Term,
+    public form: Form,
   ) {
     super(`no matches found for pattern: ${toStringSafe(form)}`)
   }
@@ -50,7 +55,7 @@ export class NotImplementedError extends Error {}
 export class InputError extends Error {
   constructor(
     public def: SyntaxRulesDef,
-    public form: Term,
+    public form: Form,
   ) {
     super()
   }

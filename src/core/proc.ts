@@ -1,23 +1,23 @@
 import type { Env } from "./env";
 import { evaluate } from "./eval";
 import { SyntaxRulesDef } from "./syntax";
-import type { Term } from "./terms";
+import type { Form } from "./forms";
 
 export abstract class NativeProc {
   abstract name: string;
-  abstract params: Term;
+  abstract params: Form;
   abstract env: Env;
-  abstract call(args: Term, env: Env): Term;
+  abstract call(args: Form, env: Env): Form;
 }
 
 export class Procedure {
   constructor(
-    public params: Term,
-    public expr: Term,
+    public params: Form,
+    public expr: Form,
     public env: Env,
     public name = 'λ',
   ) {}
-  public async call(args: Term, env: Env): Promise<Term> {
+  public async call(args: Form, env: Env): Promise<Form> {
     return await evaluate(args, env)
   }
 }

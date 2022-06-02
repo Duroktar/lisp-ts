@@ -1,8 +1,8 @@
 import type { specialInitial, specialSubsequent, peculiarIdentifier, syntacticKeyword, expressionKeyword } from "../syntax";
 import { Sym } from "./sym";
-import type { Term } from "./terms";
+import type { Form } from "./forms";
 
-export const EMPTY: Term   = [];
+export const EMPTY: Form   = [];
 export const NIL:   symbol = Sym('nil');
 export const TRUE:  symbol = Sym('#t');
 export const FALSE: symbol = Sym('#f');

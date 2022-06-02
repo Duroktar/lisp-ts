@@ -1,5 +1,6 @@
 ; R5RS, ST-LIB
 
+; - 4.2 Derived expression types
 (define-syntax cond
   (syntax-rules (else =>)
     ((cond (else result1 result2 ...))
@@ -60,26 +61,6 @@
     ([or test1 test2 ...]
       (let ([x test1])
         (if x x (or test2 ...))))))
-
-(define-syntax case
-  (syntax-rules (else)
-    ([case (key ...)
-        clauses ...]
-      (let ([atom-key (key ...)])
-        (case atom-key clauses ...)))
-    ((case key
-        (else result1 result2 ...))
-      (begin result1 result2 ...))
-    ([case key
-        ((atoms ...) result1 result2 ...)]
-      (if [memv key '(atoms ...)]
-        (begin result1 result2 ...)))
-    ([case key
-        ((atoms ...) result1 result2 ...)
-        clause clauses ...]
-      (if [memv key '(atoms ...)]
-          (begin result1 result2 ...)
-          (case key clause clauses ...)))))
 
 (define-syntax let
   (syntax-rules ()
@@ -238,100 +219,3 @@
           (if (eqv? (< x 0) (< y 0))
               r
               (+ r y))))))
-
-; ;;;----------------------------------------------------------------------------
-
-; ;; The write procedure.
-
-; (define (write o)
-;   (cond ((string? o)
-;          (putchar 34)
-;          (write-chars (string->list o) #t)
-;          (putchar 34))
-;         (else
-;          (display o))))
-
-; (define (display o)
-;   (cond ((not o)
-;          (putchar2 35 102)) ;; #f
-;         ((eqv? o #t)
-;          (putchar2 35 116)) ;; #t
-;         ((null? o)
-;          (putchar2 40 41)) ;; ()
-;         ((pair? o)
-;          (putchar 40)  ;; #\(
-;          (write (car o))
-;          (write-list (cdr o))
-;          (putchar 41)) ;; #\)
-;         ((symbol? o)
-;          (display (symbol->string o)))
-;         ((string? o)
-;          (write-chars (string->list o) #f))
-;         ((vector? o)
-;          (putchar 35) ;; #\#
-;          (write (vector->list o)))
-;         ((procedure? o)
-;          (putchar2 35 112)) ;; #p
-;         (else
-;          ;; must be a number
-;          (display (number->string o)))))
-
-; (define (write-list lst)
-;   (if (pair? lst)
-;       (begin
-;         (putchar 32) ;; #\space
-;         (if (pair? lst)
-;             (begin
-;               (write (car lst))
-;               (write-list (cdr lst)))
-;             #f)) ;; writing dotted pairs is not supported
-;       #f))
-
-; (define (write-chars lst escape?)
-;   (if (pair? lst)
-;       (let ((c (car lst)))
-;         (putchar
-;          (cond ((not escape?)
-;                 c)
-;                ;#; ;; support for \n in strings
-;                ((eqv? c 10) ;; #\newline
-;                 (putchar 92) ;; #\\
-;                 110)         ;; #\n
-;                ;#; ;; support for \r in strings
-;                ((eqv? c 13) ;; #\return
-;                 (putchar 92) ;; #\\
-;                 114)         ;; #\r
-;                ;#; ;; support for \t in strings
-;                ((eqv? c 9) ;; #\tab
-;                 (putchar 92) ;; #\\
-;                 116)         ;; #\t
-;                ((or (eqv? c 34) ;; #\"
-;                     (eqv? c 92)) ;; #\\
-;                 (putchar 92) ;; #\\
-;                 c)
-;                (else
-;                 c)))
-;         (write-chars (cdr lst) escape?))
-;       #f))
-
-; (define write-char putchar)
-
-; (define (newline)
-;   (putchar 10))
-
-; (define (putchar2 c1 c2)
-;   (putchar c1)
-;   (putchar c2))
-
-
-; (define repl () (begin
-;   (putchar 62)
-;   (putchar 32)
-;   (let ((expr (read)))
-;     (if (eof-object? expr)
-;         ; (newline)
-;         ; #t
-;         (begin
-;           (write (eval expr))
-;           (newline)
-;           (repl))))))

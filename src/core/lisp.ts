@@ -6,19 +6,19 @@ import { evaluate } from "./eval";
 import { expand } from "./expand";
 import { InPort } from "./port";
 import { read } from "./read";
-import type { Term, List } from "./terms";
+import type { Form, List } from "./forms";
 import { Environment } from "../env";
 import { Resume } from "./cont";
 
 // primitives (7)
-export const quote = (expr: Term): Term => (<List>expr)[1];
-export const atom = (expr: Term): Term => Utils.toL(Utils.isAtom(expr));
-export const eq = (x: Term, y: Term): Term => Utils.toL(Utils.isSym(x) && Utils.isSym(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y));
-export const car = (expr: Term): Term => Utils.expect(<any>expr, Utils.isList, 'Argument to car must be an array..')[0];
-export const cdr = (expr: Term): Term => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
+export const quote = (expr: Form): Form => (<List>expr)[1];
+export const atom = (expr: Form): Form => Utils.toL(Utils.isAtom(expr));
+export const eq = (x: Form, y: Form): Form => Utils.toL(Utils.isSym(x) && Utils.isSym(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y));
+export const car = (expr: Form): Form => Utils.expect(<any>expr, Utils.isList, 'Argument to car must be an array..')[0];
+export const cdr = (expr: Form): Form => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
 // END primitives
 
-export const _do = async (args: Term[], env: Env) => {
+export const _do = async (args: Form[], env: Env) => {
   /*
   (do ((<variable1> <init1> <step1>) ...)
         (<test> <expression> ...)
@@ -60,7 +60,7 @@ export const _do = async (args: Term[], env: Env) => {
   // - the <step> expressions are evaluated in some unspecified order,
   // - the <variable>s are bound to fresh locations holding the results,
   // Then the next iteration begins.
-  const iterate = async (depth = 0): Promise<Term> => {
+  const iterate = async (depth = 0): Promise<Form> => {
     const testResult = await evaluate(test, env);
     if (!Utils.isT(testResult)) {
       commands.forEach((command: any) => {
@@ -100,20 +100,20 @@ export const _do = async (args: Term[], env: Env) => {
   }
 }
 
-export const tokenize = async (code: string, env: Environment): Promise<Term> => {
+export const tokenize = async (code: string, env: Environment): Promise<Form> => {
   return await read(InPort.fromString(code), env.readerEnv);
 };
 
-export const parse = async (code: string, {readerEnv}: Environment): Promise<Term> => {
+export const parse = async (code: string, {readerEnv}: Environment): Promise<Form> => {
   return await expand(await read(InPort.fromString(code), readerEnv), true, readerEnv);
 };
 
-export const execute = async (code: string, env: Environment): Promise<Term> => {
+export const execute = async (code: string, env: Environment): Promise<Form> => {
   const parsed = await parse(code, env);
   return await evaluate(parsed, env.env);
 };
 
-export const debugExecute = async (code: string, env: Environment): Promise<Term> => {
+export const debugExecute = async (code: string, env: Environment): Promise<Form> => {
   async function innerDebugExecute(level = 1): Promise<any> {
     try {
       const result = await execute(code, env);
