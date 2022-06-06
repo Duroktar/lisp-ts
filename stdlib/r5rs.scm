@@ -134,7 +134,7 @@
         (for-each proc (cdr lst)))
       #f))
 
-(define list x x)
+; (define list x x)
 
 (define (append lst1 lst2)
   (if (pair? lst1)

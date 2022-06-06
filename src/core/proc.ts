@@ -1,13 +1,13 @@
-import type { Env } from "./env";
+import { Env } from "./env";
 import { evaluate } from "./eval";
-import { SyntaxRulesDef } from "./syntax";
+import type { SyntaxRulesDef } from "./syntax";
 import type { Form } from "./forms";
 
 export abstract class NativeProc {
   abstract name: string;
   abstract params: Form;
   abstract env: Env;
-  abstract call(args: Form, env: Env): Form;
+  abstract call(args: Form[] | Form, env: Env): Promise<Form>;
 }
 
 export class Procedure {
@@ -18,17 +18,13 @@ export class Procedure {
     public name = 'λ',
   ) {}
   public async call(args: Form, env: Env): Promise<Form> {
-    return await evaluate(args, env)
+    // const env = new Env(this.params, args, this.env)
+    return await evaluate(this.expr, env);
   }
 }
 
 export const isNativeProc = (x: unknown): x is NativeProc => x instanceof NativeProc;
 export const isProc = (x: unknown): x is Procedure => x instanceof Procedure;
-export const isSyntaxRulesDef = (x: unknown): x is SyntaxRulesDef => x instanceof SyntaxRulesDef;
-
-export const isCallable = (x: unknown): x is Procedure | NativeProc | SyntaxRulesDef => {
-  return isProc(x) || isNativeProc(x) || isSyntaxRulesDef(x);
-}
 
 export type Callable = Procedure | NativeProc | SyntaxRulesDef
 export type Proc = Callable | Function

@@ -1,12 +1,11 @@
-import { UNDEF } from "./const";
-import { quoteAtomToString } from "./macro";
+import { EMPTY, UNDEF } from "./const";
 import { TSchemeModule } from "./module";
 import { NativeProc, Procedure } from "./proc";
-import { SymTable } from "./sym";
 import { SyntaxRulesDef } from "./syntax";
 import { Form } from "./forms";
 import { isSym, isString, isNone, isNum, isEmpty, symName, isChar, isVec } from "../utils";
 import { Port } from "./port";
+import { Pair } from "./pair";
 
 export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): string => {
   if (expr === undefined)
@@ -14,7 +13,7 @@ export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): 
   if (isSym(expr))
     return expr?.description!;
   if (isVec(expr))
-    return `#${toString(expr.data)}`;
+    return `#(${expr.data.map(x => toString(x)).join(' ')})`;
   if (isString(expr))
     return `"${expr}"`;
   if (isChar(expr))
@@ -42,15 +41,22 @@ export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): 
     }
     return `(${lambdaSymbol} ${expr.name})`;
   }
-  if (expr[0] === SymTable.LAMBDA) {
-    const repr = (<any>expr.slice(1)).map((x: any) => toString(x, inspect, lambdaSymbol)).join(' ');
-    return `(${lambdaSymbol} ${repr})`;
+  if (Pair.is(expr)) {
+    const res: any[] = []
+    let next: Form = expr
+    while (Pair.is(next)) {
+      res.push(toString(next.car, inspect, lambdaSymbol))
+      next = next.cdr
+    }
+    if (next !== EMPTY) {
+      res.push('.')
+      res.push(toString(next, inspect, lambdaSymbol))
+    }
+    return `(${res.join(' ')})`
   }
-  if (symName(<symbol>expr[0]) in quoteAtomToString) {
-    const val = toString(expr[1], inspect, lambdaSymbol);
-    return `${quoteAtomToString[symName(<symbol>expr[0])]}${val}`;
-  }
-  return `(${expr.map(c => toString(c, inspect, lambdaSymbol)).join(' ')})`;
+
+  console.log(`d'oh!`, expr)
+  throw new Error('fallthrough condition')
 };
 
 export const toStringSafe = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): string => {

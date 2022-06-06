@@ -1,24 +1,31 @@
 import 'colors';
+import { execute } from './core/lisp';
 import { createEnvironment } from './env';
-import * as Lisp from './core/lisp'
+// import * as Lisp from './core/lisp'
 
 
 (async () => {
   const env = await createEnvironment();
 
+  // const t = await tokenize(`(if (> 3 2) 'yes 'no)`, env)
+  // console.log('tokenized:', toString(t))
+  // const p = await parse(`(if (> 3 2) 'yes 'no)`, env)
+  // console.log('expanded:', toString(p))
+  // const e = await execute(`(if (> 3 2) 'yes 'no)`, env)
+  // console.log('evaluated:', toString(e))
+
   // const r = tokenize(`(load "stdlib/r5rs.scm")`, readerEnv);
 
   // Lisp.execute('(debug-macro! #t)', env)
-  // await Lisp.execute('(load "stdlib/r5rs.scm")', env)
+  // await execute('(load "stdlib/r5rs.scm")', env)
 
-  await Lisp.execute('(repl)', env)
+  // await execute('(repl)', env)
+
+  await execute('(load "tests/runner.scm")', env);
 
   // Lisp.execute('(begin (write-char #\\() (newline))', env)
   // Lisp.execute('(display (read (open-input-string "hello world")))', env)
 
-  // await Lisp.debugExecute('(load "tests/runner.scm")', env);
-
-  // await Lisp.execute('(load "tests/runner.scm")', env)
   // Lisp.execute('(load "tests/utils.scm")', env)
   // Lisp.execute('(load "tests/spec.scm")', env)
   // Lisp.execute('(load "tests/r5rs.scm")', env)
@@ -26,9 +33,9 @@ import * as Lisp from './core/lisp'
   // Lisp.execute('(load "samples/do.scm")', env)
   // Lisp.execute('(load "samples/hygiene.scm")', env)
   // Lisp.execute('(load "samples/assoc.scm")', env)
-  // Lisp.execute('(load "samples/cond.scm")', env)
+  // await execute('(load "samples/cond.scm")', env)
   // Lisp.execute('(load "samples/repl.scm")', env)
-  // Lisp.execute('(load "samples/let.scm")', env)
+  // await execute('(load "samples/let.scm")', env)
   // Lisp.execute('(load "samples/letrec.scm")', env)
   // Lisp.execute('(load "samples/macro.scm")', env)
   // Lisp.execute('(load "samples/syntax.scm")', env)
@@ -40,5 +47,5 @@ import * as Lisp from './core/lisp'
 
   // console.log(r)
   // console.log(toString(r))
-})()
+})().catch(console.error)
 

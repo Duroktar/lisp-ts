@@ -1,104 +1,43 @@
-
 import * as Utils from "../utils";
-import * as toString from "./toString";
-import type { Env } from "./env";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
 import { InPort } from "./port";
 import { read } from "./read";
-import type { Form, List } from "./forms";
+import type { Form } from "./forms";
 import { Environment } from "../env";
 import { Resume } from "./cont";
+import assert from "assert";
+import { toStringSafe } from "./toString";
 
 // primitives (7)
-export const quote = (expr: Form): Form => (<List>expr)[1];
-export const atom = (expr: Form): Form => Utils.toL(Utils.isAtom(expr));
-export const eq = (x: Form, y: Form): Form => Utils.toL(Utils.isSym(x) && Utils.isSym(y) && x === y || Utils.isEmpty(x) && Utils.isEmpty(y));
-export const car = (expr: Form): Form => Utils.expect(<any>expr, Utils.isList, 'Argument to car must be an array..')[0];
-export const cdr = (expr: Form): Form => Utils.expect(<any>expr, Utils.isList, 'Argument to cdr must be an array..').slice(1);
+export const quote = (expr: Form): Form => {
+  assert(Utils.isPair(expr), 'quote operates on a pair');
+  return cdr(expr);
+}
+export const atom = (expr: Form): Form => {
+  return Utils.toL(Utils.isAtom(expr));
+}
+
+export const eq = (x: Form, y: Form): Form => {
+  return Utils.toL(Utils.isPair(x) ? x.equal(y) : x === y);
+}
+export const car = (expr: Form): Form => {
+  assert(Utils.isPair(expr), `Argument to car must be a pair. got: ${toStringSafe(expr)}`)
+  return expr.car;
+}
+export const cdr = (expr: Form): Form => {
+  assert(Utils.isPair(expr), `Argument to cdr must be a pair. got: ${toStringSafe(expr)}`)
+  return expr.cdr!;
+}
 // END primitives
 
-export const _do = async (args: Form[], env: Env) => {
-  /*
-  (do ((<variable1> <init1> <step1>) ...)
-        (<test> <expression> ...)
-      <command> ...)
-  */
-  const [[...preludes], [test, ...expressions], ...commands] = <any[][]>args;
-
-  // Syntax: The <init>s, <step>s, <test>s, and <command>s must be expressions.
-  //         The <variable>s must be pairwise distinct variables.
-  preludes.forEach(([var1, init1, step1]: any) => {
-    Utils.expect(var1, Utils.isAtom(var1));
-    Utils.expect(var1, Utils.isExpr(init1));
-    Utils.expect(var1, Utils.isExpr(step1));
-  });
-  Utils.expect(test, Utils.isExpr(test), `Test must be an expression. Got: ${typeof test} .. (value: ${toString.toString(test)})`);
-  expressions.forEach((expression: any) => {
-    Utils.expect(expression, Utils.isExpr(expression), `Not an expression. Got: ${typeof test} .. (value: ${toString.toString(test)})`);
-  });
-  commands.forEach((command: any) => {
-    Utils.expect(command, Utils.isExpr(command), `A Command must be an expression. Got: ${typeof command} .. (value: ${toString.toString(command)})`);
-  });
-
-  let bindings: List = [];
-  const steps: List = [];
-
-  // The <init> expressions are evaluated (in some unspecified order),
-  // the <variable>s are bound to fresh locations,
-  // the results of the <init> expressions are stored in the bindings of the <variable>s,
-  // and then the iteration phase begins.
-  preludes.forEach(([var1, init1, step1]: any) => {
-    bindings.push([var1, evaluate(init1, env)]);
-    steps.push([var1, step1]);
-  });
-
-  processBindings();
-
-  // Each iteration begins by evaluating <test>;
-  // If the result is #f, then the <command>s are evaluated in order for effect,
-  // - the <step> expressions are evaluated in some unspecified order,
-  // - the <variable>s are bound to fresh locations holding the results,
-  // Then the next iteration begins.
-  const iterate = async (depth = 0): Promise<Form> => {
-    const testResult = await evaluate(test, env);
-    if (!Utils.isT(testResult)) {
-      commands.forEach((command: any) => {
-        evaluate(command, env);
-      });
-      steps.forEach((step: any) => {
-        const [varName, result] = step;
-        // const res = evaluate(result, env);
-        // env.setFrom(varName, res);
-        bindings.push([varName, evaluate(result, env)]);
-      });
-      processBindings()
-      if (depth >= 1000) {
-        throw new Error('max depth exceeded');
-      }
-      return iterate(depth + 1);
-    } else {
-
-      // If <test> evaluates to a true value;
-      // - The <expression>s are evaluated from left to right,
-      // and the values of the last <expression> are returned
-      // - If no <expression>s are present,
-      // then the do expression returns unspecified values
-      const rv = expressions.map(expr => evaluate(expr, env));
-
-      return rv.pop() ?? [];
-    }
-  };
-
-  return await iterate();
-
-  function processBindings() {
-    while (bindings.length) {
-      const [varName, binding] = bindings.shift() as any;
-      env.setFrom(varName, binding);
-    }
-  }
-}
+export const cadr = (e: any) => car(cdr(e))
+export const caar = (e: any) => car(car(e))
+export const cddr = (e: any) => cdr(cdr(e))
+export const caddr = (e: any) => car(cdr(cdr(e)))
+export const cdddr = (e: any) => cdr(cdr(cdr(e)))
+export const cadddr = (e: any) => car(cdr(cdr(cdr(e))))
+export const caaddr = (e: any) => car(car(cdr(cdr(e))))
 
 export const tokenize = async (code: string, env: Environment): Promise<Form> => {
   return await read(InPort.fromString(code), env.readerEnv);

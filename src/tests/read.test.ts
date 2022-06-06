@@ -1,5 +1,7 @@
 import { Character } from "../core/char";
+import { EMPTY } from "../core/const";
 import { tokenize } from "../core/lisp";
+import { cons, list } from "../core/pair";
 import { Sym } from "../core/sym";
 import { Vector } from "../core/vec";
 import { createEnvironment } from "../env";
@@ -39,14 +41,16 @@ describe("(read) tests", () => {
 
   test("(read) quote", async () => {
     const env = await createEnvironment()
-    expect(await tokenize("'x", env))
-      .toStrictEqual([Sym('quote'), Sym('x')]);
+    const actual = await tokenize("'x", env);
+    const expected = list(Sym('quote'), Sym('x'));
+    expect(expected.equal(actual)).toBe(true);
   });
 
   test("(read) list", async () => {
     const env = await createEnvironment()
-    expect(await tokenize("(1 2 3)", env))
-      .toStrictEqual([1, 2, 3]);
+    const actual = await tokenize("(1 2 3)", env);
+    const expected = list(1, 2, 3);
+    expect(expected.equal(actual)).toBe(true);
   });
 
   test("(read) vector", async () => {
@@ -58,7 +62,8 @@ describe("(read) tests", () => {
 
   test("(read) (eq 'x 'y) => (eq (quote x) (quote y))", async () => {
     const env = await createEnvironment()
-    expect(await tokenize("(eq 'x 'y)", env))
-      .toStrictEqual([Sym('eq'), [Sym('quote'), Sym('x')], [Sym('quote'), Sym('y')]]);
+    const actual = await tokenize("(eq 'x 'y)", env);
+    const expected = list(Sym('eq'), list(Sym('quote'), Sym('x')), list(Sym('quote'), Sym('y')));
+    expect(expected.equal(actual)).toBe(true);
   });
 });

@@ -25,7 +25,7 @@
         (define *expected* expected)
         (define *test-id*  (if (not (eq? 'name 'expected)) (inspect name) " "))
         (incr-total)
-        (if (equal? *expected* (cadr *result*))
+        (if (equal? *expected* (cdr *result*))
           (begin
             (if *verbose-test* (prints "Passed..."))
             (incr-passed))
@@ -38,7 +38,7 @@
                 (prints (string-pad-end " - Test Name:" 16) *test-id*))
               (prints (string-pad-end " - Expression:" 16) (inspect 'expression))
               (prints (string-pad-end " - Expected:" 16)   (inspect *expected*))
-              (prints (string-pad-end " - Actual:"   16)   (inspect (cadr *result*)))))))))))
+              (prints (string-pad-end " - Actual:"   16)   (inspect (cdr *result*)))))))))))
 
 (defun test-begin (name) (begin
   (prints "*** Running Tests:" name "***")

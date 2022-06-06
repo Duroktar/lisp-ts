@@ -1,5 +1,5 @@
 import assert from "assert";
-import { FALSE, NIL, TRUE, UNDEF } from "./core/const";
+import { EMPTY, FALSE, NIL, TRUE, UNDEF } from "./core/const";
 import { Resume } from "./core/cont";
 import { Env } from "./core/env";
 import { InvalidCallableExpression, NotImplementedError, UndefinedVariableError } from "./core/error";
@@ -11,12 +11,13 @@ import { isNativeProc, isProc, NativeProc } from "./core/proc";
 import { read } from "./core/read";
 import { Sym } from "./core/sym";
 import { SyntaxRulesDef } from "./core/syntax";
-import type { List, Form } from "./core/forms";
+import type { Form } from "./core/forms";
 import { print, toString, toStringSafe } from "./core/toString";
 import { Vector } from "./core/vec";
 import { Environment } from "./env";
 import { loadFile, parseLoadSymbol } from "./load";
 import * as Util from "./utils";
+import { Pair, list, cons } from "./core/pair";
 
 type AddGlobalsOptions = {
   tscheme?: boolean
@@ -98,7 +99,7 @@ export async function addGlobals(
         mkNativeProc(proc.env, 'isEOF', ['isEOF'], ([locals]: any) => locals.isEOF());
         mkNativeProc(proc.env, 'isSpace', ['isSpace'], ([locals]: any) => locals.isSpace());
         mkNativeProc(proc.env, 'isNewLine', ['isNewLine'], ([locals]: any) => locals.isNewLine());
-        return await evaluate([proc, locals, toString(char)], env);
+        return await evaluate(list(proc, locals, toString(char)), env);
       }
       throw new Error('Nope @ set-macro-character');
     });
@@ -110,98 +111,180 @@ export async function addGlobals(
   // - r5rs
 
   if (options.r5rs) {
+
     //  - 4.2 Derived Expressions
-    await Lisp.execute(`
+    // await Lisp.execute(`
+    //   (define-syntax cond
+    //     (syntax-rules (else =>)
+    //       ((cond (else result1 result2 ...))
+    //       (begin result1 result2 ...))
+    //       ((cond (test => result))
+    //       (let ((temp test))
+    //         (if temp (result temp))))
+    //       ((cond (test => result) clause1 clause2 ...)
+    //       (let ((temp test))
+    //         (if temp
+    //             (result temp)
+    //             (cond clause1 clause2 ...))))
+    //       ((cond (test)) test)
+    //       ((cond (test) clause1 clause2 ...)
+    //       (let ((temp test))
+    //         (if temp
+    //             temp
+    //             (cond clause1 clause2 ...))))
+    //       ((cond (test result1 result2 ...))
+    //       (if test (begin result1 result2 ...)))
+    //       ((cond (test result1 result2 ...)
+    //             clause1 clause2 ...)
+    //       (if test
+    //           (begin result1 result2 ...)
+    //           (cond clause1 clause2 ...)))))
 
-      ; - 4.2 Derived expression types
-      (define-syntax cond
-        (syntax-rules (else =>)
-          ((cond (else result1 result2 ...))
-          (begin result1 result2 ...))
-          ((cond (test => result))
-          (let ((temp test))
-            (if temp (result temp))))
-          ((cond (test => result) clause1 clause2 ...)
-          (let ((temp test))
-            (if temp
-                (result temp)
-                (cond clause1 clause2 ...))))
-          ((cond (test)) test)
-          ((cond (test) clause1 clause2 ...)
-          (let ((temp test))
-            (if temp
-                temp
-                (cond clause1 clause2 ...))))
-          ((cond (test result1 result2 ...))
-          (if test (begin result1 result2 ...)))
-          ((cond (test result1 result2 ...)
-                clause1 clause2 ...)
-          (if test
-              (begin result1 result2 ...)
-              (cond clause1 clause2 ...)))))
+    //   (define-syntax case
+    //     (syntax-rules (else)
+    //       ((case (key ...)
+    //         clauses ...)
+    //       (let ((atom-key (key ...)))
+    //         (case atom-key clauses ...)))
+    //       ((case key
+    //         (else result1 result2 ...))
+    //       (begin result1 result2 ...))
+    //       ((case key
+    //         ((atoms ...) result1 result2 ...))
+    //       (if (memv key '(atoms ...))
+    //           (begin result1 result2 ...)))
+    //       ((case key
+    //         ((atoms ...) result1 result2 ...)
+    //         clause clauses ...)
+    //       (if (memv key '(atoms ...))
+    //           (begin result1 result2 ...)
+    //           (case key clause clauses ...)))))
 
-      (define-syntax case
-        (syntax-rules (else)
-          ((case (key ...)
-            clauses ...)
-          (let ((atom-key (key ...)))
-            (case atom-key clauses ...)))
-          ((case key
-            (else result1 result2 ...))
-          (begin result1 result2 ...))
-          ((case key
-            ((atoms ...) result1 result2 ...))
-          (if (memv key '(atoms ...))
-              (begin result1 result2 ...)))
-          ((case key
-            ((atoms ...) result1 result2 ...)
-            clause clauses ...)
-          (if (memv key '(atoms ...))
-              (begin result1 result2 ...)
-              (case key clause clauses ...)))))
+    //   (define-syntax and
+    //     (syntax-rules ()
+    //       ([and] #t)
+    //       ([and test] test)
+    //       ([and test1 test2 ...]
+    //         (if test1 [and test2 ...] #f))))
 
-      (define-syntax and
-        (syntax-rules ()
-          ([and] #t)
-          ([and test] test)
-          ([and test1 test2 ...]
-            (if test1 [and test2 ...] #f))))
+    //   (define-syntax or
+    //     (syntax-rules ()
+    //       ([or] #f)
+    //       ([or test] test)
+    //       ([or test1 test2 ...]
+    //         (let ([x test1])
+    //           (if x x (or test2 ...))))))
 
-      (define-syntax or
-        (syntax-rules ()
-          ([or] #f)
-          ([or test] test)
-          ([or test1 test2 ...]
-            (let ([x test1])
-              (if x x (or test2 ...))))))
+    //   (define-syntax let
+    //     (syntax-rules ()
+    //       ((let ((name val) ...) body1 body2 ...)
+    //         ((lambda (name ...) body1 body2 ...)
+    //         val ...))))
 
-      (define-syntax let
-        (syntax-rules ()
-          ((let ((name val) ...) body1 body2 ...)
-            ((lambda (name ...) body1 body2 ...)
-            val ...))))
+    //   (define-syntax let*
+    //     (syntax-rules ()
+    //       ((let* () body1 body2 ...)
+    //         (let () body1 body2 ...))
+    //       ((let* ((name1 val1) (name2 val2) ...)
+    //           body1 body2 ...)
+    //         (let ((name1 val1))
+    //           (let* ((name2 val2) ...)
+    //             body1 body2 ...)))))
 
-      (define-syntax let*
-        (syntax-rules ()
-          ((let* () body1 body2 ...)
-            (let () body1 body2 ...))
-          ((let* ((name1 val1) (name2 val2) ...)
-              body1 body2 ...)
-            (let ((name1 val1))
-              (let* ((name2 val2) ...)
-                body1 body2 ...)))))
+    //   ;; from: https://stackoverflow.com/questions/2835582/what-if-any-is-wrong-with-this-definition-of-letrec-in-scheme
+    //   (define-syntax letrec
+    //     (syntax-rules ()
+    //       ((letrec ((name val) ...) body bodies ...)
+    //       ((lambda ()
+    //         (define name val) ... body bodies ...)))))
 
-      ;; from: https://stackoverflow.com/questions/2835582/what-if-any-is-wrong-with-this-definition-of-letrec-in-scheme
-      (define-syntax letrec
-        (syntax-rules ()
-          ((letrec ((name val) ...) body bodies ...)
-          ((lambda ()
-            (define name val) ... body bodies ...)))))
+    // `, global)
 
-    `, global)
+    // global.lexicalEnv.set('do', async (args: Pair, env: Env) => {
+    //   /*
+    //   (do ((<variable1> <init1> <step1>) ...)
+    //         (<test> <expression> ...)
+    //       <command> ...)
+    //   */
+    //   const [[...preludes], [test, ...expressions], ...commands] = args;
+
+    //   // Syntax: The <init>s, <step>s, <test>s, and <command>s must be expressions.
+    //   //         The <variable>s must be pairwise distinct variables.
+    //   preludes.forEach(([var1, init1, step1]: any) => {
+    //     assert(Util.isAtom(var1));
+    //     assert(Util.isExpr(init1));
+    //     assert(Util.isExpr(step1));
+    //   });
+    //   assert(Util.isExpr(test), `Test must be an expression. Got: ${typeof test} .. (value: ${toString(test)})`);
+    //   expressions.forEach((expression: any) => {
+    //     assert(Util.isExpr(expression), `Not an expression. Got: ${typeof test} .. (value: ${toString(test)})`);
+    //   });
+    //   commands.forEach((command: any) => {
+    //     assert(Util.isExpr(command), `A Command must be an expression. Got: ${typeof command} .. (value: ${toString(command)})`);
+    //   });
+
+    //   let bindings: List = [];
+    //   const steps: List = [];
+
+    //   // The <init> expressions are evaluated (in some unspecified order),
+    //   // the <variable>s are bound to fresh locations,
+    //   // the results of the <init> expressions are stored in the bindings of the <variable>s,
+    //   // and then the iteration phase begins.
+    //   preludes.forEach(([var1, init1, step1]: any) => {
+    //     bindings.push([var1, evaluate(init1, env)]);
+    //     steps.push([var1, step1]);
+    //   });
+
+    //   processBindings();
+
+    //   // Each iteration begins by evaluating <test>;
+    //   // If the result is #f, then the <command>s are evaluated in order for effect,
+    //   // - the <step> expressions are evaluated in some unspecified order,
+    //   // - the <variable>s are bound to fresh locations holding the results,
+    //   // Then the next iteration begins.
+    //   const iterate = async (depth = 0): Promise<Form> => {
+    //     const testResult = await evaluate(test, env);
+    //     if (!Util.isT(testResult)) {
+    //       commands.forEach((command: any) => {
+    //         evaluate(command, env);
+    //       });
+    //       steps.forEach((step: any) => {
+    //         const [varName, result] = step;
+    //         // const res = evaluate(result, env);
+    //         // env.setFrom(varName, res);
+    //         bindings.push([varName, evaluate(result, env)]);
+    //       });
+    //       processBindings()
+    //       if (depth >= 1000) {
+    //         throw new Error('max depth exceeded');
+    //       }
+    //       return iterate(depth + 1);
+    //     } else {
+
+    //       // If <test> evaluates to a true value;
+    //       // - The <expression>s are evaluated from left to right,
+    //       // and the values of the last <expression> are returned
+    //       // - If no <expression>s are present,
+    //       // then the do expression returns unspecified values
+    //       const rv = expressions.map(expr => evaluate(expr, env));
+
+    //       return rv.pop() ?? [];
+    //     }
+    //   };
+
+    //   return await iterate();
+
+    //   function processBindings() {
+    //     while (bindings.length) {
+    //       const [varName, binding] = bindings.shift() as any;
+    //       env.setFrom(varName, binding);
+    //     }
+    //   }
+    // })
 
     //  - 6. Standard procedures
     // - 6.1 Equivalence Predicates
+
     mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
     mkNativeProc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
     mkNativeProc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(toString(a) === toString(b)));
@@ -216,9 +299,9 @@ export async function addGlobals(
     // procedure: integer? obj
     // procedure: exact? z
     // procedure: inexact? z
-    mkNativeProc(env, '=', ['args'], (args: any) => args.reduce((acc: any, val: any) => Util.toL(acc === val)));
-    mkNativeProc(env, '>', ['args'], (args: any) => args.reduce((acc: any, val: any) => Util.toL(acc > val)));
-    mkNativeProc(env, '<', ['args'], (args: any) => args.reduce((acc: any, val: any) => Util.toL(acc < val)));
+    mkNativeProc(env, '=', ['args'], ([l, r]: any) => Util.toL(l === r));
+    mkNativeProc(env, '>', ['args'], ([l, r]: any) => Util.toL(l > r));
+    mkNativeProc(env, '<', ['args'], ([l, r]: any) => Util.toL(l < r));
     mkNativeProc(env, '>=', ['args'], ([l, r]: any) => Util.toL(l >= r));
     mkNativeProc(env, '<=', ['args'], ([l, r]: any) => Util.toL(l <= r));
     mkNativeProc(env, 'zero?', ['n'], ([n]: any) => Util.toL(n === 0));
@@ -226,16 +309,16 @@ export async function addGlobals(
     mkNativeProc(env, 'negative?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n < 0));
     mkNativeProc(env, 'odd?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n % 2 !== 0));
     mkNativeProc(env, 'even?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n % 2 === 0));
-    mkNativeProc(env, 'max', ['args'], (args: any) => args.reduce((acc: any, val: any) => Math.max(acc, val)));
-    mkNativeProc(env, 'min', ['args'], (args: any) => args.reduce((acc: any, val: any) => Math.min(acc, val)));
-    mkNativeProc(env, '+', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc + val, 0));
-    mkNativeProc(env, '*', ['args'], (args: any) => args.reduce((acc: any, val: any) => acc * val, 1));
-    mkNativeProc(env, '-', ['args'], (args: any) => {
+    mkNativeProc(env, 'max', 'args', (args: any) => args.reduce((acc: any, val: any) => Math.max(acc, val)));
+    mkNativeProc(env, 'min', 'args', (args: any) => args.reduce((acc: any, val: any) => Math.min(acc, val)));
+    mkNativeProc(env, '+', 'args', (args: any) => args.reduce((acc: any, val: any) => acc + val, 0));
+    mkNativeProc(env, '*', 'args', (args: any) => args.reduce((acc: any, val: any) => acc * val, 1));
+    mkNativeProc(env, '-', 'args', (args: any) => {
       Util.assert(args.length > 0, "procedure requires at least one argument: (-)")
       if (args.length === 1) return -args[0]
       else return args.reduce((acc: any, val: any) => acc - val)
     });
-    mkNativeProc(env, '/', ['args'], (args: any) => {
+    mkNativeProc(env, '/', 'args', (args: any) => {
       Util.assert(args.length > 0, "procedure requires at least one argument: (/)")
       args.reduce((acc: any, val: any) => acc / val)
     });
@@ -295,11 +378,18 @@ export async function addGlobals(
 
     // - 6.3.2 Pairs and lists
     mkNativeProc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(Util.isPair(obj)));
-    mkNativeProc(env, 'cons', ['a', 'b'], ([a, b]: any) => [a].concat(b));
-    mkNativeProc(env, 'car', ['args'], (args: any) => Lisp.car(args));
-    mkNativeProc(env, 'cdr', ['args'], (args: any) => Lisp.cdr(args));
-    mkNativeProc(env, 'set-car!', ['l', 'v'], ([l, v]: any) => l[0] = v);
-    mkNativeProc(env, 'set-cdr!', ['l', 'v'], ([l, v]: any) => l[1] = v);
+    mkNativeProc(env, 'cons', ['a', 'b'], ([a, b]: any) => new Pair(a, b));
+    mkNativeProc(env, 'car', 'args', (args: any) => Lisp.car(args));
+    mkNativeProc(env, 'cdr', 'args', (args: any) => Lisp.cdr(args));
+    mkNativeProc(env, 'set-car!', ['l', 'v'], ([l, v]: any) => {
+      if (Pair.is(l))
+        l.car = v
+      else l[0] = v
+    });
+    mkNativeProc(env, 'set-cdr!', ['l', 'v'], ([l, v]: any) => {
+      assert(Util.isPair(l), 'invalid `set-cdr!` argument: ' + toString(l))
+      l.cdr = v
+    });
 
     // library procedure: caar pair
     // library procedure: cadr pair
@@ -308,11 +398,12 @@ export async function addGlobals(
     // library procedure: cddddr pair
 
     mkNativeProc(env, 'null?', ['n'], ([n]: any) => Util.toL(Util.isEmpty(n)));
-    mkNativeProc(env, 'list?', ['n'], ([n]: any) => Util.toL(Util.isList(n)));
-    mkNativeProc(env, 'list', ['args'], (args: any) => args);
-    mkNativeProc(env, 'length', ['list'], ([list]: any) => Util.isList(list) && list.length);
+    mkNativeProc(env, 'list?', ['n'], ([n]: any) => Util.toL(Util.isPair(n) && n.isList()));
+    mkNativeProc(env, 'list', 'args', (args: any) => args);
+    mkNativeProc(env, 'length', ['list'], ([list]: any) => Util.isPair(list) && list.length);
+
     // library procedure: append list ...
-    mkNativeProc(env, 'reverse', ['list'], ([list]: any) => Util.isList(list) && [...list].reverse());
+    // mkNativeProc(env, 'reverse', ['list'], ([list]: any) => Util.isPair(list) && [...list].reverse());
 
     // library procedure: list-tail list k
     // library procedure: list-ref list k
@@ -453,8 +544,8 @@ export async function addGlobals(
       return (<string>string).split('')
     });
     mkNativeProc(env, 'list->string', ['list', '...'], ([list]: any) => {
-      Util.assert(Util.isList(list) && list.map(o => Util.isString(o)))
-      return (<List>list).join('')
+      assert(Util.isPair(list) && list.every(o => Util.isString(o)))
+      return list.toArray().join('')
     });
     mkNativeProc(env, 'string-copy', ['string'], ([string]: any) => {
       Util.assert(Util.isString(string))
@@ -495,12 +586,12 @@ export async function addGlobals(
     });
     mkNativeProc(env, 'vector->ref', ['vec', 'k'], ([vec, k]: any) => {
       assert(Util.isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
-      assert(Util.isNumber(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
+      assert(Util.isNum(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
       return (<Vector>vec).data[k]
     });
     mkNativeProc(env, 'vector->set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any) => {
       assert(Util.isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
-      assert(Util.isNumber(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
+      assert(Util.isNum(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
       assert(obj, `vector-ref [arg(3)] is undefined`)
       return (<Vector>vec).data[k] = obj
     });
@@ -509,8 +600,8 @@ export async function addGlobals(
       return (<Vector>vec).data
     });
     mkNativeProc(env, 'list->vector', ['list'], ([list]: any) => {
-      assert(Util.isList(list), `list->vector expected a list. Got: ${typeof list}`)
-      return new Vector(list)
+      assert(Util.isPair(list), `list->vector expected a list. Got: ${typeof list}`)
+      return new Vector(list.toArray())
     });
     mkNativeProc(env, 'vector->fill!', ['vec', 'fill'], ([vec, fill]: any) => {
       assert(Util.isVec(vec), `vector-list expected a Vector. Got: ${typeof vec}`)
@@ -537,7 +628,7 @@ export async function addGlobals(
       });
       try {
         if (isNativeProc(proc)) {
-          return proc.call([throw_ as Form], env);
+          return proc.call(list(throw_), env);
         }
         throw new InvalidCallableExpression(proc);
       } catch (err) {
@@ -626,6 +717,12 @@ export async function addGlobals(
       p.write(obj)
       return
     });
+    mkNativeProc(env, 'writeln', ['obj', 'port?'], ([obj, port]: any) => {
+      const p: OutPort = port ?? currentOutputPort(global)
+      p.write(obj)
+      p.write('\n')
+      return
+    });
     mkNativeProc(env, 'display', ['obj', 'port?'], ([obj, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(global)
       p.write(obj)
@@ -634,7 +731,6 @@ export async function addGlobals(
     mkNativeProc(env, 'newline', ['port?'], ([port]: any) => {
       const p: OutPort = port ?? currentOutputPort(global)
       p.write('\n')
-      return
     });
     mkNativeProc(env, 'write-char', ['char', 'port?'], ([char, port]: any) => {
       assert(Util.isChar(char), `not a character: ${char}`)
@@ -705,7 +801,9 @@ export async function addGlobals(
 
   if (options.misc) {
 
-    mkNativeProc(env, 'macroexpand', ['expr'], async ([args]: any) => await expand(args, true, env));
+    mkNativeProc(env, 'macroexpand', ['expr'], async ([expr]: any) => await expand(expr, true, env));
+
+    mkNativeProc(env, 'tokenize', ['expr'], async ([expr]: any) => await Lisp.tokenize(expr, global));
 
     mkNativeProc(env, 'putchar2', ['char1', 'char2', 'port?'], ([obj1, obj2, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(global)
@@ -714,18 +812,25 @@ export async function addGlobals(
       return
     });
 
-    mkNativeProc(env, 'try', ['callable'], ([callable]: any) => {
+    mkNativeProc(env, 'try', ['callable'], async ([callable]: any) => {
       try {
-        if (isNativeProc(callable)) {
-          return [TRUE, callable.call([], env)];
+        if (isProc(callable)) {
+          const closure = new Env(callable.params, EMPTY, callable.env)
+          const rv = await callable.call(callable.expr, closure);
+          return cons(TRUE, rv);
         }
-        return [FALSE, ['InvalidCallableExpression']]
+        if (isNativeProc(callable)) {
+          const closure = new Env(callable.params, EMPTY, callable.env)
+          const rv = await callable.call(EMPTY, closure);
+          return cons(TRUE, rv);
+        }
+        return cons(FALSE, 'InvalidCallableExpression')
       } catch (err) {
         if (err instanceof Error)
-          return [FALSE, [err.message]];
+          return cons(FALSE, err.message);
         if (typeof err === 'string')
-          return [FALSE, [err]];
-        return [FALSE, ['UnknownError']];
+          return cons(FALSE, err);
+        return cons(FALSE, 'UnknownError');
       }
     });
 
@@ -775,6 +880,7 @@ export async function addGlobals(
         const o = currentOutputPort(global)
         try {
           o.write(global.env.get('*current-repl-prompt*'))
+          console.log()
           lastInput = await read(p, global.readerEnv);
           lastExpand = await expand(lastInput, true, global.lexicalEnv)
           lastOutput = await evaluate(lastExpand, global.env)
@@ -799,6 +905,7 @@ export async function addGlobals(
             o.write(err.message + '\n')
           }
           console.log('error: ' + err)
+          process.exit(1)
         }
       }
     });
@@ -807,15 +914,15 @@ export async function addGlobals(
 
 
   function mkNativeProc(
-    env: Env, name: string, params: string[],
-    cb: (args: Form, env: Env) => any
+    env: Env, name: string, params: string | string[],
+    cb: (args: Form[] | Form, env: Env) => any
   ): Form | NativeProc {
 
     const func = new class extends NativeProc {
       public name = name;
       public env = env;
-      public params = params.map(Sym);
-      public call = cb;
+      public params = Array.isArray(params) ? list(...params.map(Sym)) : Sym(params);
+      public call = (args: Form, env: Env) => cb(Util.isList(args) ? (Util.isEmpty(args) ? [] : args.toArray()) : args, env)
     };
 
     env.set(name, func);

@@ -1,129 +1,142 @@
 import assert from "assert";
 import * as Utils from "../utils";
 import { UNDEF } from "./const";
-import type { Env } from "./env";
-import { isCallable, Proc } from "./proc";
+import { Env } from "./env";
+import { isProc, Proc } from "./proc";
 import { Sym, SymTable } from "./sym";
 import { SyntaxRulesDef } from "./syntax";
-import type { List, Form } from "./forms";
+import type { Form } from "./forms";
 import { toString, toStringSafe } from "./toString";
+import { caaddr, caar, cadddr, caddr, cadr, car, cdddr, cddr, cdr } from "./lisp";
+import { cons, Pair, list } from "./pair";
+import { evaluate } from "./eval";
 
 export const expand = async (e: Form, topLevel = false, env: Env): Promise<Form> => {
   // assert(Utils.isEmpty(e) === false, `() => Error`)
-  if (!Utils.isList(e)) { return e }
+  if (!Utils.isPair(e)) { return e }
   if (Utils.isEmpty(e)) { return e }
-  else if (SymTable.QUOTE === e[0]) {
-    Utils.expect(e, e.length === 2);
+  else if (SymTable.QUOTE === car(e)) {
+    assert(e.cdr, 'Invalid <datum> in `quote`');
     return e;
   }
-  else if (SymTable.IF === e[0]) {
+  else if (SymTable.IF === car(e)) {
     if (e.length === 3) e.push(UNDEF)
-    assert(e.length === 4, `Invalid if form: ${toStringSafe(e)}`)
-    return await Promise.all(e.map(e => expand(e, false, env)));
+    assert(e.length === 4, `Invalid if form: ${toStringSafe(e)} (length: ${e.length})`)
+    return list(car(e)).append(await expand(cdr(e), false, env));
   }
-  else if (SymTable.SET === e[0]) {
-    const [_set, variable, value] = e;
-    assert(Utils.isSym(variable), 'First arg to set! must be a symbol');
-    return [_set, variable, value];
+  else if (SymTable.SET === car(e)) {
+    assert(Utils.isSym(cadr(e)), 'First arg to set! must be a symbol');
+    return e
   }
-  else if (SymTable.BEGIN === e[0]) {
-    const [_begin, ...exprs] = e;
-    Utils.expect(e, exprs.length >= 1, 'expand begin');
-    const rrv = await Promise.all(exprs.map(x => expand(x, topLevel, env)));
-    return [_begin, ...rrv];
+  else if (SymTable.BEGIN === car(e)) {
+    const { car: _begin, cdr: exprs } = e;
+    assert(Pair.is(exprs) && exprs.length >= 1, 'expand begin');
+    return cons(_begin, await expand(exprs, topLevel, env));
   }
-  else if (SymTable.DEFINESYNTAX === e[0]) {
+  else if (SymTable.DEFINESYNTAX === car(e)) {
     Utils.expect(e, e.length >= 3, 'expand define-syntax');
-    return expandDefineSyntax(e, topLevel, env);
+    return await expandDefineSyntax(e, topLevel, env);
   }
-  else if (SymTable.DEFINE === e[0]) {
-    const [_def, v, ...rest] = e;
-    if (Utils.isList(v) && !Utils.isEmpty(v)) {
-      const [name, ...args] = v
-      return expand([SymTable.DEFUN, name, args, ...rest], false, env);
+  else if (SymTable.DEFINE === car(e)) {
+    const v = cadr(e)
+    const rest = cddr(e)
+    if (Utils.isPair(v) && !Utils.isEmpty(v)) {
+      const name = car(v)
+      const args = cdr(v)
+      return await expand(list(SymTable.DEFUN, name, args, rest), false, env);
     }
-    const [_, name, args, ...body] = e;
+    const name = cadr(e)
+    const args = caddr(e)
+    const body = cdddr(e)
     if (Utils.isEmpty(body)) {
-      return [_def, name, await expand(args, false, env)];
+      return list(car(e), name, await expand(args, false, env));
     }
-    return await expand([SymTable.DEFUN, name, args, ...body], false, env);
+    return await expand(list(SymTable.DEFUN, name, args, body), false, env);
   }
-  else if (SymTable.DEFUN === e[0]) {
+  else if (SymTable.DEFUN === car(e)) {
     Utils.expect(e, e.length >= 3, 'expand defun');
     return await expandDefun(e, env);
   }
-  else if (SymTable.LAMBDA === e[0]) {
+  else if (SymTable.LAMBDA === car(e)) {
     Utils.expect(e, e.length >= 3, 'expand lambda');
     return await expandLambda(e, env);
   }
-  else if (SymTable.QUASIQUOTE === e[0]) {
+  else if (SymTable.QUASIQUOTE === car(e)) {
     Utils.expect(e, e.length === 2, 'expand quasi-quote');
-    return await expandQuasiquote(e[1]);
+    return await expandQuasiquote(cadr(e));
   }
-  else if (env.hasFrom(e[0])) {
-    const proc = env.getFrom<Proc>(e[0]);
-    const form = e.slice(1);
-    if (isCallable(proc)) {
-      const result = await proc.call(form, env);
+  else if (env.hasFrom(car(e))) {
+    const proc = env.getFrom<Proc>(car(e));
+    if (Utils.isCallable(proc)) {
+      const result = await proc.call(cdr(e), env);
       return await expand(result, false, env);
     }
+    if (isProc(proc)) {
+      const env = new Env(proc.params, cdr(e), proc.env)
+      return await evaluate(cdr(e), env)
+    }
     // allow functions as well
-    return await expand(await proc(...form), topLevel, env);
+    return await expand(await proc(cdr(e)), topLevel, env);
   }
-  return await Promise.all(e.map(x => expand(x, false, env)));
+  const e1 = await expand(car(e), false, env);
+  return cons(e1, await expand(cdr(e), false, env));
 };
 
 export const expandQuasiquote = async (x: Form): Promise<Form> => {
-  if (!Utils.isPair(x)) return [SymTable.QUOTE, x];
-  Utils.expect(x, x !== SymTable.UNQUOTESPLICING, "can't slice here");
-  if (Array.isArray(x)) {
-    if (x[0] === SymTable.UNQUOTE) {
-      Utils.expect(x, Utils.isList(x) && x.length === 2);
-      return x[1];
-    }
-    if (Utils.isList(x[0]) && x[0][0] === SymTable.UNQUOTESPLICING) {
-      Utils.expect(x, Utils.isList(x[0]) && x[0].length === 2);
-      return [SymTable.APPEND, x[0][1], await expandQuasiquote(x.slice(1))];
-    }
-    else {
-      return [SymTable.CONS, await expandQuasiquote(x[0]), await expandQuasiquote(x.slice(1))];
-    }
+  if (!Utils.isPair(x)) return list(SymTable.QUOTE, x);
+  Utils.expect(x, car(x) !== SymTable.UNQUOTESPLICING, "can't slice here");
+  if (car(x) === SymTable.UNQUOTE) {
+    assert(x.length === 2);
+    return cdr(x);
   }
-  throw new Error('unexpected state (expandQuasiquote)')
+  if (Utils.isPair(car(x)) && caar(x) === SymTable.UNQUOTESPLICING) {
+    assert((<Pair>car(x)).length === 2);
+    return list(SymTable.APPEND, cdr(car(x)), await expandQuasiquote(cdr(x)));
+  }
+  else {
+    return list(SymTable.CONS, await expandQuasiquote(car(x)), await expandQuasiquote(cdr(x)));
+  }
 };
 
-async function expandDefineSyntax(e: List, topLevel: boolean, env: Env) {
-  let [_def, name, ...rest] = e;
-  Utils.expect(e, topLevel, 'define-syntax only allowed at top level');
-  Utils.expect(rest, Utils.isList(rest[0]) && rest[0][0] === Sym('syntax-rules'));
-  const [_syn, literals, ...syntaxRules] = rest[0] as any[];
-  Utils.expect(e, Utils.isList(literals) && literals.every(Utils.isIdent));
-  Utils.expect(e, syntaxRules.every(rule => Utils.isList(rule) && rule.length === 2));
-  syntaxRules.forEach(([pattern, template]) => {
-    const [id, ...listPattern] = pattern as any[];
-    Utils.expect(e, id === name, 'syntax-rule patterns must begin with the keyword for the macro');
-    Utils.expect(e, Utils.isList(listPattern) && listPattern.every(p => Utils.isList(p) || Utils.isIdent(p) || Utils.isConst(p)), 'malformed list pattern');
-    Utils.expect(e, Utils.isIdent(template) || Utils.isConst(template) || Utils.isList(template), 'malformed template');
+async function expandDefineSyntax(e: Pair, topLevel: boolean, env: Env): Promise<any> {
+  assert(topLevel, 'define-syntax only allowed at top level');
+  assert(Utils.isPair(caddr(e)) && caaddr(e) === Sym('syntax-rules'));
+  const syntaxRulesDefList = cdr(caddr(e))
+  const literals: any = car(syntaxRulesDefList);
+  const syntaxRules: any = cdr(syntaxRulesDefList);
+  assert(Utils.isEmpty(literals) || (Utils.isPair(literals) && literals.every(Utils.isIdent)));
+  assert(Utils.isPair(syntaxRules) && syntaxRules.every(rule => Utils.isPair(rule) && rule.length === 2));
+  syntaxRules.forEach(form => {
+    const pattern = car(form)
+    const template = cadr(form)
+    const id = car(pattern)
+    const listPattern = cdr(pattern)
+    assert(id === cadr(e), 'syntax-rule patterns must begin with the keyword for the macro');
+    assert(Utils.isEmpty(listPattern) || Utils.isPair(listPattern) && listPattern.every(p => Utils.isList(p) || Utils.isIdent(p) || Utils.isConst(p)), `malformed list pattern: ${toString(listPattern)}`);
+    assert(Utils.isIdent(template) || Utils.isConst(template) || Utils.isPair(template), 'malformed template');
   });
-
-  env.setFrom(name, new SyntaxRulesDef(name, env, syntaxRules, literals) as any);
+  env.setFrom(cadr(e), new SyntaxRulesDef(cadr(e), env, syntaxRules, literals) as any);
   return [];
 }
 
-async function expandLambda(e: List, env: Env) {
-  const [_lambda, params, ...expression] = e;
-  const allAtoms = Utils.isList(params) && params.every(Utils.isSym);
+async function expandLambda(e: Pair, env: Env): Promise<Pair> {
+  const _lambda = car(e)
+  const params = cadr(e)
+  const expression = cddr(e)
+  const allAtoms = Utils.isPair(params) && params.every(Utils.isSym);
   assert(allAtoms || Utils.isSym(params), `Invalid lambda args. Expected a list of atoms or a single atom but instead got: ${toString(params)}, ${toString(e)}`);
-  assert(expression.length >= 1, `lambda expression empty`);
-  const body = (expression.length > 1) && [SymTable.BEGIN, ...expression]
-  return [_lambda, params, await expand(body || expression[0], false, env)];
+  assert(Pair.is(expression) && expression.length >= 1, `lambda expression empty`);
+  const body = (expression.length > 1) && list(SymTable.BEGIN, expression)
+  return list(_lambda, params, await expand(body || car(expression), false, env));
 }
 
-async function expandDefun(e: List, env: Env): Promise<Form> {
-  let [_def, name, args, body] = e;
-    Utils.expect(e, Utils.isSym(name), `Can only define a symbol`);
-    Utils.expect(e, Utils.isList(args) || Utils.isSym(args), `Invalid args`);
-    const expr = await expand([SymTable.LAMBDA, args, body], false, env);
-    return [_def, name, expr]
+async function expandDefun(e: Pair, env: Env): Promise<Form> {
+  const _def = car(e)
+  const name = cadr(e)
+  const args = caddr(e)
+  const body = cadddr(e)
+  Utils.expect(e, Utils.isSym(name), `Can only define a symbol`);
+  Utils.expect(e, Utils.isPair(args) || Utils.isSym(args), `Invalid args`);
+  const expr = await expand(list(SymTable.LAMBDA, args, body), false, env);
+  return list(_def, name, expr)
 }
-

@@ -1,32 +1,47 @@
 import assert from "assert";
-import { isList, isSym } from "../utils";
+import { isSym, isPair } from "../utils";
 import { toString } from "./toString";
 import * as Errors from "./error";
 import type { Proc } from "./proc";
 import { Sym } from "./sym";
-import type { Atom, List, Form } from "./forms";
+import type { Atom, Form } from "./forms";
+import { EMPTY } from "./const";
+import { cons, list, Pair } from "./pair";
+import { cadr, car, cddr, cdr } from "./lisp";
 
 export class Env {
-  constructor(params: Form = [], args: Form = [], public outer?: Env) {
-    if (isList(params) && isList(args) && params.every(isSym)) {
-      const getParams = (params: List, args: List): [string, any][] => {
+  constructor(params: Form = EMPTY, args: Form = EMPTY, public outer?: Env) {
+    if (isPair(params) && isPair(args) && params.every(isSym)) {
+      const getParams = (params: Pair, args: Pair): [string, any][] => {
         if (params.length === 0) return []
-        if (params[0] === Sym('...')) {
-          assert(params.slice(1).length === 0, 'no args allowed after `...`')
-          return [[toString(params[0]), args]]
+        if (car(params) === Sym('...')) {
+          assert(cdr(params) === EMPTY, 'no args allowed after `...`')
+          return [[toString(car(params)), args]]
         }
-        if (params[0] === Sym('.')) {
-          assert(params.slice(2).length === 0, 'only one arg allowed after `.`')
-          return [[toString(params[1]), args]]
+        if (car(params) === Sym('.')) {
+          assert(cddr(params) === EMPTY, 'only one arg allowed after `.`')
+          return [[toString(cadr(params)), args]]
         }
-        const [x0, ...xs0] = params
-        const [x1, ...xs1] = args
-        return [[toString(x0), x1], ...getParams(xs0, xs1)]
+        const x0 = car(params)
+        const x1 = car(args)
+        const xs0 = cdr(params)
+        const xs1 = cdr(args)
+        if (isPair(xs0) && isPair(xs1)) {
+          return [[toString(x0), x1], ...getParams(xs0, xs1)]
+        }
+        return [[toString(x0), x1]]
       }
       const formals = getParams(params, args);
       this.inner = Object.fromEntries(formals);
-    } else if (isSym(params)) {
+      return
+    }
+    else if (params === EMPTY || args === EMPTY) {
+      this.inner = {}
+      return
+    }
+    else if (isSym(params)) {
       this.inner = { [params.description!]: args };
+      return
     }
     else {
       throw new Errors.InvalidEnvArgumentsError(params, args);
@@ -54,14 +69,14 @@ export class Env {
   }
   mergeFrom(expr: Form, value: Form | Proc): void {
     if (!this.hasFrom(expr)) {
-      this.setFrom(expr, [<any>value]);
+      this.setFrom(expr, list(value));
       return
     }
-    const merger: List = this.getFrom(expr)
-    if (isList(merger)) {
+    const merger: Pair = this.getFrom(expr)
+    if (isPair(merger)) {
       merger.push(value as Form)
     } else {
-      this.setFrom(expr, [merger, <any>value])
+      this.setFrom(expr, cons(merger, value))
     }
   }
   update(name: string, value: Form | Proc): void {

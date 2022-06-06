@@ -7,7 +7,7 @@ import { io, Socket as Client } from "socket.io-client";
 import type { delimiter, whitespace } from "../../syntax"
 import { delimiters } from "../const"
 import { quotes } from "../macro"
-import { isEmpty, isNewline } from "../../utils";
+import { debounce, isEmpty, isNewline } from "../../utils";
 import { Queue } from "../queue";
 import { Environment } from "../../env";
 rlSYnc.setDefaultOptions({prompt: ''});
@@ -74,6 +74,23 @@ export class StdIn implements File {
   }
   close(): void { }
   private _buffer: string[] = []
+}
+
+export class StdOut implements File {
+  write(output: string | number): void {
+    if (typeof output !== "number")
+      this._write(output)
+    else
+      this._write(String(output))
+  }
+  flush = debounce(() => process.stdout)
+  read(): Promise<string> {
+    throw new Error("Cannot read from stdout")
+  }
+  close(): void { }
+  private _write(value: string) {
+    process.stdout.write(value, () => [])
+  }
 }
 
 export class SocketClient implements File {
@@ -147,19 +164,6 @@ export class SocketServer implements File {
     delete this.connection
     this.socket.close()
   }
-}
-
-export class StdOut implements File {
-  write(output: string | number): void {
-    if (typeof output !== "number")
-      process.stdout.write(output)
-    else
-      process.stdout.write(String(output))
-  }
-  read(): Promise<string> {
-    throw new Error("Cannot read from stdout")
-  }
-  close(): void { }
 }
 
 export abstract class Port {

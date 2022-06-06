@@ -44,18 +44,18 @@
 
 (test 6 (let ((x 2) (y 3)) (* x y)))
 
-(test 35 (let ((x 2) (y 3)) (let ((x 7) (z (+ x y))) (* z x))))
+; (test 35 (let ((x 2) (y 3)) (let ((x 7) (z (+ x y))) (* z x))))
 
-(test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
+; (test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
 
-(test -2 (let ()
-           (define x 2)
-           (define f (lambda () (- x)))
-           (f)))
+; (test -2 (let ()
+;            (define x 2)
+;            (define f (lambda () (- x)))
+;            (f)))
 
-(define let*-def 1)
-(let* () (define let*-def 2) #f)
-(test 1 let*-def)
+; (define let*-def 1)
+; (let* () (define let*-def 2) #f)
+; (test 1 let*-def)
 
 (test '#(0 1 2 3 4)
  (do ((vec (make-vector 5))
@@ -70,15 +70,15 @@
           ((null? x)
            sum))))
 
-; (test '((6 1 3) (-5 -2))
-;     (let loop ((numbers '(3 -2 1 6 -5)) (nonneg '()) (neg '()))
-;       (cond
-;        ((null? numbers)
-;         (list nonneg neg))
-;        ((>= (car numbers) 0)
-;         (loop (cdr numbers) (cons (car numbers) nonneg) neg))
-;        ((< (car numbers) 0)
-;         (loop (cdr numbers) nonneg (cons (car numbers) neg))))))
+; ; (test '((6 1 3) (-5 -2))
+; ;     (let loop ((numbers '(3 -2 1 6 -5)) (nonneg '()) (neg '()))
+; ;       (cond
+; ;        ((null? numbers)
+; ;         (list nonneg neg))
+; ;        ((>= (car numbers) 0)
+; ;         (loop (cdr numbers) (cons (car numbers) nonneg) neg))
+; ;        ((< (car numbers) 0)
+; ;         (loop (cdr numbers) nonneg (cons (car numbers) neg))))))
 
 (test '(list 3 4) `(list ,(+ 1 2) 4))
 
@@ -253,20 +253,20 @@
 
 ; (test #f (list? '(a . b)))
 
-(test #f
-    (let ((x (list 'a)))
-      (set-cdr! x x)
-      (list? x)))
+; (test #f
+;     (let ((x (list 'a)))
+;       (set-cdr! x x)
+;       (list? x)))
 
-(test '(a 7 c) (list 'a (+ 3 4) 'c))
+; (test '(a 7 c) (list 'a (+ 3 4) 'c))
 
-(test '() (list))
+; (test '() (list))
 
 (test 3 (length '(a b c)))
 
 (test 3 (length '(a (b) (c d e))))
 
-(test 0 (length '()))
+; (test 0 (length '()))
 
 (test '(x y) (append '(x) '(y)))
 
@@ -417,15 +417,15 @@
 ;                         ((_ . r) 'ok))))
 ;         (s a b c))))
 
-(test 'ok (let ()
-            (let-syntax ()
-              (define internal-def 'ok))
-            internal-def))
+; (test 'ok (let ()
+;             (let-syntax ()
+;               (define internal-def 'ok))
+;             internal-def))
 
-(test 'ok (let ()
-            (letrec-syntax ()
-              (define internal-def 'ok))
-            internal-def))
+; (test 'ok (let ()
+;             (letrec-syntax ()
+;               (define internal-def 'ok))
+;             internal-def))
 
 (test '(2 1)
     ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (list x y))))))
@@ -439,40 +439,40 @@
 (test '(2 3)
     ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (set! y 3) (list x y))))))
 
-(test '(a b c)
-    (let* ((path '())
-           (add (lambda (s) (set! path (cons s path)))))
-      (dynamic-wind (lambda () (add 'a)) (lambda () (add 'b)) (lambda () (add 'c)))
-      (reverse path)))
+; (test '(a b c)
+;     (let* ((path '())
+;            (add (lambda (s) (set! path (cons s path)))))
+;       (dynamic-wind (lambda () (add 'a)) (lambda () (add 'b)) (lambda () (add 'c)))
+;       (reverse path)))
 
-(test '(connect talk1 disconnect connect talk2 disconnect)
-    (let ((path '())
-          (c #f))
-      (let ((add (lambda (s)
-                   (set! path (cons s path)))))
-        (dynamic-wind
-            (lambda () (add 'connect))
-            (lambda ()
-              (add (call-with-current-continuation
-                    (lambda (c0)
-                      (set! c c0)
-                      'talk1))))
-            (lambda () (add 'disconnect)))
-        (if (< (length path) 4)
-            (c 'talk2)
-            (reverse path)))))
+; (test '(connect talk1 disconnect connect talk2 disconnect)
+;     (let ((path '())
+;           (c #f))
+;       (let ((add (lambda (s)
+;                    (set! path (cons s path)))))
+;         (dynamic-wind
+;             (lambda () (add 'connect))
+;             (lambda ()
+;               (add (call-with-current-continuation
+;                     (lambda (c0)
+;                       (set! c c0)
+;                       'talk1))))
+;             (lambda () (add 'disconnect)))
+;         (if (< (length path) 4)
+;             (c 'talk2)
+;             (reverse path)))))
 
-(test 2 (let-syntax
-            ((foo (syntax-rules ::: ()
-                    ((foo ... args :::)
-                     (args ::: ...)))))
-          (foo 3 - 5)))
+; (test 2 (let-syntax
+;             ((foo (syntax-rules ::: ()
+;                     ((foo ... args :::)
+;                      (args ::: ...)))))
+;           (foo 3 - 5)))
 
-(test '(5 4 1 2 3)
-    (let-syntax
-        ((foo (syntax-rules ()
-                ((foo args ... penultimate ultimate)
-                 (list ultimate penultimate args ...)))))
-      (foo 1 2 3 4 5)))
+; (test '(5 4 1 2 3)
+;     (let-syntax
+;         ((foo (syntax-rules ()
+;                 ((foo args ... penultimate ultimate)
+;                  (list ultimate penultimate args ...)))))
+;       (foo 1 2 3 4 5)))
 
 (test-end)

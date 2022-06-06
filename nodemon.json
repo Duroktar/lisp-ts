@@ -3,6 +3,6 @@
       "start": "clear",
       "restart": "clear"
     },
-    "ignore": ["assets/*", "dist/*", "node_modules/*", "samples/*", "stdlib/*", "tests/*"],
+    "ignore": ["assets/*", "node_modules/*", "samples/*", "stdlib/*", "tests/*"],
     "restartable": false
 }

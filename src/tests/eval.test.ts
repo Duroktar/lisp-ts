@@ -1,4 +1,5 @@
 import * as Lisp from "../core/lisp";
+import { list } from "../core/pair";
 import { Procedure } from "../core/proc";
 import { createEnvironment } from "../env";
 
@@ -36,9 +37,11 @@ describe('evaluate works', () => {
 
   test("(eval) (cdr '(1 3)) -> 3", async () => {
     const env = await createEnvironment()
-    expect(await Lisp.execute(
-      `(cdr '(1 3))`
-    , env)).toStrictEqual([3])
+    const actual = await Lisp.execute(
+      `(cdr '(1 3))`,
+      env);
+    const expected = list(3);
+    expect(expected.equal(actual)).toBe(true)
   });
 
   test('(eval) lambda -> Procedure', async () => {

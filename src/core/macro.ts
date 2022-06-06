@@ -9,5 +9,5 @@ export const quotes: Record<string, symbol> = {
 
 export const quoteAtomToString = Object.fromEntries(
   Object.entries(quotes)
-  .map(([k, v]) => [v.description, k])
+    .map(([k, v]) => [v.description, k])
 )

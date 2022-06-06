@@ -1,10 +1,13 @@
 import { Character } from "./core/char";
-import { FALSE, isPeculiarIdentifier, isSpecialInitial, isSpecialSubsequent, TRUE } from "./core/const";
+import { EMPTY, FALSE, isPeculiarIdentifier, isSpecialInitial, isSpecialSubsequent, TRUE } from "./core/const";
 import { Sym, SymTable } from "./core/sym";
-import type { Atom, List, Form } from "./core/forms";
+import type { Atom, Form } from "./core/forms";
 import { toString } from "./core/toString";
 import { Vector } from "./core/vec";
 import { whitespace, identifier, initial, letter, subsequent, digit, character } from "./syntax";
+import { Pair, list } from "./core/pair";
+import { Procedure, NativeProc, isProc, isNativeProc, Callable } from "./core/proc";
+import { SyntaxRulesDef, isSyntaxRulesDef } from "./core/syntax";
 
 export type Predicate = (...args: any[]) => boolean
 
@@ -34,27 +37,28 @@ export const expect = <E, P extends boolean | ((e: E) => boolean)>(e: E, p: P, m
   }
 };
 
-export const isPair = (x: unknown) => isList(x) && !isEmpty(x);
-export const isList = (x: unknown): x is List => !isSym(x) && Array.isArray(x);
+export const isList = (x: unknown): x is Pair | symbol => (isPair(x) && x.isList()) || isEmpty(x);
+export const isPair = (x: unknown): x is Pair => Pair.is(x);
 export const isAtom = (x: unknown): x is Atom => isSym(x);
 export const isSym = (x: unknown): x is symbol => typeof x === 'symbol';
 export const isNum = (x: unknown): x is number => typeof x === 'number';
 export const isVec = (x: unknown): x is Vector => x instanceof Vector;
 export const isString = (c: any): c is string => typeof c === 'string';
 export const isChar = (x: unknown): x is Character => x instanceof Character;
-export const isEmpty = (x: unknown): boolean => isList(x) && x.length === 0;
+export const isEmpty = (x: unknown): x is symbol => x === EMPTY;
 export const isNone = (x: unknown): x is undefined | null => x === undefined || x === null;
-export const isExpr = (x: unknown): x is Form => isAtom(x) || isList(x) || isString(x) || isNum(x);
+export const isExpr = (x: unknown): x is Form => isPair(x) || isAtom(x) || isString(x) || isNum(x);
 export const isConst = (x: unknown) => isNum(x) || isString(x)
-export const isIdent = isSym
+export const isIdent = (x: unknown): x is symbol => isSym(x) && !isEmpty(x)
 export const isEqual = (x: unknown, y: unknown) => {
   return JSON.stringify(x) === JSON.stringify(y)
 }
-export const isEq = (x: unknown, y: unknown) => {
-  return (
-    isList(x) && x.length === 0 &&
-    isList(y) && y.length === 0
-  ) || (x === y)
+export const isCallable = (x: unknown): x is NativeProc | SyntaxRulesDef => {
+  return isNativeProc(x) || isSyntaxRulesDef(x);
+}
+
+export const isEq = (x: unknown, y: unknown): boolean => {
+  return (isPair(x) && x.equal(y)) || (x === y)
 }
 
 export const symName = (s: symbol): string => s.description!;
@@ -65,7 +69,10 @@ export const isF = (e: Form): boolean => e === FALSE;
 export const isT = (e: Form): boolean => e === TRUE;
 export const toL = (e: boolean): Form => e ? TRUE : FALSE;
 
-export const zip = (...rows: Form[][]) => isEmpty(rows) ? [[], []] : rows[0].map((_, c) => rows.map(row => row[c]));
+export const zip = (...rows: Form[][]) => {
+  if (isEmpty(rows) || !rows[0]) return [[], []]
+  return rows[0].map((_, c) => rows.map(row => row[c]));
+}
 export const zipUp = (...rows: (Form[] | Form)[]) => {
   if (isEmpty(rows)) return []
   const h: ProxyHandler<any> = {
@@ -81,7 +88,7 @@ export const zipUp = (...rows: (Form[] | Form)[]) => {
       }
     }
   };
-  const stuffz = rows.map(i => isList(i) ? i : new Proxy([i], h));
+  const stuffz = rows.map(i => Array.isArray(i) ? i : new Proxy([i], h));
   const runs = Math.max(...stuffz.map(i => i.length));
   const entries = []
   for (let c = 0; c < runs; c++) {
@@ -91,13 +98,13 @@ export const zipUp = (...rows: (Form[] | Form)[]) => {
 }
 
 export const map = (func: (m: Form) => Form, m: Form): Form => {
-  if (isList(m)) {
+  if (isPair(m)) {
     return m.map(child => map(func, child));
   }
   return func(m);
 };
 export const find = (func: (m: Form, i: number) => boolean, m: Form, __i = 0): Form | undefined => {
-  if (isList(m)) {
+  if (isPair(m)) {
     for (const child of m) {
       const r = find(func, child, __i++);
       if (r !== undefined)
@@ -109,19 +116,19 @@ export const find = (func: (m: Form, i: number) => boolean, m: Form, __i = 0): F
 };
 
 export const getSafe = <T>(a: T[] | any, i: number) => {
-  if (isList(a)) return a[i]
+  if (isPair(a)) return a.car
   return undefined
 }
 
 export const mkLambda = (params: string[] | string, body: Form): Form => {
-  return [SymTable.LAMBDA, isList(params) ? params.map(Sym) : Sym(params), body];
+  return list(SymTable.LAMBDA, Array.isArray(params) ? list(...params.map(Sym)) : Sym(params), body);
 };
 
 export const eqC = (a: any) => (b: any) => a === b;
 
 export const searchIdx = (...keys: string[]) => keys.reduce((acc, key) => ({...acc, [key]: 1}), {})
 
-export const first = (a: any) => isList(a) ? a[0] : undefined;
+export const first = (a: any) => isPair(a) ? a.car : undefined;
 
 export const isNewline = (c: any): c is whitespace => c === '\n'
 export const isWhiteSpace = (c: any): c is whitespace => c === ' ' || c === '\t' || isNewline(c)
@@ -133,7 +140,7 @@ export const isInitial = (c: any): c is initial => isLetter(c) || isSpecialIniti
 export const isLetter = (c: any): c is letter => !! (isString(c) && c.match(/^[A-z]*$/));
 export const isSubsequent = (c: any): c is subsequent => isInitial(c) || isDigit(c) || isSpecialSubsequent(c);
 export const isDigit = (c: any): c is digit => !! (isString(c) && c.match(/^[0-9]*$/));
-export const isNumber = (c: any): c is number => typeof c === 'number';
+// export const isNumber = (c: any): c is number => typeof c === 'number';
 export const isCharacter = (c: any): c is character => !! (isString(c) && c.match(/^#\\([A-z]|(space|newline)){1}$/));
 
 export function gcd(x: number, y: number) {
@@ -158,4 +165,12 @@ export function lcm(n1: number, n2: number) {
 export function tryProve<T>(fn: (t: T) => boolean, o: {proofs: T[], counters: any[]}): void {
   o.proofs.forEach(p => assert(!!fn(p), `found proof that doesn't hold: ${p}`))
   o.counters.forEach(c => assert(!fn(c), `found counter-proof that doesn't hold: ${c}`))
+}
+
+export const debounce = <T extends Function>(func: T, timeout = 300) => {
+  let timer: NodeJS.Timer | undefined;
+  return ((...args: any[]): any => {
+    clearTimeout(timer!);
+    timer = setTimeout(() => { func(...args); }, timeout);
+  }) as any as T;
 }

@@ -1,5 +1,5 @@
-import type { List } from "./forms";
+import type { Form } from "./forms";
 
 export class Vector {
-  constructor(public data: List) {}
+  constructor(public data: Form[]) {}
 }

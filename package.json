@@ -12,8 +12,9 @@
     "build:watch": "ttsc --watch src/start.ts",
     "build": "ttsc src/start.ts",
     "repl:dev": "nodemon --config nodemon.json src/repl.ts",
+    "repl:watch": "nodemon --config nodemon.json dist/repl.js",
     "repl": "ts-node src/repl.ts",
-    "test:dev": "nodemon --config tests/nodemon.json src/test.ts",
+    "test:dev": "nodemon --config tests/nodemon.json src/start.ts",
     "test": "jest",
     "start": "ts-node src/start.ts"
   },

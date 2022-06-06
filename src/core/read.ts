@@ -1,13 +1,14 @@
 import assert from "assert";
-import { isList, Predicate } from "../utils";
+import { isPair, Predicate } from "../utils";
 import { Character } from "./char";
 import { EMPTY, TRUE } from "./const";
 import { Env } from "./env";
 import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./error";
 import { InPort, isEofString } from "./port";
 import { Sym, SymTable } from "./sym";
-import { List, Form } from "./forms";
+import { Form } from "./forms";
 import { Vector } from "./vec";
+import { list } from "./pair";
 
 export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
   let cursor = await port.readChar()
@@ -74,7 +75,7 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
       else
         throw new MissingParenthesisError();
 
-      return exprs;
+      return list(...exprs);
     }
 
     else if (current() === ')')
@@ -109,19 +110,19 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
   async function parseQuote(): Promise<Form> {
     if (current() === "'") {
       await advance();
-      return [SymTable.QUOTE, await parse()];
+      return list(SymTable.QUOTE, await parse());
     }
     if (current() === "`") {
       await advance();
-      return [SymTable.QUASIQUOTE, await parse()];
+      return list(SymTable.QUASIQUOTE, await parse());
     }
     if (current() === ",") {
       await advance();
       if (current() === "@") {
         await advance();
-        return [SymTable.UNQUOTESPLICING, await parse()];
+        return list(SymTable.UNQUOTESPLICING, await parse());
       }
-      return [SymTable.UNQUOTE, await parse()];
+      return list(SymTable.UNQUOTE, await parse());
     }
     return await parseAtom();
   }
@@ -133,8 +134,8 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
 
       if (lookahead === "(") {
         const items = await parseList()
-        assert(isList(items), "what is going on?")
-        return new Vector(<List>items)
+        assert(isPair(items), "what is going on?")
+        return new Vector(items.toArray())
       }
 
       if (lookahead === "\\") {
