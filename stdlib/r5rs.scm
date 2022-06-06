@@ -85,6 +85,17 @@
      ((lambda ()
        (define name val) ... body bodies ...)))))
 
+;;  - 6. Standard procedures
+;; - 6.1 Equivalence Predicates
+
+(define (eq? a b) (eqv? a b))
+(define (equal? a b) (cond
+  ([list? a]
+    (if (eqv? (car a) (car b))
+        (equal? (cdr a) (cdr b))
+        #f))
+  (else (eqv? a b))))
+
 (define (caar x) (car (car x)))
 (define (cadr x) (car (cdr x)))
 (define (cdar x) (cdr (car x)))
@@ -184,7 +195,7 @@
             (assv x (cdr lst))))
       #f))
 
-(define assq (x lst) (assv x lst))
+(define (assq x lst) (assv x lst))
 
 (define (assoc x lst)
   (if (pair? lst)
@@ -219,3 +230,9 @@
           (if (eqv? (< x 0) (< y 0))
               r
               (+ r y))))))
+
+; ((if (list? a)
+;     (begin (if (eqv? (car a) (car b)) (equal? (cdr a) (cdr b)) #f))
+;   (if #t
+;     (begin (eqv? a b))
+;     #<undef>)))

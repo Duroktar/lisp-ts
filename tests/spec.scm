@@ -38,7 +38,7 @@
 ;       (odd?  1000))))
 
 ; (begin
-;   (defun wrap (v) (list v))
+;   (define (wrap v) (list v))
 
 ;   (define-syntax wrap-macro
 ;     (syntax-rules ()

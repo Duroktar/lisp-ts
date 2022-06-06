@@ -7,7 +7,7 @@ import { io, Socket as Client } from "socket.io-client";
 import type { delimiter, whitespace } from "../../syntax"
 import { delimiters } from "../const"
 import { quotes } from "../macro"
-import { debounce, isEmpty, isNewline } from "../../utils";
+import { debounce, isNewline } from "../../utils";
 import { Queue } from "../queue";
 import { Environment } from "../../env";
 rlSYnc.setDefaultOptions({prompt: ''});
@@ -63,7 +63,7 @@ export class StdIn implements File {
     return rlSYnc.prompt({hideEchoBack: false, history: true, prompt: ''})
   }
   async read(): Promise<string> {
-    if (isEmpty(this._buffer)) {
+    if (this._buffer.length === 0) {
       const rv = rlSYnc.prompt({ hideEchoBack: false, history: false, prompt: '' });
       this._buffer.push(...rv, File.EOF_STRING)
     }

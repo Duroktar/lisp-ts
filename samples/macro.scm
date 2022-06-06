@@ -116,7 +116,7 @@
 ;   (let ([x 6])
 ;     x))
 
-; (defun fac (n)
+; (define (fac n)
 ;     (if (zero? n)
 ;         1
 ;         (* n (fac (sub1 n)))))
@@ -197,7 +197,7 @@
 
 
 ; ;; ----------------------------------------------------------------
-; (defun wrap (v) (list v))
+; (define (wrap v) (list v))
 
 ; (define-syntax wrap-macro
 ;   (syntax-rules ()

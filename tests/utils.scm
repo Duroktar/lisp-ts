@@ -40,11 +40,11 @@
               (prints (string-pad-end " - Expected:" 16)   (inspect *expected*))
               (prints (string-pad-end " - Actual:"   16)   (inspect (cdr *result*)))))))))))
 
-(defun test-begin (name) (begin
+(define (test-begin name) (begin
   (prints "*** Running Tests:" name "***")
   (set-current-test name)))
 
-(defun test-end ()
+(define (test-end)
   (begin
     (newline)
     (prints "--- Finished Tests:" *current-test* "---")

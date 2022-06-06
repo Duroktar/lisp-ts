@@ -147,7 +147,6 @@ export class SyntaxRulesDef {
       return value.equal(other)
     return value === other
   }
-  indentSize = 2
   match(form: Form, pattern: Form, env: Env, indent = 0): Env {
     /*
       - A subpattern followed by ... can match zero or more elements of the
@@ -191,9 +190,6 @@ export class SyntaxRulesDef {
     this.print(`${' '.repeat(indent)}trying to match pattern: ${a}`)
     this.print(`${' '.repeat(indent)} - matching against form: ${b}`)
 
-    if (a === 'test')
-      debugger
-
     // #1 - P is a non-literal identifier
     if (isIdent(pattern) && !this.isLiteral(pattern)) {
       env.mergeFrom(pattern, form);
@@ -205,7 +201,7 @@ export class SyntaxRulesDef {
     //      binding
     if (isIdent(pattern) &&
         this.isLiteral(pattern) &&
-        this.isEqual(this.findLiteral(eqC(pattern)), form)
+        this.isEqual(pattern, form)
     ) {
       this.print(`${' '.repeat(indent)} - matches`)
       return env
@@ -403,6 +399,7 @@ export class SyntaxRulesDef {
 
     const rewritten = _rewriteTemplate(template, ids, env, gen)
     const result = car(list(rewritten))
+    this.print('odd case =>'.red, toStringSafe(result))
     assert(result, `Error rewritting template: ${toStringSafe(template)}`)
     return result
     // throw new Error('How can it be like this')
@@ -427,6 +424,8 @@ export class SyntaxRulesDef {
     if (SyntaxRulesDef.debug)
       console.log(...args)
   }
+
+  private indentSize = 2
 }
 
 class Den /* Denotation */ {

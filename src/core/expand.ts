@@ -38,24 +38,19 @@ export const expand = async (e: Form, topLevel = false, env: Env): Promise<Form>
     return await expandDefineSyntax(e, topLevel, env);
   }
   else if (SymTable.DEFINE === car(e)) {
+    const _def = car(e)
     const v = cadr(e)
-    const rest = cddr(e)
-    if (Utils.isPair(v) && !Utils.isEmpty(v)) {
+    const body = cddr(e)
+    if (Utils.isPair(v)) {
       const name = car(v)
       const args = cdr(v)
-      return await expand(list(SymTable.DEFUN, name, args, rest), false, env);
+      return await expand(list(_def, name, list(SymTable.LAMBDA, args).append(body)), false, env);
+    } else {
+      assert(e.length === 3, '(define non-var/list exp) => Error')
+      assert(Utils.isSym(v), 'can define only a symbol')
+      const exp = await expand(caddr(e), false, env)
+      return list(_def, v, exp);
     }
-    const name = cadr(e)
-    const args = caddr(e)
-    const body = cdddr(e)
-    if (Utils.isEmpty(body)) {
-      return list(car(e), name, await expand(args, false, env));
-    }
-    return await expand(list(SymTable.DEFUN, name, args, body), false, env);
-  }
-  else if (SymTable.DEFUN === car(e)) {
-    Utils.expect(e, e.length >= 3, 'expand defun');
-    return await expandDefun(e, env);
   }
   else if (SymTable.LAMBDA === car(e)) {
     Utils.expect(e, e.length >= 3, 'expand lambda');
@@ -128,15 +123,4 @@ async function expandLambda(e: Pair, env: Env): Promise<Pair> {
   assert(Pair.is(expression) && expression.length >= 1, `lambda expression empty`);
   const body = (expression.length > 1) && list(SymTable.BEGIN, expression)
   return list(_lambda, params, await expand(body || car(expression), false, env));
-}
-
-async function expandDefun(e: Pair, env: Env): Promise<Form> {
-  const _def = car(e)
-  const name = cadr(e)
-  const args = caddr(e)
-  const body = cadddr(e)
-  Utils.expect(e, Utils.isSym(name), `Can only define a symbol`);
-  Utils.expect(e, Utils.isPair(args) || Utils.isSym(args), `Invalid args`);
-  const expr = await expand(list(SymTable.LAMBDA, args, body), false, env);
-  return list(_def, name, expr)
 }

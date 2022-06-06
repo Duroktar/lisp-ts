@@ -22,10 +22,9 @@ export const evaluate = async (e: Form, a: Env): Promise<Form> => {
       case SymTable.LAMBDA: {
         return new Procedure(cadr(e), caddr(e), a) as any;
       }
-      case SymTable.DEFUN:
       case SymTable.DEFINE: {
-        const name = toString(cadr(e))
         const value = await evaluate(caddr(e), a);
+        const name = toString(cadr(e))
         if (isProc(value)) { value.name = name; }
         a.set(name, value);
         return UNDEF

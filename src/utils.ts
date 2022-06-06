@@ -6,7 +6,7 @@ import { toString } from "./core/toString";
 import { Vector } from "./core/vec";
 import { whitespace, identifier, initial, letter, subsequent, digit, character } from "./syntax";
 import { Pair, list } from "./core/pair";
-import { Procedure, NativeProc, isProc, isNativeProc, Callable } from "./core/proc";
+import { NativeProc, isNativeProc } from "./core/proc";
 import { SyntaxRulesDef, isSyntaxRulesDef } from "./core/syntax";
 
 export type Predicate = (...args: any[]) => boolean

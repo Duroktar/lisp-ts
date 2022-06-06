@@ -16,7 +16,7 @@ import { createEnvironment } from './env';
 
   // const r = tokenize(`(load "stdlib/r5rs.scm")`, readerEnv);
 
-  // Lisp.execute('(debug-macro! #t)', env)
+  // await execute('(debug-macro! #t)', env)
   // await execute('(load "stdlib/r5rs.scm")', env)
 
   // await execute('(repl)', env)
