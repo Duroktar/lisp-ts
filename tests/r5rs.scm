@@ -70,15 +70,15 @@
           ((null? x)
            sum))))
 
-; ; (test '((6 1 3) (-5 -2))
-; ;     (let loop ((numbers '(3 -2 1 6 -5)) (nonneg '()) (neg '()))
-; ;       (cond
-; ;        ((null? numbers)
-; ;         (list nonneg neg))
-; ;        ((>= (car numbers) 0)
-; ;         (loop (cdr numbers) (cons (car numbers) nonneg) neg))
-; ;        ((< (car numbers) 0)
-; ;         (loop (cdr numbers) nonneg (cons (car numbers) neg))))))
+; (test '((6 1 3) (-5 -2))
+;     (let loop ((numbers '(3 -2 1 6 -5)) (nonneg '()) (neg '()))
+;       (cond
+;        ((null? numbers)
+;         (list nonneg neg))
+;        ((>= (car numbers) 0)
+;         (loop (cdr numbers) (cons (car numbers) nonneg) neg))
+;        ((< (car numbers) 0)
+;         (loop (cdr numbers) nonneg (cons (car numbers) neg))))))
 
 (test '(list 3 4) `(list ,(+ 1 2) 4))
 
@@ -90,16 +90,16 @@
 (test '(10 5 4 16 9 8)
     `(10 5 ,(expt 2 2) ,@(map (lambda (n) (expt n 2)) '(4 3)) 8))
 
-; (test '(a `(b ,(+ 1 2) ,(foo 4 d) e) f)
-;     `(a `(b ,(+ 1 2) ,(foo ,(+ 1 3) d) e) f))
+(test '(a `(b ,(+ 1 2) ,(foo 4 d) e) f)
+    `(a `(b ,(+ 1 2) ,(foo ,(+ 1 3) d) e) f))
 
-; (test '(a `(b ,x ,'y d) e)
-;     (let ((name1 'x)
-;           (name2 'y))
-;       `(a `(b ,,name1 ,',name2 d) e)))
+(test '(a `(b ,x ,'y d) e)
+    (let ((name1 'x)
+          (name2 'y))
+      `(a `(b ,,name1 ,',name2 d) e)))
 
-; (test '(list 3 4)
-;  (quasiquote (list (unquote (+ 1 2)) 4)))
+(test '(list 3 4)
+ (quasiquote (list (unquote (+ 1 2)) 4)))
 
 (test #t (eqv? 'a 'a))
 
@@ -139,15 +139,15 @@
 
 (test #t (equal? 2 2))
 
-;;(test #f (eqv? 2 2.0))
+(test #f (eqv? 2 2.0))
 
-;;(test #f (equal? 2.0 2))
+(test #f (equal? 2.0 2))
 
 (test #t (equal? (make-vector 5 'a) (make-vector 5 'a)))
 
 (test 4 (max 3 4))
 
-;;(test 4 (max 3.9 4))
+(test 4 (max 3.9 4))
 
 (test 7 (+ 3 4))
 
@@ -233,19 +233,19 @@
 
 (test '("a" b c) (cons "a" '(b c)))
 
-; (test '(a . 3) (cons 'a 3))
+(test '(a . 3) (cons 'a 3))
 
-; (test '((a b) . c) (cons '(a b) 'c))
+(test '((a b) . c) (cons '(a b) 'c))
 
 (test 'a (car '(a b c)))
 
 (test '(a) (car '((a) b c d)))
 
-; (test 1 (car '(1 . 2)))
+(test 1 (car '(1 . 2)))
 
 (test '(b c d) (cdr '((a) b c d)))
 
-; (test 2 (cdr '(1 . 2)))
+(test 2 (cdr '(1 . 2)))
 
 (test #t (list? '(a b c)))
 
@@ -258,9 +258,9 @@
 ;       (set-cdr! x x)
 ;       (list? x)))
 
-; (test '(a 7 c) (list 'a (+ 3 4) 'c))
+(test '(a 7 c) (list 'a (+ 3 4) 'c))
 
-; (test '() (list))
+(test '() (list))
 
 (test 3 (length '(a b c)))
 
@@ -278,9 +278,9 @@
 
 (test 'a (append '() 'a))
 
-; (test '(c b a) (reverse '(a b c)))
+(test '(c b a) (reverse '(a b c)))
 
-; (test '((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
+(test '((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
 
 (test 'c (list-ref '(a b c d) 2))
 
@@ -292,7 +292,7 @@
 
 (test #f (memq (list 'a) '(b (a) c)))
 
-; (test '((a) c) (member (list 'a) '(b (a) c)))
+(test '((a) c) (member (list 'a) '(b (a) c)))
 
 (test '(101 102) (memv 101 '(100 101 102)))
 
@@ -326,13 +326,13 @@
 
 (test 3 (string-length "abc"))
 
-;; (test #\a (string-ref "abc" 0))
+(test #\a (string-ref "abc" 0))
 
-;; (test #\c (string-ref "abc" 2))
+(test #\c (string-ref "abc" 2))
 
-;; (test #t (string=? "a" (string #\a)))
+(test #t (string=? "a" (string #\a)))
 
-;; (test #f (string=? "a" (string #\b)))
+(test #f (string=? "a" (string #\b)))
 
 (test #t (string<? "a" "aa"))
 
@@ -344,9 +344,9 @@
 
 (test #t (string<=? "a" "a"))
 
-;; (test #t (string=? "a" (make-string 1 #\a)))
+(test #t (string=? "a" (make-string 1 #\a)))
 
-;; (test #f (string=? "a" (make-string 1 #\b)))
+(test #f (string=? "a" (make-string 1 #\b)))
 
 (test "" (substring "abc" 0 0))
 
@@ -360,14 +360,14 @@
 
 (test "abc" (string-append "a" "bc"))
 
-; (test '#(0 ("Sue" "Sue") "Anna")
-;  (let ((vec (vector 0 '(2 2 2 2) "Anna")))
-;    (vector-set! vec 1 '("Sue" "Sue"))
-;    vec))
+(test '#(0 ("Sue" "Sue") "Anna")
+ (let ((vec (vector 0 '(2 2 2 2) "Anna")))
+   (vector-set! vec 1 '("Sue" "Sue"))
+   vec))
 
 ; (test '(dah dah didah) (vector->list '#(dah dah didah)))
 
-; (test '#(dididit dah) (list->vector '(dididit dah)))
+(test '#(dididit dah) (list->vector '(dididit dah)))
 
 (test #t (procedure? car))
 
@@ -398,17 +398,17 @@
        '(0 1 2 3 4))
       v))
 
-; (test 3 (force (delay (+ 1 2))))
+(test 3 (force (delay (+ 1 2))))
 
-; (test '(3 3) (let ((p (delay (+ 1 2)))) (list (force p) (force p))))
+(test '(3 3) (let ((p (delay (+ 1 2)))) (list (force p) (force p))))
 
 (test 'ok (let ((else 1)) (cond (else 'ok) (#t 'bad))))
 
 (test 'ok (let ((=> 1)) (cond (#t => 'ok))))
 
-; (test '(,foo) (let ((unquote 1)) `(,foo)))
+(test '(,foo) (let ((unquote 1)) `(,foo)))
 
-; (test '(,@foo) (let ((unquote-splicing 1)) `(,@foo)))
+(test '(,@foo) (let ((unquote-splicing 1)) `(,@foo)))
 
 ; (test 'ok
 ;     (let ((... 2))
