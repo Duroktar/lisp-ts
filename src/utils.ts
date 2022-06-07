@@ -1,7 +1,7 @@
 import { Character } from "./core/char";
 import { EMPTY, FALSE, isPeculiarIdentifier, isSpecialInitial, isSpecialSubsequent, TRUE } from "./core/const";
 import { Sym, SymTable } from "./core/sym";
-import type { Atom, Form } from "./core/forms";
+import type { Atom, Form, List } from "./core/forms";
 import { toString } from "./core/toString";
 import { Vector } from "./core/vec";
 import { whitespace, identifier, initial, letter, subsequent, digit, character } from "./syntax";
@@ -83,9 +83,10 @@ export const isT = (e: Form): boolean => e === TRUE;
 export const toL = (e: boolean): Form => e ? TRUE : FALSE;
 
 export const zip = (...rows: Form[][]) => {
-  if (isEmpty(rows) || !rows[0]) return [[], []]
+  if (rows.length === 0 || !rows[0]) return [[], []]
   return rows[0].map((_, c) => rows.map(row => row[c]));
 }
+
 export const zipUp = (...rows: (Form[] | Form)[]) => {
   if (isEmpty(rows)) return []
   const h: ProxyHandler<any> = {
@@ -94,7 +95,9 @@ export const zipUp = (...rows: (Form[] | Form)[]) => {
         case "length": return 1
         default: {
           if (typeof prop === "string" && prop.match(/[0-9]*/)) {
-            return target[0]
+            isPair(target)
+              ? target.at(Number(prop))
+              : target[prop]
           }
           return target[prop]
         }
@@ -107,7 +110,7 @@ export const zipUp = (...rows: (Form[] | Form)[]) => {
   for (let c = 0; c < runs; c++) {
     entries.push(stuffz.map((row: any) => row[c]))
   }
-  return entries;
+  return list(...entries);
 }
 
 export const map = (func: (m: Form) => Form, m: Form): Form => {

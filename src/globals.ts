@@ -394,7 +394,10 @@ export async function addGlobals(
     mkNativeProc(env, 'null?', ['n'], ([n]: any) => Util.toL(Util.isEmpty(n)));
     mkNativeProc(env, 'list?', ['n'], ([n]: any) => Util.toL(Util.isEmpty(n) || (Util.isPair(n) && n.isList())));
     mkNativeProc(env, 'list', 'args', (args: any) => list(...args));
-    mkNativeProc(env, 'length', ['list'], ([list]: any) => Util.isPair(list) && list.length);
+    mkNativeProc(env, 'length', ['list'], ([list]: any) => {
+      assert(Util.isList(list), 'argument to length must be a list')
+      return Util.isPair(list) ? list.length : /* empty */ 0
+    });
 
     // library procedure: append list ...
     // mkNativeProc(env, 'reverse', ['list'], ([list]: any) => Util.isPair(list) && [...list].reverse());

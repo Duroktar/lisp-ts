@@ -187,13 +187,13 @@ export class SyntaxRulesDef {
     */
     let a = toString(pattern)
     let b = toString(form)
-    this.print(`${' '.repeat(indent)}trying to match pattern: ${a}`)
-    this.print(`${' '.repeat(indent)} - target matching form: ${b}`)
+    this.print(`${' '.repeat(indent)}trying to match pattern:`.cyan.bold, a)
+    this.print(`${' '.repeat(indent)} - target matching form:`.yellow, b)
 
     // #1 - P is a non-literal identifier
     if (isIdent(pattern) && !this.isLiteral(pattern)) {
       env.mergeFrom(pattern, form);
-      this.print(`${' '.repeat(indent)} - matches`)
+      this.print(`${' '.repeat(indent)} - matches `.green + `(#1 - P is a non-literal identifier)`.dim)
       return env;
     }
 
@@ -203,7 +203,7 @@ export class SyntaxRulesDef {
         this.isLiteral(pattern) &&
         this.isEqual(pattern, form)
     ) {
-      this.print(`${' '.repeat(indent)} - matches`)
+      this.print(`${' '.repeat(indent)} - matches `.green + `(#2 - P is a literal identifier and F is an identifier with the same binding)`.dim)
       return env
     }
 
@@ -214,6 +214,7 @@ export class SyntaxRulesDef {
         const start = pattern.slice(0, -2);
         this.match(form.slice(0, start.length), start, env, indent + this.indentSize);
         this.match(form.slice(start.length), pattern.at(-1), env, indent + this.indentSize);
+        this.print(`${' '.repeat(indent)} - matches `.green + `(#4 - P is an improper list (P1 P2 ... Pn . Pn+1) and F is a list or improper list of n or more forms that match P1 through Pn, respectively, and whose nth 'cdr' matches Pn+1)`.dim)
         return env;
       }
 
@@ -221,7 +222,7 @@ export class SyntaxRulesDef {
       if (pattern.at(-1) === Sym('...')) {
         // an ellipsis list containing n sub-patterns can match an input syntax list of minimum length n − 1.
         if (form.length < pattern.length-2) {
-          this.print(`${' '.repeat(indent)} - NOT A MATCH`)
+          this.print(`${' '.repeat(indent)} - NOT A MATCH `.red + `(re: form.length < pattern.length-2) (#5 - P is not of the form (P1 ... Pn Pn+1 <ellipsis>)`.white)
           throw new InputError(this, form)
         }
         const pHead = pattern.slice(0, -2);
@@ -234,8 +235,6 @@ export class SyntaxRulesDef {
         if (isList(fTail) && isEmpty(fTail)) {
           if (isAtom(pTail)) {
             // this.match(EMPTY, pTail, env);
-            this.print(`${' '.repeat(indent)} - matches`)
-            return env
           }
           else if (isChar(pTail)) {
             assert(false, 'should not be a character here')
@@ -253,33 +252,39 @@ export class SyntaxRulesDef {
             assert(false, 'what the everloving fffff')
           }
         }
-        else fTail.forEach(f => {
-          this.match(f, pTail, env, indent + this.indentSize)
-        });
-        this.print(`${' '.repeat(indent)} - matches`)
+        else {
+          fTail.forEach(f => {
+            this.match(f, pTail, env, indent + this.indentSize)
+          });
+        }
+
+        this.print(`${' '.repeat(indent)} - matches `.green + `(#5 - P is of the form (P1 ... Pn Pn+1 <ellipsis>) where <ellipsis> is the identifier ... and F is a proper list of at least n forms, the first n of which match P1 through Pn, respectively, and each remaining element of F matches Pn+1)`.dim)
         return env
       }
 
       // #3 (proper list)
       if (pattern.length !== form.length) {
-        this.print(`${' '.repeat(indent)} - NOT A MATCH`)
+        this.print(`${' '.repeat(indent)} - NOT A MATCH `.red + `(#3 - P is a list (P1 ... Pn) and F is a list of n forms that match P1 through Pn, respectively)`.yellow)
         throw new InputError(this, form)
       }
 
       this.match(car(form), car(pattern), env, indent + this.indentSize)
-      this.match(cdr(form), cdr(pattern), env, indent + this.indentSize)
 
-      this.print(`${' '.repeat(indent)} - matches`)
+      const fRest = cdr(form), pRest = cdr(pattern);
+      if (!isEmpty(fRest) && !isEmpty(pRest))
+        this.match(cdr(form), cdr(pattern), env, indent + this.indentSize)
+
+      this.print(`${' '.repeat(indent)} - matches `.green + `(#3 - P is a list (P1 ... Pn) and F is a list of n forms that match P1 through Pn, respectively)`.dim)
       return env
     }
 
-    // #8
+    // #8 (datum) - TODO: This is definitely not correct.
     if ((isString(pattern) || isNum(pattern) || isSym(pattern)) && pattern === form) {
-      this.print(`${' '.repeat(indent)} - matches`)
+      this.print(`${' '.repeat(indent)} - matches `.green + `(#8 - P is a datum and F is equal to P in the sense of the equal? procedure)`.dim)
       return env;
     }
 
-    this.print(`${' '.repeat(indent)} - NOT A MATCH`)
+    this.print(`${' '.repeat(indent)} - NOT A MATCH `.red + `(fallthrough)`.yellow)
     throw new InputError(this, form)
   }
   parseIdentifiers(template: Form, patternEnv: Env, env: Env): IdentifierTypes {
@@ -320,16 +325,28 @@ export class SyntaxRulesDef {
           const isSpread = template.at(idx+1) === Sym('...')
           const isListSpread = isSpread && isPair(item)
 
-          let a = toString(item)
+          // let a = toString(item)
           if (isSpread) {
             if (isListSpread) {
               // list of *lists* of variable lookups spread into the result (0 or more)
               // ex: ((name val) ...) -> res: ((n1 v1) (n2 v2) <etc..>)
-              const mapped = (<Pair>item).map(i => _rewriteTemplate(i, ids, env, gen));
-              if (!mapped.some((m, idx) => isPair(item) && ids.isPatId(item.at(idx)) && isEmpty(car(m)))) {
-                const zipped = zipUp(...mapped.toArray())
-                items.push(...zipped)
+              const mapped: Pair = (<Pair>item).map(i => _rewriteTemplate(i, ids, env, gen));
+              const maxLen: number = mapped
+                .map(i => isPair(i) ? i.length :
+                          isSym(i)  ? 1 :
+                          assert(false)
+                    ).toArray().reduce((a: any, b: any) => Math.max(a, b), 0) as number
+
+              const result: any[] = []
+              for (let i = 0; i < maxLen; i++) {
+                const vals = mapped.map(m =>
+                  isPair(m) ? m.at(i) :
+                  isSym(m)  ? m :
+                  assert(false)
+                )
+                result.push(list(...vals))
               }
+              items.push(list(...result))
             } else {
               // list of variable lookups spread into the result (0 or more)
               // ex: (name ...) -> res: (n1 n2 <etc..>)
@@ -364,6 +381,8 @@ export class SyntaxRulesDef {
               ids.setAlias(denotation.toString(), name)
             }
 
+            if (Array.isArray(parsed))
+              debugger
             items.push(parsed)
           }
         }
@@ -394,8 +413,12 @@ export class SyntaxRulesDef {
       return denotation.toAtom()
     }
 
-    if (isList(template))
-      return _rewriteTemplate(template, ids, env, gen)
+    if (isList(template)) {
+      const rv = _rewriteTemplate(template, ids, env, gen);
+      if (Array.isArray(rv))
+        debugger
+      return rv
+    }
 
     const rewritten = _rewriteTemplate(template, ids, env, gen)
     if (isPair(rewritten))

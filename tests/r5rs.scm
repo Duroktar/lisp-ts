@@ -44,18 +44,18 @@
 
 (test 6 (let ((x 2) (y 3)) (* x y)))
 
-; (test 35 (let ((x 2) (y 3)) (let ((x 7) (z (+ x y))) (* z x))))
+(test 35 (let ((x 2) (y 3)) (let ((x 7) (z (+ x y))) (* z x))))
 
-; (test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
+;; (test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
 
-; (test -2 (let ()
-;            (define x 2)
-;            (define f (lambda () (- x)))
-;            (f)))
+;; (test -2 (let ()
+;;            (define x 2)
+;;            (define f (lambda () (- x)))
+;;            (f)))
 
-; (define let*-def 1)
-; (let* () (define let*-def 2) #f)
-; (test 1 let*-def)
+;; (define let*-def 1)
+;; (let* () (define let*-def 2) #f)
+;; (test 1 let*-def)
 
 (test '#(0 1 2 3 4)
  (do ((vec (make-vector 5))
@@ -223,7 +223,7 @@
 
 (test #f (boolean? '()))
 
-; (test #t (pair? '(a . b)))
+(test #t (pair? '(a . b)))
 
 (test #t (pair? '(a b c)))
 
@@ -251,7 +251,7 @@
 
 (test #t (list? '()))
 
-; (test #f (list? '(a . b)))
+(test #f (list? '(a . b)))
 
 ; (test #f
 ;     (let ((x (list 'a)))
@@ -266,7 +266,7 @@
 
 (test 3 (length '(a (b) (c d e))))
 
-; (test 0 (length '()))
+(test 0 (length '()))
 
 (test '(x y) (append '(x) '(y)))
 
@@ -365,7 +365,7 @@
    (vector-set! vec 1 '("Sue" "Sue"))
    vec))
 
-; (test '(dah dah didah) (vector->list '#(dah dah didah)))
+(test '(dah dah didah) (vector->list '#(dah dah didah)))
 
 (test '#(dididit dah) (list->vector '(dididit dah)))
 
@@ -427,17 +427,17 @@
 ;               (define internal-def 'ok))
 ;             internal-def))
 
-; (test '(2 1)
-;     ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (list x y))))))
+(test '(2 1)
+    ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (list x y))))))
 
-; (test '(2 2)
-;     ((lambda () (let ((x 1)) (set! x 2) (let ((y x)) (list x y))))))
+(test '(2 2)
+    ((lambda () (let ((x 1)) (set! x 2) (let ((y x)) (list x y))))))
 
-; (test '(1 2)
-;     ((lambda () (let ((x 1)) (let ((y x)) (set! y 2) (list x y))))))
+(test '(1 2)
+    ((lambda () (let ((x 1)) (let ((y x)) (set! y 2) (list x y))))))
 
-; (test '(2 3)
-;     ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (set! y 3) (list x y))))))
+(test '(2 3)
+    ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (set! y 3) (list x y))))))
 
 ; (test '(a b c)
 ;     (let* ((path '())

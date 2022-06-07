@@ -45,6 +45,9 @@ export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): 
     const res: any[] = []
     let next: Form = expr
     while (Pair.is(next)) {
+      if (Array.isArray(next.car)) {
+        debugger
+      }
       res.push(toString(next.car, inspect, lambdaSymbol))
       next = next.cdr
     }
@@ -55,8 +58,16 @@ export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): 
     return `(${res.join(' ')})`
   }
 
+  if (Array.isArray(expr)) {
+    const rv = expr.map(e => toString(e, inspect, lambdaSymbol)).join(' ');
+    console.error('SHOULD NOT BE AN ARRAY HERE: %s', rv)
+    return rv
+  }
+
+  const err = new Error('fallthrough condition');
   console.log(`d'oh!`, expr)
-  throw new Error('fallthrough condition')
+  console.log(err.stack)
+  throw err
 };
 
 export const toStringSafe = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): string => {
