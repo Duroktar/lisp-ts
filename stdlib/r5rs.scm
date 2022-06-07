@@ -7,7 +7,7 @@
      (begin result1 result2 ...))
     ((cond (test => result))
      (let ((temp test))
-       (if temp (result temp))))
+          (if temp result temp)))
     ((cond (test => result) clause1 clause2 ...)
      (let ((temp test))
        (if temp
@@ -89,12 +89,6 @@
 ;; - 6.1 Equivalence Predicates
 
 (define (eq? a b) (eqv? a b))
-(define (equal? a b) (cond
-  ([list? a]
-    (if (eqv? (car a) (car b))
-        (equal? (cdr a) (cdr b))
-        #f))
-  (else (eqv? a b))))
 
 (define (caar x) (car (car x)))
 (define (cadr x) (car (cdr x)))
@@ -230,6 +224,14 @@
           (if (eqv? (< x 0) (< y 0))
               r
               (+ r y))))))
+
+(define (expt x y)
+  (if (eqv? y 0)
+      1
+      (let ((t (expt (* x x) (quotient y 2))))
+        (if (odd? y)
+            (* x t)
+            t))))
 
 ; ((if (list? a)
 ;     (begin (if (eqv? (car a) (car b)) (equal? (cdr a) (cdr b)) #f))

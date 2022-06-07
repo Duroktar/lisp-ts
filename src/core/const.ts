@@ -2,7 +2,7 @@ import type { specialInitial, specialSubsequent, peculiarIdentifier, syntacticKe
 import { Sym } from "./sym";
 
 export const EMPTY: symbol = Sym('()');
-export const NIL:   symbol = Sym('nil');
+export const NIL:   symbol = EMPTY;
 export const TRUE:  symbol = Sym('#t');
 export const FALSE: symbol = Sym('#f');
 export const UNDEF: symbol = Sym('#<undef>');

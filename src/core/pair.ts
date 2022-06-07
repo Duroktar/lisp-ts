@@ -1,10 +1,12 @@
 import { EMPTY } from "./const";
 import { Form } from "./forms";
+import { car } from "./lisp";
 
 import assert from "assert";
 
 // type Form = any
 // export const EMPTY = Symbol.for('()');
+// const car = (x: Form) => x.car
 
 export class Pair {
   constructor(
@@ -34,6 +36,17 @@ export class Pair {
     if (this.isList())
       return this.cdr.every(fn)
     return fn(this.cdr)
+  }
+
+  dottedEvery = (fn: (value: any) => any): boolean => {
+    if (!fn(this.car))
+      return false
+    if (this.cdr === EMPTY)
+      return false
+    if (Pair.is(this.cdr))
+      return this.cdr.dottedEvery(fn)
+    else
+      return fn(this.cdr)
   }
 
   some = (fn: (value: any, idx: number) => any, idx = 0): boolean => {
@@ -99,7 +112,7 @@ export class Pair {
       rv.push(next.car)
     return list(...rv)
   }
-  at(index: number) {
+  pairAt(index: number) {
     if (index >= this.length) return EMPTY
     index = index < 0 ? this.length + index : index
     let currentIdx = 0
@@ -109,7 +122,13 @@ export class Pair {
       currentIdx++
     }
     assert(currentIdx === index)
-    return next.car
+    return next
+  }
+  at(index: number) {
+    const list = this.pairAt(index);
+    if (Pair.is(list))
+      return car(list)
+    return EMPTY
   }
   push(val: any) {
     let next: Pair = this
@@ -176,8 +195,12 @@ export function list(...args: any[]): Pair {
   return cons(head, list(...tail));
 }
 
-// const t = list(1, 2, 3, 4, 5)
-// const l = [1, 2, 3, 4, 5];
+// const t = list(1, 2, 3)
+// const l = cons(4, 5);
+// const l2 = list(4, 5);
+// console.log(t.append(l).isList())
+// console.log(t.append(l2).isList())
+
 // console.log(t.slice(0, 3).toArray())
 // console.log(l.slice(0, 3))
 

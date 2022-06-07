@@ -23,7 +23,7 @@
       (begin
         (define *result*   (try (lambda () expression)))
         (define *expected* expected)
-        (define *test-id*  (if (not (eq? 'name 'expected)) (inspect name) " "))
+        (define *test-id*  (if (not (eq? 'name 'expected)) (describe name) " "))
         (incr-total)
         (if (equal? *expected* (cdr *result*))
           (begin
@@ -36,9 +36,9 @@
               (prints "!!! Failure !!!")
               (if (not (eq? 'name 'expected))
                 (prints (string-pad-end " - Test Name:" 16) *test-id*))
-              (prints (string-pad-end " - Expression:" 16) (inspect 'expression))
-              (prints (string-pad-end " - Expected:" 16)   (inspect *expected*))
-              (prints (string-pad-end " - Actual:"   16)   (inspect (cdr *result*)))))))))))
+              (prints (string-pad-end " - Expression:" 16) (describe 'expression))
+              (prints (string-pad-end " - Expected:" 16)   (describe *expected*))
+              (prints (string-pad-end " - Actual:"   16)   (describe (cdr *result*)))))))))))
 
 (define (test-begin name) (begin
   (prints "*** Running Tests:" name "***")

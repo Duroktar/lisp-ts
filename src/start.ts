@@ -36,8 +36,9 @@ import { createEnvironment } from './env';
   // await execute('(load "samples/cond.scm")', env)
   // Lisp.execute('(load "samples/repl.scm")', env)
   // await execute('(load "samples/let.scm")', env)
+  // await execute('(load "samples/pair.scm")', env)
   // Lisp.execute('(load "samples/letrec.scm")', env)
-  // Lisp.execute('(load "samples/macro.scm")', env)
+  // await execute('(load "samples/macro.scm")', env)
   // Lisp.execute('(load "samples/syntax.scm")', env)
 
   // Lisp.execute(`(test 'yes (if (> 3 2) 'yes 'no))`, env)

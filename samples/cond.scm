@@ -11,7 +11,7 @@
      (begin result1 result2 ...))
     ((cond (test => result))
      (let ((temp test))
-       (if temp (result temp))))
+          (if temp result temp)))
     ((cond (test => result) clause1 clause2 ...)
      (let ((temp test))
        (if temp

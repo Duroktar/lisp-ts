@@ -8,6 +8,8 @@ export type Position = {
   cursor: number;
 };
 
+export class RuntimeWarning extends Error { public retval?: any; }
+
 export class InvalidEnvArgumentsError extends Error {
   constructor(
     public params: Form,

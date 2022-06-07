@@ -4,7 +4,7 @@
 
 (test '(3 4 5 6) ((lambda x x) 3 4 5 6))
 
-; (test '(5 6) ((lambda (x y . z) z) 3 4 5 6))
+(test '(5 6) ((lambda (x y . z) z) 3 4 5 6))
 
 (test 'yes (if (> 3 2) 'yes 'no))
 
@@ -90,16 +90,16 @@
 (test '(10 5 4 16 9 8)
     `(10 5 ,(expt 2 2) ,@(map (lambda (n) (expt n 2)) '(4 3)) 8))
 
-(test '(a `(b ,(+ 1 2) ,(foo 4 d) e) f)
-    `(a `(b ,(+ 1 2) ,(foo ,(+ 1 3) d) e) f))
+; (test '(a `(b ,(+ 1 2) ,(foo 4 d) e) f)
+;     `(a `(b ,(+ 1 2) ,(foo ,(+ 1 3) d) e) f))
 
-(test '(a `(b ,x ,'y d) e)
-    (let ((name1 'x)
-          (name2 'y))
-      `(a `(b ,,name1 ,',name2 d) e)))
+; (test '(a `(b ,x ,'y d) e)
+;     (let ((name1 'x)
+;           (name2 'y))
+;       `(a `(b ,,name1 ,',name2 d) e)))
 
-(test '(list 3 4)
- (quasiquote (list (unquote (+ 1 2)) 4)))
+; (test '(list 3 4)
+;  (quasiquote (list (unquote (+ 1 2)) 4)))
 
 (test #t (eqv? 'a 'a))
 
@@ -274,13 +274,13 @@
 
 (test '(a (b) (c)) (append '(a (b)) '((c))))
 
-; (test '(a b c . d) (append '(a b) '(c . d)))
+(test '(a b c . d) (append '(a b) '(c . d)))
 
 (test 'a (append '() 'a))
 
-(test '(c b a) (reverse '(a b c)))
+; (test '(c b a) (reverse '(a b c)))
 
-(test '((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
+; (test '((e (f)) d (b c) a) (reverse '(a (b c) d (e (f)))))
 
 (test 'c (list-ref '(a b c d) 2))
 
@@ -292,7 +292,7 @@
 
 (test #f (memq (list 'a) '(b (a) c)))
 
-(test '((a) c) (member (list 'a) '(b (a) c)))
+; (test '((a) c) (member (list 'a) '(b (a) c)))
 
 (test '(101 102) (memv 101 '(100 101 102)))
 
@@ -398,17 +398,17 @@
        '(0 1 2 3 4))
       v))
 
-(test 3 (force (delay (+ 1 2))))
+; (test 3 (force (delay (+ 1 2))))
 
-(test '(3 3) (let ((p (delay (+ 1 2)))) (list (force p) (force p))))
+; (test '(3 3) (let ((p (delay (+ 1 2)))) (list (force p) (force p))))
 
 (test 'ok (let ((else 1)) (cond (else 'ok) (#t 'bad))))
 
 (test 'ok (let ((=> 1)) (cond (#t => 'ok))))
 
-(test '(,foo) (let ((unquote 1)) `(,foo)))
+; (test '(,foo) (let ((unquote 1)) `(,foo)))
 
-(test '(,@foo) (let ((unquote-splicing 1)) `(,@foo)))
+; (test '(,@foo) (let ((unquote-splicing 1)) `(,@foo)))
 
 ; (test 'ok
 ;     (let ((... 2))
@@ -427,17 +427,17 @@
 ;               (define internal-def 'ok))
 ;             internal-def))
 
-(test '(2 1)
-    ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (list x y))))))
+; (test '(2 1)
+;     ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (list x y))))))
 
-(test '(2 2)
-    ((lambda () (let ((x 1)) (set! x 2) (let ((y x)) (list x y))))))
+; (test '(2 2)
+;     ((lambda () (let ((x 1)) (set! x 2) (let ((y x)) (list x y))))))
 
-(test '(1 2)
-    ((lambda () (let ((x 1)) (let ((y x)) (set! y 2) (list x y))))))
+; (test '(1 2)
+;     ((lambda () (let ((x 1)) (let ((y x)) (set! y 2) (list x y))))))
 
-(test '(2 3)
-    ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (set! y 3) (list x y))))))
+; (test '(2 3)
+;     ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (set! y 3) (list x y))))))
 
 ; (test '(a b c)
 ;     (let* ((path '())

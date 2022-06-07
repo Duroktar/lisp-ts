@@ -7,7 +7,11 @@ export abstract class NativeProc {
   abstract name: string;
   abstract params: Form;
   abstract env: Env;
-  abstract call(args: Form[] | Form, env: Env): Promise<Form>;
+  public async call(args: Form, env?: Env): Promise<Form> {
+    const closure = new Env(this.params, args, env ?? this.env)
+    return await this._call(args, closure);
+  }
+  abstract _call(args: Form, env?: Env): Promise<Form>;
 }
 
 export class Procedure {
@@ -17,9 +21,9 @@ export class Procedure {
     public env: Env,
     public name = 'λ',
   ) {}
-  public async call(args: Form, env: Env): Promise<Form> {
-    // const env = new Env(this.params, args, this.env)
-    return await evaluate(this.expr, env);
+  public async call(args: Form, env?: Env): Promise<Form> {
+    const closure = new Env(this.params, args, env ?? this.env)
+    return await evaluate(this.expr, closure);
   }
 }
 

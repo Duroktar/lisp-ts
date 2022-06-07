@@ -2,16 +2,16 @@ import assert from "assert";
 import * as Utils from "../utils";
 import { UNDEF } from "./const";
 import { Env } from "./env";
+import { evaluate } from "./eval";
+import type { Form } from "./forms";
+import { caaddr, caar, caddr, cadr, car, cddr, cdr } from "./lisp";
+import { cons, list, Pair } from "./pair";
 import { isProc, Proc } from "./proc";
 import { Sym, SymTable } from "./sym";
-import { SyntaxRulesDef } from "./syntax";
-import type { Form } from "./forms";
+import { isSyntaxRulesDef, SyntaxRulesDef } from "./syntax";
 import { toString, toStringSafe } from "./toString";
-import { caaddr, caar, cadddr, caddr, cadr, car, cdddr, cddr, cdr } from "./lisp";
-import { cons, Pair, list } from "./pair";
-import { evaluate } from "./eval";
 
-export const expand = async (e: Form, topLevel = false, env: Env): Promise<Form> => {
+export const expand = async (e: Form, topLevel = false, lexicalEnv: Env): Promise<Form> => {
   // assert(Utils.isEmpty(e) === false, `() => Error`)
   if (!Utils.isPair(e)) { return e }
   if (Utils.isEmpty(e)) { return e }
@@ -22,7 +22,7 @@ export const expand = async (e: Form, topLevel = false, env: Env): Promise<Form>
   else if (SymTable.IF === car(e)) {
     if (e.length === 3) e.push(UNDEF)
     assert(e.length === 4, `Invalid if form: ${toStringSafe(e)} (length: ${e.length})`)
-    return list(car(e)).append(await expand(cdr(e), false, env));
+    return list(car(e)).append(await expand(cdr(e), false, lexicalEnv));
   }
   else if (SymTable.SET === car(e)) {
     assert(Utils.isSym(cadr(e)), 'First arg to set! must be a symbol');
@@ -31,11 +31,11 @@ export const expand = async (e: Form, topLevel = false, env: Env): Promise<Form>
   else if (SymTable.BEGIN === car(e)) {
     const { car: _begin, cdr: exprs } = e;
     assert(Pair.is(exprs) && exprs.length >= 1, 'expand begin');
-    return cons(_begin, await expand(exprs, topLevel, env));
+    return cons(_begin, await expand(exprs, topLevel, lexicalEnv));
   }
   else if (SymTable.DEFINESYNTAX === car(e)) {
     Utils.expect(e, e.length >= 3, 'expand define-syntax');
-    return await expandDefineSyntax(e, topLevel, env);
+    return await expandDefineSyntax(e, topLevel, lexicalEnv);
   }
   else if (SymTable.DEFINE === car(e)) {
     const _def = car(e)
@@ -44,51 +44,50 @@ export const expand = async (e: Form, topLevel = false, env: Env): Promise<Form>
     if (Utils.isPair(v)) {
       const name = car(v)
       const args = cdr(v)
-      return await expand(list(_def, name, list(SymTable.LAMBDA, args).append(body)), false, env);
+      return await expand(list(_def, name, list(SymTable.LAMBDA, args).append(body)), false, lexicalEnv);
     } else {
       assert(e.length === 3, '(define non-var/list exp) => Error')
       assert(Utils.isSym(v), 'can define only a symbol')
-      const exp = await expand(caddr(e), false, env)
+      const exp = await expand(caddr(e), false, lexicalEnv)
       return list(_def, v, exp);
     }
   }
   else if (SymTable.LAMBDA === car(e)) {
     Utils.expect(e, e.length >= 3, 'expand lambda');
-    return await expandLambda(e, env);
+    return await expandLambda(e, lexicalEnv);
   }
   else if (SymTable.QUASIQUOTE === car(e)) {
     Utils.expect(e, e.length === 2, 'expand quasi-quote');
     return await expandQuasiquote(cadr(e));
   }
-  else if (env.hasFrom(car(e))) {
-    const proc = env.getFrom<Proc>(car(e));
+  else if (lexicalEnv.hasFrom(car(e))) {
+    const proc = lexicalEnv.getFrom<Proc>(car(e));
     if (Utils.isCallable(proc)) {
-      const result = await proc.call(cdr(e), env);
-      return await expand(result, false, env);
-    }
-    if (isProc(proc)) {
-      const env = new Env(proc.params, cdr(e), proc.env)
-      return await evaluate(cdr(e), env)
+      const result = await proc.call(cdr(e), lexicalEnv);
+      return await expand(result, false, lexicalEnv);
     }
     // allow functions as well
-    return await expand(await proc(cdr(e)), topLevel, env);
+    return await expand(await proc(cdr(e)), topLevel, lexicalEnv);
   }
-  const e1 = await expand(car(e), false, env);
-  return cons(e1, await expand(cdr(e), false, env));
+
+  const e1 = await expand(car(e), false, lexicalEnv);
+  return cons(e1, await expand(cdr(e), false, lexicalEnv));
 };
 
 export const expandQuasiquote = async (x: Form): Promise<Form> => {
   if (!Utils.isPair(x)) return list(SymTable.QUOTE, x);
-  Utils.expect(x, car(x) !== SymTable.UNQUOTESPLICING, "can't slice here");
+  assert(car(x) !== SymTable.UNQUOTESPLICING, "can't slice here");
   if (car(x) === SymTable.UNQUOTE) {
     assert(x.length === 2);
-    return cdr(x);
+    return cadr(x);
   }
   if (Utils.isPair(car(x)) && caar(x) === SymTable.UNQUOTESPLICING) {
-    assert((<Pair>car(x)).length === 2);
+    assert((car(x) as Pair).length === 2);
+    // return (cdr(car(x)) as Pair).append(await expandQuasiquote(cdr(x)));
     return list(SymTable.APPEND, cdr(car(x)), await expandQuasiquote(cdr(x)));
   }
   else {
+    // return cons(await expandQuasiquote(car(x)), await expandQuasiquote(cdr(x)));
     return list(SymTable.CONS, await expandQuasiquote(car(x)), await expandQuasiquote(cdr(x)));
   }
 };
@@ -119,8 +118,9 @@ async function expandLambda(e: Pair, env: Env): Promise<Pair> {
   const params = cadr(e)
   const expression = cddr(e)
   const allAtoms = Utils.isPair(params) && params.every(Utils.isSym);
-  assert(allAtoms || Utils.isSym(params), `Invalid lambda args. Expected a list of atoms or a single atom but instead got: ${toString(params)}, ${toString(e)}`);
+  const improper = (Utils.isPair(params) && !params.isList()) && params.dottedEvery(Utils.isSym)
+  assert(allAtoms || improper || Utils.isSym(params), `Invalid lambda args. Expected a list of atoms, an improper list of atoms, or a single atom but instead got: ${toString(params)}, ${toString(e)}`);
   assert(Pair.is(expression) && expression.length >= 1, `lambda expression empty`);
-  const body = (expression.length > 1) && list(SymTable.BEGIN, expression)
+  const body = (expression.length > 1) && cons(SymTable.BEGIN, expression)
   return list(_lambda, params, await expand(body || car(expression), false, env));
 }

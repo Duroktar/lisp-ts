@@ -34,7 +34,7 @@ export const initializeREPL = async (env: Environment, options: TSchemeReplOptio
       writeFileSync(HISTORY_FILE_PTH, '')
   }
 
-  // await Lisp.execute(`(load "stdlib/r5rs.scm")`, env)
+  await Lisp.execute(`(load "stdlib/r5rs.scm")`, env)
 
   console.error(`Welcome to ${'lisp-ts'.blue} ${('v' + LANGUAGE_VERSION).yellow}`)
 }
@@ -103,6 +103,9 @@ export async function start(prompt: string, options: TSchemeReplOptions) {
         const val = await evaluate(x, env.env)
         callback(null, toString(val))
       } catch (err) {
+        // if (err instanceof Errors.RuntimeWarning) {
+        //   throw err
+        // }
         errorHandler(err, callback)
       }
     }

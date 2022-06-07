@@ -6,7 +6,7 @@ import { toString } from "./core/toString";
 import { Vector } from "./core/vec";
 import { whitespace, identifier, initial, letter, subsequent, digit, character } from "./syntax";
 import { Pair, list } from "./core/pair";
-import { NativeProc, isNativeProc } from "./core/proc";
+import { NativeProc, isNativeProc, isProc, Procedure } from "./core/proc";
 import { SyntaxRulesDef, isSyntaxRulesDef } from "./core/syntax";
 
 export type Predicate = (...args: any[]) => boolean
@@ -50,15 +50,28 @@ export const isNone = (x: unknown): x is undefined | null => x === undefined || 
 export const isExpr = (x: unknown): x is Form => isPair(x) || isAtom(x) || isString(x) || isNum(x);
 export const isConst = (x: unknown) => isNum(x) || isString(x)
 export const isIdent = (x: unknown): x is symbol => isSym(x) && !isEmpty(x)
-export const isEqual = (x: unknown, y: unknown) => {
-  return JSON.stringify(x) === JSON.stringify(y)
-}
-export const isCallable = (x: unknown): x is NativeProc | SyntaxRulesDef => {
-  return isNativeProc(x) || isSyntaxRulesDef(x);
+
+export const isCallable = (x: unknown): x is Procedure | NativeProc | SyntaxRulesDef => {
+  return isProc(x) || isNativeProc(x) || isSyntaxRulesDef(x);
 }
 
+export const isEqv = (x: unknown, y: unknown): boolean => {
+  return (x === y);
+}
 export const isEq = (x: unknown, y: unknown): boolean => {
-  return (isPair(x) && x.equal(y)) || (x === y)
+  return isEqv(x, y)
+}
+export const isEqual = (a1: Form, b1: Form): boolean => {
+  function walk(a: Form, b: Form): boolean {
+    if (isEqv(a, b))
+      return true
+    if (isVec(a))
+      return isVec(b) && zip(a.data, b.data).every(([a, b]) => walk(a, b))
+    else if (isVec(b))
+      return false
+    return isPair(a) && isPair(b) && a.equal(b)
+  }
+  return walk(a1, b1)
 }
 
 export const symName = (s: symbol): string => s.description!;

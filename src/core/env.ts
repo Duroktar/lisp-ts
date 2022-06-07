@@ -11,26 +11,27 @@ import { cadr, car, cddr, cdr } from "./lisp";
 
 export class Env {
   constructor(params: Form = EMPTY, args: Form = EMPTY, public outer?: Env) {
-    if (isPair(params) && isPair(args) && params.every(isSym)) {
-      const getParams = (params: Pair, args: Pair): [string, any][] => {
-        if (params.length === 0) return []
-        if (car(params) === Sym('...')) {
-          assert(cdr(params) === EMPTY, 'no args allowed after `...`')
-          return [[toString(car(params)), args]]
-        }
-        if (car(params) === Sym('.')) {
-          assert(cddr(params) === EMPTY, 'only one arg allowed after `.`')
-          return [[toString(cadr(params)), args]]
-        }
+    if (isPair(params) && isPair(args)) {
+
+      function getParams(params: Pair, args: Pair): [string, any][] {
+        // if (params.length === 0) return []
+        // if (car(params) === Sym('...')) {
+        //   assert(cdr(params) === EMPTY, 'no args allowed after `...`')
+        //   return [[toString(car(params)), args]]
+        // }
         const x0 = car(params)
         const x1 = car(args)
         const xs0 = cdr(params)
         const xs1 = cdr(args)
+        if (!params.isList() && isSym(xs0)) {
+          return [[toString(x0), x1], [toString(xs0), xs1]]
+        }
         if (isPair(xs0) && isPair(xs1)) {
           return [[toString(x0), x1], ...getParams(xs0, xs1)]
         }
         return [[toString(x0), x1]]
       }
+
       const formals = getParams(params, args);
       this.inner = Object.fromEntries(formals);
       return
@@ -46,6 +47,7 @@ export class Env {
     else {
       throw new Errors.InvalidEnvArgumentsError(params, args);
     }
+
   }
   get<T extends Form | Proc>(name: string): T {
     const result = this.inner[name] ?? this.outer?.get(name);

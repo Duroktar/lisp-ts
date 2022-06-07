@@ -311,6 +311,10 @@ export const isOutputPort = (obj: any) => {
   return obj instanceof OutPort
 }
 
+export const isIOPort = (obj: any) => {
+  return obj instanceof IOPort
+}
+
 // procedure
 export const currentInputPort = (ctx: Environment): InPort => ctx.env.get<any>('*current-input-port*')
 // procedure

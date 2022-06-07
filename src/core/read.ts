@@ -1,14 +1,14 @@
 import assert from "assert";
-import { isPair, Predicate } from "../utils";
+import { isEmpty, isPair, Predicate } from "../utils";
 import { Character } from "./char";
 import { EMPTY, TRUE } from "./const";
 import { Env } from "./env";
 import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./error";
 import { InPort, isEofString } from "./port";
 import { Sym, SymTable } from "./sym";
-import { Form } from "./forms";
+import { Form, List } from "./forms";
 import { Vector } from "./vec";
-import { list } from "./pair";
+import { cons, list } from "./pair";
 
 export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
   let cursor = await port.readChar()
@@ -75,7 +75,21 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
       else
         throw new MissingParenthesisError();
 
-      return list(...exprs);
+      let result = list()
+
+      for (let i = 0; i < exprs.length; i++) {
+        const expr = exprs[i];
+        const mDot = exprs[i+1];
+        if (mDot === Sym('.')) {
+          const cell = cons(expr, exprs[i+2])
+          result = append(result, cell)
+          i += 2
+        } else {
+          result = push(result, expr)
+        }
+      }
+
+      return result;
     }
 
     else if (current() === ')')
@@ -221,3 +235,17 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
 
   return await parse();
 };
+
+const append = (lst: List, item: any) => {
+  if (isEmpty(lst))
+    return isPair(item) ? item : list(item)
+  else
+    return lst.append(item)
+}
+
+const push = (lst: List, item: any) => {
+  if (isEmpty(lst))
+    return list(item)
+  else
+    return lst.push(item)
+}

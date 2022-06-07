@@ -54,7 +54,7 @@ export class SyntaxRulesDef {
 
   static debug = false
 
-  public call(form: Form, env: Env): Form {
+  public async call(form: Form, env: Env): Promise<Form> {
     const gen = SyntaxRulesDef.gen++
 
     this.print(`Expanding Syntax (${gen}):`.blue.bold, `${toStringSafe(list(this.symbol).append(form))}`);
@@ -114,7 +114,7 @@ export class SyntaxRulesDef {
       const patternForm = car(rule)
       const pattern = cdr(patternForm)
       try {
-        this.print(`trying pattern (${_gen}): ${toStringSafe(pattern)}`)
+        // this.print(`trying pattern (${_gen}): ${toStringSafe(pattern)}`)
         // console.log(`against form (${_gen}): ${toStringSafe(form)}`)
         return [rule, this.match(form, pattern, new Env())];
       } catch (err) {
@@ -147,7 +147,7 @@ export class SyntaxRulesDef {
       return value.equal(other)
     return value === other
   }
-  match(form: Form, pattern: Form, env: Env, indent = 0): Env {
+  match(form: Form, pattern: Form, env: Env, indent = 2): Env {
     /*
       - A subpattern followed by ... can match zero or more elements of the
         input.
@@ -188,7 +188,7 @@ export class SyntaxRulesDef {
     let a = toString(pattern)
     let b = toString(form)
     this.print(`${' '.repeat(indent)}trying to match pattern: ${a}`)
-    this.print(`${' '.repeat(indent)} - matching against form: ${b}`)
+    this.print(`${' '.repeat(indent)} - target matching form: ${b}`)
 
     // #1 - P is a non-literal identifier
     if (isIdent(pattern) && !this.isLiteral(pattern)) {
@@ -398,11 +398,10 @@ export class SyntaxRulesDef {
       return _rewriteTemplate(template, ids, env, gen)
 
     const rewritten = _rewriteTemplate(template, ids, env, gen)
-    const result = car(list(rewritten))
-    this.print('odd case =>'.red, toStringSafe(result))
-    assert(result, `Error rewritting template: ${toStringSafe(template)}`)
-    return result
-    // throw new Error('How can it be like this')
+    if (isPair(rewritten))
+      return car(rewritten)
+    assert(rewritten, `Error rewritting template: ${toStringSafe(template)}`)
+    return rewritten
   }
   generateOutput(template: Form, ids: IdentifierTypes, env: Env): Form {
     if (isPair(template)) {

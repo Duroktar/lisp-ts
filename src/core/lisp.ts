@@ -43,8 +43,8 @@ export const tokenize = async (code: string, env: Environment): Promise<Form> =>
   return await read(InPort.fromString(code), env.readerEnv);
 };
 
-export const parse = async (code: string, {readerEnv}: Environment): Promise<Form> => {
-  return await expand(await read(InPort.fromString(code), readerEnv), true, readerEnv);
+export const parse = async (code: string, {readerEnv, lexicalEnv}: Environment): Promise<Form> => {
+  return await expand(await read(InPort.fromString(code), readerEnv), true, lexicalEnv);
 };
 
 export const execute = async (code: string, env: Environment): Promise<Form> => {

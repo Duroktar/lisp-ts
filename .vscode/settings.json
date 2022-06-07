@@ -18,6 +18,7 @@
         "**/.antlr": true,
         "**/.gradle": true,
         "**/.factorypath": true,
-        "**/node_modules": true
+        "**/node_modules": true,
+        "**/dist": true,
     }
 }

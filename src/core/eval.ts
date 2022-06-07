@@ -54,8 +54,7 @@ export const evaluate = async (e: Form, a: Env): Promise<Form> => {
         const proc = await evaluate(car(e), a);
         const args = await evaluateList(cdr(e), a);
         if (isNativeProc(proc)) {
-          const env = new Env(proc.params, args, proc.env)
-          return await proc.call(args, env)
+          return await proc.call(args)
         }
         else if (isProc(proc)) {
           e = proc.expr

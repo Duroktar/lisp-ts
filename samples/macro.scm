@@ -211,12 +211,12 @@
 
 
 ;; ----------------------------------------------------------------
-(define-syntax macro-or
-  (syntax-rules ()
-    ([macro-or] nil)
-    ([macro-or x xs ...]
-     (let ((v x))
-      (if v v (macro-or xs ...))))))
+; (define-syntax macro-or
+;   (syntax-rules ()
+;     ([macro-or] nil)
+;     ([macro-or x xs ...]
+;      (let ((v x))
+;       (if v v (macro-or xs ...))))))
 
 ; (printm)
 ; (printm "first")
@@ -226,7 +226,9 @@
 ; (printm)
 ; (printm "second")
 
-(let ((v 2)) (macro-or nil v))
+; (let ((v 2)) (macro-or nil v))
 ; (let ((v 2)) (and (macro-or nil v) (macro-or nil v)))
 
 ;; ----------------------------------------------------------------
+
+`(list ,(+ 1 2) 4)

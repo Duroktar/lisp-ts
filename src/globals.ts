@@ -2,15 +2,15 @@ import assert from "assert";
 import { EMPTY, FALSE, NIL, TRUE, UNDEF } from "./core/const";
 import { Resume } from "./core/cont";
 import { Env } from "./core/env";
-import { InvalidCallableExpression, NotImplementedError, UndefinedVariableError } from "./core/error";
+import { InvalidCallableExpression, NotImplementedError, RuntimeWarning, UndefinedVariableError } from "./core/error";
 import { evaluate } from "./core/eval";
 import { expand } from "./core/expand";
 import * as Lisp from "./core/lisp";
-import { currentInputPort, currentOutputPort, InPort, IOPort, isEofString, isInputPort, isOutputPort, OutPort } from "./core/port";
+import { currentInputPort, currentOutputPort, InPort, IOPort, isEofString, isInputPort, isIOPort, isOutputPort, OutPort } from "./core/port";
 import { isNativeProc, isProc, NativeProc, Procedure } from "./core/proc";
 import { read } from "./core/read";
 import { Sym } from "./core/sym";
-import { SyntaxRulesDef } from "./core/syntax";
+import { isSyntaxRulesDef, SyntaxRulesDef } from "./core/syntax";
 import type { Form, List } from "./core/forms";
 import { print, toString, toStringSafe } from "./core/toString";
 import { Vector } from "./core/vec";
@@ -18,6 +18,7 @@ import { Environment } from "./env";
 import { loadFile, parseLoadSymbol } from "./load";
 import * as Util from "./utils";
 import { Pair, list, cons } from "./core/pair";
+import { format } from "util";
 
 type AddGlobalsOptions = {
   tscheme?: boolean
@@ -26,6 +27,7 @@ type AddGlobalsOptions = {
   misc?: boolean
   repl?: boolean
   sockets?: boolean
+  minimal?: boolean
 };
 
 const defaultOptions: AddGlobalsOptions = {
@@ -35,6 +37,7 @@ const defaultOptions: AddGlobalsOptions = {
   misc: true,
   repl: true,
   sockets: true,
+  minimal: true,
 }
 
 export async function addGlobals(
@@ -46,13 +49,30 @@ export async function addGlobals(
 
   const {env, readerEnv, lexicalEnv} = global
 
+  if (options.minimal) {
+    env.set('#t', TRUE);
+    env.set('#f', FALSE);
+
+    mkNativeProc(env, 'boolean?', ['obj'], ([obj]: any) => Util.toL(obj === TRUE || obj === FALSE));
+    mkNativeProc(env, 'char?', ['obj'], ([obj]: any) => Util.toL(Util.isChar(obj)));
+    mkNativeProc(env, 'vector?', ['obj'], ([obj]: any) => Util.toL(Util.isVec(obj)));
+    mkNativeProc(env, 'procedure?', ['obj'], ([obj]: any) => Util.toL(isProc(obj) || isNativeProc(obj)));
+    mkNativeProc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(Util.isPair(obj)));
+    mkNativeProc(env, 'number?', ['n'], ([n]: any) => Util.toL(Util.isNum(n)));
+    mkNativeProc(env, 'string?', ['n'], ([n]: any) => Util.toL(Util.isString(n)));
+    mkNativeProc(env, 'port?', ['obj'], ([obj]: any) => Util.toL(isInputPort(obj) || isOutputPort(obj) || isIOPort(obj)));
+
+    mkNativeProc(env, 'null?', ['n'], ([n]: any) => Util.toL(Util.isEmpty(n)));
+    mkNativeProc(env, 'list?', ['n'], ([n]: any) => Util.toL(Util.isEmpty(n) || (Util.isPair(n) && n.isList())));
+
+    mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEqv(a, b)));
+    mkNativeProc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
+  }
   // #region [ rgba(20, 50, 80, 0.8) ] - TScheme
   //  - TScheme
 
   if (options.tscheme) {
     env.set('#<undef>', UNDEF);
-    env.set('else', TRUE);
-    env.set('otherwise', TRUE);
     env.set('nil', NIL);
 
     env.set('#cwd', process.cwd());
@@ -82,28 +102,84 @@ export async function addGlobals(
     mkNativeProc(env, 'prints', ['...xs'], ([...xs]: any) => { console.log(...xs); });
     mkNativeProc(env, 'print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: any) => toString(x))); });
     mkNativeProc(env, 'show', ['x'], x => { console.log(x); });
-    mkNativeProc(env, 'inspect', ['x'], ([x]: any) => { return toString(x, true); });
+    mkNativeProc(env, 'describe', ['x'], ([x]: any) => toString(x, true));
+
+    mkNativeProc(env, 'inspect', ['x'], ([x]: any) => {
+      const result = inspectObject(x);
+      const lines = result.split('\n').map(line => '  ' + line.trimStart()).join('\n');
+      console.log(`Inspecting: ${toStringSafe(x)}\n${lines}`);
+      // return result
+      function inspectObject (x: any) {
+        if (isProc(x)) {
+          const template = `
+            Name: %s
+            Type: %s
+            Params: %s
+
+            Body: %s
+          `
+          return format(template, 'Procedure', x.name, toStringSafe(x.params), toStringSafe(x.expr));
+        }
+        if (isSyntaxRulesDef(x)) {
+          const template = `
+            Name: %s
+            Type: %s
+
+            Literals: %s
+            Params: %s
+          `
+          return format(template, 'Syntax Rules Definition', x.name, toStringSafe(x.literals), x.params.map(v => toStringSafe(v)));
+        }
+        if (Util.isSym(x)) {
+          const template = `
+            Type: %s
+            Value: %s
+
+            Bound?: %s
+          `
+          return format(template, 'symbol', x.description, env.hasFrom(x))
+        }
+        const template = `
+          Type: %s
+          Value: %s
+        `
+        if (Util.isString(x)) return format(template, 'string', x)
+        if (Util.isNum(x)) return format(template, 'number', x)
+
+        return toString(x, true);
+      }
+    });
+
     mkNativeProc(env, 'break', ['args'], async (args: any, env) => { debugger; return await evaluate(args, env); });
     mkNativeProc(env, 'error', ['x', 'code?'], ([x, code = 1]: any) => { console.error(x); process.exit(code); });
     mkNativeProc(env, 'debug-macro!', ['val'], ([val]: any) => { SyntaxRulesDef.debug = !Util.isF(val) });
 
     mkNativeProc(env, 'gensym', [], () => Symbol());
 
-  mkNativeProc(env, 'set-macro-character', ['char', 'cb'], ([char, cb]: any, env) => {
-    lexicalEnv.setFrom(char, async (locals: any) => {
-      const proc = await evaluate(cb, env);
-      if (isProc(proc)) {
-        mkNativeProc(proc.env, 'read', ['read'], ([locals]: any) => locals.parse());
-        mkNativeProc(proc.env, 'advance', ['advance'], ([locals]: any) => locals.advance());
-        mkNativeProc(proc.env, 'current', ['current'], ([locals]: any) => locals.current());
-        mkNativeProc(proc.env, 'isEOF', ['isEOF'], ([locals]: any) => locals.isEOF());
-        mkNativeProc(proc.env, 'isSpace', ['isSpace'], ([locals]: any) => locals.isSpace());
-        mkNativeProc(proc.env, 'isNewLine', ['isNewLine'], ([locals]: any) => locals.isNewLine());
-        return await evaluate(list(proc, locals, toString(char)), env);
-      }
-      throw new Error('Nope @ set-macro-character');
+    mkNativeProc(env, 'set-macro-character', ['char', 'cb'], ([char, cb]: any, env) => {
+      lexicalEnv.setFrom(char, async (locals: any) => {
+        const proc = await evaluate(cb, env);
+        if (isProc(proc)) {
+          mkNativeProc(proc.env, 'read', ['read'], ([locals]: any) => locals.parse());
+          mkNativeProc(proc.env, 'advance', ['advance'], ([locals]: any) => locals.advance());
+          mkNativeProc(proc.env, 'current', ['current'], ([locals]: any) => locals.current());
+          mkNativeProc(proc.env, 'isEOF', ['isEOF'], ([locals]: any) => locals.isEOF());
+          mkNativeProc(proc.env, 'isSpace', ['isSpace'], ([locals]: any) => locals.isSpace());
+          mkNativeProc(proc.env, 'isNewLine', ['isNewLine'], ([locals]: any) => locals.isNewLine());
+          return await evaluate(list(proc, locals, toString(char)), env);
+        }
+        throw new Error('Nope @ set-macro-character');
+      });
     });
-  });
+
+    mkNativeProc(env, 'i/o-port?', ['obj'], ([obj]: any) => Util.toL(isIOPort(obj)));
+
+    mkNativeProc(env, 'load', ['file'], async ([file]: any) => {
+      if (Util.isSym(file)) {
+        return await loadFile(parseLoadSymbol(file), global)
+      }
+      return await loadFile(file, global)
+    });
   }
   //#endregion
 
@@ -120,7 +196,7 @@ export async function addGlobals(
           (begin result1 result2 ...))
           ((cond (test => result))
           (let ((temp test))
-            (if temp (result temp))))
+            (if temp result temp)))
           ((cond (test => result) clause1 clause2 ...)
           (let ((temp test))
             (if temp
@@ -203,21 +279,9 @@ export async function addGlobals(
     //  - 6. Standard procedures
     // - 6.1 Equivalence Predicates
 
-    mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
+    mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEqv(a, b)));
     mkNativeProc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
-    // mkNativeProc(env, 'equal?', ['a', 'b'], ([a, b]: any) => {
-    //   function walk(a: Form, b: Form): boolean {
-    //     if (!Util.isPair(a))
-    //       return Util.isEq(a, b)
-    //     if (Util.isEmpty(a) || Util.isEmpty(b))
-    //       return Util.isEq(a, b)
-    //     return (
-    //       walk(Lisp.car(a), Lisp.car(b)) &&
-    //       walk(Lisp.cdr(a), Lisp.cdr(b))
-    //     )
-    //   }
-    //   return Util.toL(walk(a, b))
-    // });
+    mkNativeProc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEqual(a, b)));
     // END - 6.1 Equivalence predicates
 
     // - 6.2 Numbers
@@ -328,7 +392,7 @@ export async function addGlobals(
     // library procedure: cddddr pair
 
     mkNativeProc(env, 'null?', ['n'], ([n]: any) => Util.toL(Util.isEmpty(n)));
-    mkNativeProc(env, 'list?', ['n'], ([n]: any) => Util.toL(Util.isPair(n) && n.isList()));
+    mkNativeProc(env, 'list?', ['n'], ([n]: any) => Util.toL(Util.isEmpty(n) || (Util.isPair(n) && n.isList())));
     mkNativeProc(env, 'list', 'args', (args: any) => list(...args));
     mkNativeProc(env, 'length', ['list'], ([list]: any) => Util.isPair(list) && list.length);
 
@@ -348,7 +412,9 @@ export async function addGlobals(
     // END - 6.3.2 Pairs and lists
 
     // - 6.3.3 Symbols
-    mkNativeProc(env, 'symbol?', ['n'], ([n]: any) => Util.toL(Util.isSym(n)));
+    mkNativeProc(env, 'symbol?', ['n'], ([n]: any) => {
+      return Util.toL(Util.isSym(n) && !Util.isEmpty(n))
+    });
     mkNativeProc(env, 'symbol->string', ['n'], ([n]: any) => {
       Util.assert(Util.isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
       return toString(n)
@@ -462,7 +528,7 @@ export async function addGlobals(
       return Util.toL(string1.toLowerCase() >= string2.toLowerCase())
     });
     mkNativeProc(env, 'substring', ['string', 'start', 'end'], ([string, start, end]: any) => {
-      Util.assert(Util.isString(string) && string.length >= start && string.length >= end && start < end)
+      Util.assert(Util.isString(string))
       return (<string>string).slice(start, end)
     });
     mkNativeProc(env, 'string-append', ['string', '...xs'], ([string, ...xs]: any) => {
@@ -504,25 +570,27 @@ export async function addGlobals(
       return Util.toL(Util.isVec(obj))
     });
     mkNativeProc(env, 'make-vector', ['k', 'fill?'], ([k, fill]: any) => {
+      assert(k !== undefined, 'make-vector not given a size')
       assert(fill === undefined, 'make-vector fill option not implemented')
-      return new Vector(k)
+      const rv = new Vector(Array(k));
+      return rv
     });
     mkNativeProc(env, 'vector', ['args'], ([args]: any) => {
       return new Vector(args)
     });
-    mkNativeProc(env, 'vector->length', ['vec'], ([vec]: any) => {
+    mkNativeProc(env, 'vector-length', ['vec'], ([vec]: any) => {
       assert(Util.isVec(vec), `vector-length expected a Vector. Got: ${typeof vec}`)
       return (<Vector>vec).data.length
     });
-    mkNativeProc(env, 'vector->ref', ['vec', 'k'], ([vec, k]: any) => {
+    mkNativeProc(env, 'vector-ref', ['vec', 'k'], ([vec, k]: any) => {
       assert(Util.isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
       assert(Util.isNum(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
       return (<Vector>vec).data[k]
     });
-    mkNativeProc(env, 'vector->set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any) => {
+    mkNativeProc(env, 'vector-set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any) => {
       assert(Util.isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
       assert(Util.isNum(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
-      assert(obj, `vector-ref [arg(3)] is undefined`)
+      assert(obj !== undefined, `vector-ref [arg(3)] is undefined`)
       return (<Vector>vec).data[k] = obj
     });
     mkNativeProc(env, 'vector->list', ['vec'], ([vec]: any) => {
@@ -533,7 +601,7 @@ export async function addGlobals(
       assert(Util.isPair(list), `list->vector expected a list. Got: ${typeof list}`)
       return new Vector(list.toArray())
     });
-    mkNativeProc(env, 'vector->fill!', ['vec', 'fill'], ([vec, fill]: any) => {
+    mkNativeProc(env, 'vector-fill!', ['vec', 'fill'], ([vec, fill]: any) => {
       assert(Util.isVec(vec), `vector-list expected a Vector. Got: ${typeof vec}`)
       assert(fill, `vector-list [arg(2)] expected an argument`)
       for (let i = 0; i < vec.data.length; i++) {
@@ -550,25 +618,24 @@ export async function addGlobals(
     // library procedure: map proc list1 list2 ...
     // library procedure: for-each proc list1 list2 ...
     // library procedure: force promise
-    mkNativeProc(env, 'call-with-current-continuation', ['throw'], ([proc]: any, env: Env) => {
-      class RuntimeWarning extends Error { public retval?: any; }
+    mkNativeProc(env, 'call-with-current-continuation', ['throw'], async ([proc]: any, env: Env) => {
       const ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.");
       const throw_ = mkNativeProc(env, 'throw', ['retval'], ([retval]: any) => {
         ball.retval = retval; throw ball;
       });
-      try {
-        if (isNativeProc(proc)) {
-          return proc.call(list(throw_), env);
-        }
-        throw new InvalidCallableExpression(proc);
-      } catch (err) {
-        if (err instanceof RuntimeWarning) {
-          return ball.retval;
-        }
-        else {
-          throw err;
+      if (isProc(proc) || isNativeProc(proc)) {
+        try {
+          return await proc.call(list(throw_), env);
+        } catch (err) {
+          if (err instanceof RuntimeWarning) {
+            return ball.retval;
+          }
+          else {
+            throw err;
+          }
         }
       }
+      throw new InvalidCallableExpression(proc);
     });
 
     // procedure: values obj ...
@@ -732,7 +799,7 @@ export async function addGlobals(
   if (options.misc) {
 
     mkNativeProc(env, 'macroexpand', ['expr'], async ([expr]: any) => {
-      console.log(toStringSafe(env.get<Procedure>('equal?').expr))
+      // console.log(toStringSafe(env.get<Procedure>('equal?').expr))
       const rv = await expand(expr, true, env);
       return rv
     });
@@ -750,14 +817,8 @@ export async function addGlobals(
 
     mkNativeProc(env, 'try', ['callable'], async ([callable]: any) => {
       try {
-        if (isProc(callable)) {
-          const closure = new Env(callable.params, EMPTY, callable.env)
-          const rv = await callable.call(callable.expr, closure);
-          return cons(TRUE, rv);
-        }
-        if (isNativeProc(callable)) {
-          const closure = new Env(callable.params, EMPTY, callable.env)
-          const rv = await callable.call(EMPTY, closure);
+        if (isProc(callable) || isNativeProc(callable)) {
+          const rv = await callable.call(EMPTY);
           return cons(TRUE, rv);
         }
         return cons(FALSE, 'InvalidCallableExpression')
@@ -826,6 +887,7 @@ export async function addGlobals(
           if (!outputText.endsWith('\n'))
             o.write('\n')
         } catch (err) {
+          console.log('aha 99')
           if (err instanceof Resume) {
             global.env.set('*in-repl-mode*', Util.toL(false))
             throw err
@@ -842,6 +904,7 @@ export async function addGlobals(
             }
             o.write(err.message)
             lastOutput = err.message
+            console.log('aha')
             continue
           }
 
@@ -866,7 +929,7 @@ export async function addGlobals(
       public name = name;
       public env = env;
       public params = Array.isArray(params) ? list(...params.map(Sym)) : Sym(params);
-      public call = (args: Form, env: Env) => cb(Util.isList(args) ? (Util.isEmpty(args) ? [] : args.toArray()) : args, env)
+      public _call = (args: Form, env: Env) => cb(Util.isList(args) ? (Util.isEmpty(args) ? [] : args.toArray()) : args, env)
     };
 
     env.set(name, func);
