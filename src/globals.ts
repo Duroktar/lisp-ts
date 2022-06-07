@@ -615,7 +615,23 @@ export async function addGlobals(
       return Util.toL(isProc(obj) || isNativeProc(obj))
     });
     // procedure: apply proc arg1 ... args
-    // library procedure: map proc list1 list2 ...
+    mkNativeProc(env, 'map', ['proc', '.', 'args'], async ([proc, ...lists]: any) => {
+      assert(Array.isArray(lists) && lists.length >= 1 && lists.every((l: any) => Util.isPair(l)), 'error 3823489')
+      assert(Util.isCallable(proc), 'error 823746')
+      const first = lists[0]
+      assert(Util.isPair(first), 'error 1364')
+      const res: any[] = [];
+      for (let i = 0; i < first.length; i++) {
+        res[i] = []
+        lists.forEach(l => {
+          res[i].push(l.at(i))
+        })
+        res[i] = await proc.call(list(...res[i]), env)
+      }
+
+      const a = list(...res)
+      return a
+    });
     // library procedure: for-each proc list1 list2 ...
     // library procedure: force promise
     mkNativeProc(env, 'call-with-current-continuation', ['throw'], async ([proc]: any, env: Env) => {
@@ -887,7 +903,6 @@ export async function addGlobals(
           if (!outputText.endsWith('\n'))
             o.write('\n')
         } catch (err) {
-          console.log('aha 99')
           if (err instanceof Resume) {
             global.env.set('*in-repl-mode*', Util.toL(false))
             throw err
@@ -904,7 +919,6 @@ export async function addGlobals(
             }
             o.write(err.message)
             lastOutput = err.message
-            console.log('aha')
             continue
           }
 
@@ -922,14 +936,14 @@ export async function addGlobals(
 
   function mkNativeProc(
     env: Env, name: string, params: string | string[],
-    cb: (args: Form[] | Form, env: Env) => any
+    cb: (args: Form[] | Form, env: Env) => any, toArray = true
   ): Form | NativeProc {
 
     const func = new class extends NativeProc {
       public name = name;
       public env = env;
       public params = Array.isArray(params) ? list(...params.map(Sym)) : Sym(params);
-      public _call = (args: Form, env: Env) => cb(Util.isList(args) ? (Util.isEmpty(args) ? [] : args.toArray()) : args, env)
+      public _call = (args: Form, env: Env) => cb(toArray ? (Util.isList(args) ? (Util.isEmpty(args) ? [] : args.toArray()) : args) : args, env)
     };
 
     env.set(name, func);

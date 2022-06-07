@@ -127,10 +127,16 @@
 
 (define eq? eqv?)
 
-(define (map proc lst)
-  (if (pair? lst)
-      (cons (proc (car lst)) (map proc (cdr lst)))
-      '()))
+(define (zip lst1 lst2)
+  (cond ((null? lst1)  ; if the first list is empty
+         lst1)        ; then return the empty list
+        ((null? lst2)  ; if the second list is empty
+         lst2)        ; then also return the empty list
+        (else          ; otherwise
+         (cons (list   ; cons a list with two elements:
+                (car lst1)  ; the first from the first list
+                (car lst2)) ; and the first from the second list
+               (zip (cdr lst1) (cdr lst2)))))) ; advance recursion over both lists
 
 (define (for-each proc lst)
   (if (pair? lst)
