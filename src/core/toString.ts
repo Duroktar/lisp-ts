@@ -6,8 +6,9 @@ import { Form } from "./forms";
 import { isSym, isString, isNone, isNum, isEmpty, symName, isChar, isVec } from "../utils";
 import { Port } from "./port";
 import { Pair } from "./pair";
+import { inspect } from "util";
 
-export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): string => {
+export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'): string => {
   if (expr === undefined)
     return expr
   if (isSym(expr))
@@ -17,11 +18,11 @@ export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): 
   if (isString(expr))
     return `"${expr}"`;
   if (isChar(expr))
-    return `#\\${expr}`;
+    return expr.displayText;
   if (isNone(expr))
     return expr;
   if (isNum(expr))
-    return String(expr);
+    return expr.repr;
   if (isEmpty(expr))
     return '()';
   if (expr instanceof TSchemeModule) {
@@ -34,9 +35,9 @@ export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): 
     return `#<${expr.name}>`;
   }
   if (expr instanceof Procedure || expr instanceof SyntaxRulesDef) {
-    if (inspect && expr instanceof Procedure) {
-      const parms = toString(expr.params, inspect, lambdaSymbol);
-      const body = toString(expr.expr, inspect, lambdaSymbol);
+    if (inspect_ && expr instanceof Procedure) {
+      const parms = toString(expr.params, inspect_, lambdaSymbol);
+      const body = toString(expr.expr, inspect_, lambdaSymbol);
       return `(${lambdaSymbol} ${expr.name} ${parms} ${body})`;
     }
     return `(${lambdaSymbol} ${expr.name})`;
@@ -48,24 +49,25 @@ export const toString = (expr: Form, inspect = false, lambdaSymbol = 'lambda'): 
       if (Array.isArray(next.car)) {
         debugger
       }
-      res.push(toString(next.car, inspect, lambdaSymbol))
+      res.push(toString(next.car, inspect_, lambdaSymbol))
       next = next.cdr
     }
     if (next !== EMPTY) {
       res.push('.')
-      res.push(toString(next, inspect, lambdaSymbol))
+      res.push(toString(next, inspect_, lambdaSymbol))
     }
     return `(${res.join(' ')})`
   }
 
   if (Array.isArray(expr)) {
-    const rv = expr.map(e => toString(e, inspect, lambdaSymbol)).join(' ');
-    console.error('SHOULD NOT BE AN ARRAY HERE: %s', rv)
+    const rv = expr.map(e => toString(e, inspect_, lambdaSymbol)).join(' ');
+    console.log('SHOULD NOT BE AN ARRAY HERE: %s', rv)
     return rv
   }
 
   const err = new Error('fallthrough condition');
   console.log(`d'oh!`, expr)
+  console.log(inspect(expr))
   console.log(err.stack)
   throw err
 };

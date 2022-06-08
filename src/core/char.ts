@@ -1,16 +1,19 @@
 import assert from "assert";
 import { isSym } from "../utils";
+import { Sym } from "./sym";
 
 export class Character {
+  public sym: symbol
   constructor(
-    public sym: symbol,
+    sym: symbol | string,
   ) {
-    assert(isSym(sym), 'Characters require a symbol');
-    assert(sym.description, 'Invalid Character Symbol description')
+    this.sym = isSym(sym) ? sym : Sym(sym)
+    assert(isSym(this.sym), 'Characters require a symbol');
+    assert(this.sym.description, 'Invalid Character Symbol description')
 
-    this.displayText = sym.description.toLowerCase() === 'newline' ? '\n' :
-                       sym.description.toLowerCase() === 'space'   ? ' ' :
-                       /* otherwise */ sym.description
+    this.displayText = this.sym.description.toLowerCase() === 'newline' ? '\n' :
+                       this.sym.description.toLowerCase() === 'space'   ? ' ' :
+                       /* otherwise */ this.sym.description
   }
 
   public displayText: string

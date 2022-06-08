@@ -3,6 +3,7 @@ import { Form } from "./forms";
 import { car } from "./lisp";
 
 import assert from "assert";
+import { isNum } from "../utils";
 
 // type Form = any
 // export const EMPTY = Symbol.for('()');
@@ -60,16 +61,17 @@ export class Pair {
   }
 
   equal = (other: any): boolean => {
-    if (!Pair.is(other))
-      return false;
-    if (Pair.is(this.car))
-      return this.car.equal(other.car);
+    if (Pair.is(this.car) || isNum(this.car)) {
+      if (!this.car.equal(other.car))
+        return false
+    }
     else if (this.car !== other.car)
-      return false;
-    if (Pair.is(this.cdr))
+      return false
+
+    if (Pair.is(this.cdr) || isNum(this.cdr))
       return this.cdr.equal(other.cdr)
-    else
-      return this.cdr === other.cdr
+
+    return this.cdr === other.cdr
   }
 
   forEach = (fn: (value: any) => any): void => {
@@ -188,7 +190,7 @@ export function cons(a: Form, b: Form) {
   return new Pair(a, b)
 }
 
-export function list(...args: any[]): Pair {
+export function list(...args: Form[]): Pair {
   if (args.length === 0)
     return EMPTY as any
   const [head, ...tail] = args

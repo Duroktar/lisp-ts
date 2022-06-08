@@ -105,17 +105,25 @@
 
 (test #f (eqv? 'a 'b))
 
+(test #t (eqv? 2 2))
+
 (test #t (eqv? '() '()))
+
+(test #t (eqv? 100000000 100000000))
 
 (test #f (eqv? (cons 1 2) (cons 1 2)))
 
 (test #f (eqv? (lambda () 1) (lambda () 2)))
+
+(test #f (eqv? #f 'nil))
 
 (test #t (let ((p (lambda (x) x))) (eqv? p p)))
 
 (test #t (eq? 'a 'a))
 
 (test #f (eq? (list 'a) (list 'a)))
+
+(test #t (eq? 2 2))
 
 (test #t (eq? '() '()))
 

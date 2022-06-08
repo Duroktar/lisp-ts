@@ -1,27 +1,32 @@
 import { EMPTY } from "../core/const";
+import { Num } from "../core/num";
 import { cons, list, Pair } from "../core/pair";
+
+let ONE = Num.ofInt(1),
+    TWO = Num.ofInt(2),
+    THREE = Num.ofInt(3);
 
 describe("(pair) tests", () => {
   describe("(cons) helper tests", () => {
     test("1", async () => {
-      const actual = cons(1, cons(2, cons(3, EMPTY)))
-      const expected = new Pair(1, new Pair(2, new Pair(3, EMPTY)));
+      const actual = cons(ONE, cons(TWO, cons(THREE, EMPTY)))
+      const expected = new Pair(ONE, new Pair(TWO, new Pair(THREE, EMPTY)));
       expect(actual.equal(expected)).toBe(true);
     })
     test("2", async () => {
-      const actual = cons(1, EMPTY)
-      const expected = new Pair(1, EMPTY);
+      const actual = cons(ONE, EMPTY)
+      const expected = new Pair(ONE, EMPTY);
       expect(actual.equal(expected)).toBe(true);
     })
     test("3", async () => {
-      const actual = cons(1, 2)
-      const expected = new Pair(1, 2);
+      const actual = cons(ONE, TWO)
+      const expected = new Pair(ONE, TWO);
       expect(actual.equal(expected)).toBe(true);
     })
   })
   test("(list) helper", async () => {
-    const actual = list(1, 2, 3)
-    const expected = cons(1, cons(2, cons(3, EMPTY)))
+    const actual = list(ONE, TWO, THREE)
+    const expected = cons(ONE, cons(TWO, cons(THREE, EMPTY)))
     expect(actual.equal(expected)).toBe(true);
   })
 })

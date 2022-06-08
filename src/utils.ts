@@ -8,6 +8,7 @@ import { whitespace, identifier, initial, letter, subsequent, digit, character }
 import { Pair, list } from "./core/pair";
 import { NativeProc, isNativeProc, isProc, Procedure } from "./core/proc";
 import { SyntaxRulesDef, isSyntaxRulesDef } from "./core/syntax";
+import { Num } from "./core/num";
 
 export type Predicate = (...args: any[]) => boolean
 
@@ -41,7 +42,7 @@ export const isList = (x: unknown): x is Pair | symbol => (isPair(x) && x.isList
 export const isPair = (x: unknown): x is Pair => Pair.is(x);
 export const isAtom = (x: unknown): x is Atom => isSym(x);
 export const isSym = (x: unknown): x is symbol => typeof x === 'symbol';
-export const isNum = (x: unknown): x is number => typeof x === 'number';
+export const isNum = (x: unknown): x is Num => x instanceof Num;
 export const isVec = (x: unknown): x is Vector => x instanceof Vector;
 export const isString = (c: any): c is string => typeof c === 'string';
 export const isChar = (x: unknown): x is Character => x instanceof Character;
@@ -56,6 +57,10 @@ export const isCallable = (x: unknown): x is Procedure | NativeProc | SyntaxRule
 }
 
 export const isEqv = (x: unknown, y: unknown): boolean => {
+  if (isNum(x) && isNum(y))
+    return x.equal(y)
+  if (isChar(x) && isChar(y))
+    return x.displayText === y.displayText
   return (x === y);
 }
 export const isEq = (x: unknown, y: unknown): boolean => {
@@ -104,9 +109,9 @@ export const zipUp = (...rows: (Form[] | Form)[]) => {
       }
     }
   };
-  const stuffz = rows.map(i => Array.isArray(i) ? i : new Proxy([i], h));
+  const stuffz: any[] = rows.map(i => Array.isArray(i) ? i : new Proxy([i], h));
   const runs = Math.max(...stuffz.map(i => i.length));
-  const entries = []
+  const entries: any[] = []
   for (let c = 0; c < runs; c++) {
     entries.push(stuffz.map((row: any) => row[c]))
   }

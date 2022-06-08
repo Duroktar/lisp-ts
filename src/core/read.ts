@@ -9,6 +9,9 @@ import { Sym, SymTable } from "./sym";
 import { Form, List } from "./forms";
 import { Vector } from "./vec";
 import { cons, list } from "./pair";
+import { Num, NumType } from "./num";
+
+const numberRegex = /^\#?(?:(?<radix>(?:(?:[e|i]?[b|o|d|x]{1})|(?:[b|o|d|x]{1}[e|i]?))?)(?:(?<integer>\d*)|(?<number>(?:\d+(?:\.(?:\d)+))))(?<precision>(?:[s|f|d|l]{1}\d+))?)$/gim
 
 export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
   let cursor = await port.readChar()
@@ -113,11 +116,14 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
     return atom;
   }
 
+  const parseNumberType = (atom: string) => {
+    return new Num(atom, atom.includes('.') ? NumType.number : NumType.integer);
+  }
+
   async function parseAtom(): Promise<Form> {
     let atom = await parseWhileValid()
-    const num = parseInt(atom);
-    if (Number.isNaN(num) === false)
-      return num;
+    if (Number.isNaN(parseInt(atom)) === false)
+      return parseNumberType(atom);
     return Symbol.for(atom);
   }
 
@@ -181,7 +187,17 @@ export const read = async (port: InPort, readerEnv: Env): Promise<Form> => {
       }
 
       if ('eibodx'.includes(lookahead)) {
-        assert(false, 'numbers not implemented yet')
+        const value = await parseWhileValid()
+        const matches = value.match(numberRegex);
+        if (matches && matches.groups) {
+          const number = matches.groups['number']
+          const integer = matches.groups['integer']
+          const radix = matches.groups['radix']
+          const precision = matches.groups['precision']
+          const type = number ? NumType.number : NumType.integer;
+          const repr = number ?? integer;
+          return new Num(repr, type, radix, precision)
+        }
       }
 
       throw new SyntaxError(`bad-syntax \`#${lookahead}\``)
