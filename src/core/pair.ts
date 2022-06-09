@@ -1,13 +1,18 @@
 import { EMPTY } from "./const";
-import { Form } from "./forms";
+import { Form, List } from "./forms";
 import { car } from "./lisp";
 
 import assert from "assert";
-import { isNum } from "../utils";
+import { isAtom, isList } from "../utils";
+import { format } from "util";
+// import { isEmpty } from "../utils";
 
+// type List = any
 // type Form = any
 // export const EMPTY = Symbol.for('()');
+// const isEmpty = (x: Form) => x === EMPTY
 // const car = (x: Form) => x.car
+// const cdr = (x: Form) => x.cdr
 
 export class Pair {
   constructor(
@@ -61,14 +66,14 @@ export class Pair {
   }
 
   equal = (other: any): boolean => {
-    if (Pair.is(this.car) || isNum(this.car)) {
+    if (Pair.is(this.car)) {
       if (!this.car.equal(other.car))
         return false
     }
     else if (this.car !== other.car)
       return false
 
-    if (Pair.is(this.cdr) || isNum(this.cdr))
+    if (Pair.is(this.cdr))
       return this.cdr.equal(other.cdr)
 
     return this.cdr === other.cdr
@@ -142,7 +147,8 @@ export class Pair {
     return this
   }
 
-  append(val: any) {
+  append(val: Form) {
+    assert(isList(val) || isAtom(val), format('Passed invalid type to append. Got (type: `%s`)', typeof val))
     let next: Pair = this
     while (Pair.is(next.cdr)) {
       next = next.cdr
@@ -150,8 +156,9 @@ export class Pair {
     assert(next.cdr === EMPTY, 'can only append to a list')
     if (Pair.is(val))
       next.cdr = val
-    else
+    else {
       next.cdr = cons(val, EMPTY)
+    }
     return this
   }
 
@@ -190,7 +197,7 @@ export function cons(a: Form, b: Form) {
   return new Pair(a, b)
 }
 
-export function list(...args: Form[]): Pair {
+export function list(...args: Form[]): typeof args extends {length: 0} ? List : Pair {
   if (args.length === 0)
     return EMPTY as any
   const [head, ...tail] = args
@@ -200,7 +207,6 @@ export function list(...args: Form[]): Pair {
 // const t = list(1, 2, 3)
 // const l = cons(4, 5);
 // const l2 = list(4, 5);
-// console.log(t.append(l).isList())
 // console.log(t.append(l2).isList())
 
 // console.log(t.slice(0, 3).toArray())
@@ -208,3 +214,23 @@ export function list(...args: Form[]): Pair {
 
 // const n = cons([1, 2, 3, 4, 5], EMPTY);
 // console.log(n.toArray())
+
+// export function append(...rest: List[]): List
+// export function append(first: List, ...rest: List[]): List {
+//   if (rest.length === 0) return first
+//   if (isEmpty(first)) return append(...rest)
+//   assert(Pair.is(first), 'Can only append lists')
+//   return cons(car(first),
+//               append(cdr(first),
+//                      append(...rest)))
+// }
+
+// console.log(append(list(),  EMPTY));
+// console.log(append(EMPTY,  list()));
+// console.log(append(list(), list()));
+// console.log(append(t, list()).toArray());
+// console.log(append(list(), t).toArray());
+// console.log(append(list(), l).toArray());
+
+// console.log(t.append(l).toArray())
+

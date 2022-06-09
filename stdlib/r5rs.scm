@@ -85,6 +85,47 @@
      ((lambda ()
        (define name val) ... body bodies ...)))))
 
+; (define-syntax do
+;   (syntax-rules ()
+;     ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
+;         (test expression ...)
+;         command ...)
+;       (let loop ((variable init) ...)
+;         (if test
+;             (begin expression ...)
+;             (begin
+;               command ...
+;               (loop (do "step" variable step ...) ...)))))
+;     ((do "step" variable)
+;       variable)
+;     ((do "step" variable step)
+;       step)))
+
+(define-syntax delay
+  (syntax-rules ()
+    ((delay expression)
+      (let ((forced #f)
+            (memo #f))
+        (lambda ()
+          (if forced
+              memo
+              (begin
+                (set! memo expression)
+                (set! forced #t)
+                memo)))))))
+
+; (let loop (((vec i make-vector 0) (vec i 5 0)))
+;   (if (= i 5)
+;     (begin vec)
+;     (begin
+;       (vector-set! vec i i)
+;       (loop ((do "step" vec i +) (do "step" vec i i) (do "step" vec i 1))))))
+
+; (do ((vec (make-vector 5))
+;     (i 0 (+ i 1)))
+;     ((= i 5) vec)
+;   (vector-set! vec i i))
+
 ;;  - 6. Standard procedures
 ;; - 6.1 Equivalence Predicates
 
@@ -127,17 +168,6 @@
 
 (define eq? eqv?)
 
-(define (zip lst1 lst2)
-  (cond ((null? lst1)  ; if the first list is empty
-         lst1)        ; then return the empty list
-        ((null? lst2)  ; if the second list is empty
-         lst2)        ; then also return the empty list
-        (else          ; otherwise
-         (cons (list   ; cons a list with two elements:
-                (car lst1)  ; the first from the first list
-                (car lst2)) ; and the first from the second list
-               (zip (cdr lst1) (cdr lst2)))))) ; advance recursion over both lists
-
 (define (for-each proc lst)
   (if (pair? lst)
       (begin
@@ -145,12 +175,13 @@
         (for-each proc (cdr lst)))
       #f))
 
-; (define list x x)
-
-(define (append lst1 lst2)
-  (if (pair? lst1)
-      (cons (car lst1) (append (cdr lst1) lst2))
-      lst2))
+(define (append first . rest)
+  (cond ((null? rest) first)
+        ((null? first) (apply append rest))
+        (else
+          (cons (car first)
+                (append (cdr first)
+                        (apply append rest))))))
 
 (define (list-ref lst i)
   (car (list-tail lst i)))
@@ -239,8 +270,4 @@
             (* x t)
             t))))
 
-; ((if (list? a)
-;     (begin (if (eqv? (car a) (car b)) (equal? (cdr a) (cdr b)) #f))
-;   (if #t
-;     (begin (eqv? a b))
-;     #<undef>)))
+(define (force promise) (promise))

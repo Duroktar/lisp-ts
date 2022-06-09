@@ -7,11 +7,11 @@ import { evaluate } from "./core/eval";
 import { expand } from "./core/expand";
 import * as Lisp from "./core/lisp";
 import { currentInputPort, currentOutputPort, InPort, IOPort, isEofString, isInputPort, isIOPort, isOutputPort, OutPort } from "./core/port";
-import { isNativeProc, isProc, NativeProc, Procedure } from "./core/proc";
+import { isNativeProc, isProc, NativeProc } from "./core/proc";
 import { read } from "./core/read";
 import { Sym } from "./core/sym";
 import { isSyntaxRulesDef, SyntaxRulesDef } from "./core/syntax";
-import type { Form, List } from "./core/forms";
+import type { Form } from "./core/forms";
 import { print, toString, toStringSafe } from "./core/toString";
 import { Vector } from "./core/vec";
 import { Environment } from "./env";
@@ -20,7 +20,6 @@ import * as Util from "./utils";
 import { Pair, list, cons } from "./core/pair";
 import { format } from "util";
 import { Character } from "./core/char";
-import { Num } from "./core/num";
 
 type AddGlobalsOptions = {
   tscheme?: boolean
@@ -276,6 +275,34 @@ export async function addGlobals(
           ((lambda ()
             (define name val) ... body bodies ...)))))
 
+      (define-syntax do
+        (syntax-rules ()
+          ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
+              (test expression ...)
+              command ...)
+            (let loop ((variable init) ...)
+              (if test
+                  (begin expression ...)
+                  (begin
+                    command ...
+                    (loop (do "step" variable step ...) ...)))))
+          ((do "step" variable)
+            variable)
+          ((do "step" variable step)
+            step)))
+
+      (define-syntax delay
+        (syntax-rules ()
+          ((delay expression)
+            (let ((forced #f)
+                  (memo #f))
+              (lambda ()
+                (if forced
+                    memo
+                    (begin
+                      (set! memo expression)
+                      (set! forced #t)
+                      memo)))))))
     `, global)
 
     //  - 6. Standard procedures
@@ -301,36 +328,38 @@ export async function addGlobals(
     mkNativeProc(env, '>=', ['args'], ([l, r]: any) => Util.toL(l >= r));
     mkNativeProc(env, '<=', ['args'], ([l, r]: any) => Util.toL(l <= r));
     mkNativeProc(env, 'zero?', ['n'], ([n]: any) => Util.toL(n === 0));
-    mkNativeProc(env, 'positive?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n.value > 0));
-    mkNativeProc(env, 'negative?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n.value < 0));
-    mkNativeProc(env, 'odd?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n.value % 2 !== 0));
-    mkNativeProc(env, 'even?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n.value % 2 === 0));
+    mkNativeProc(env, 'positive?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n > 0));
+    mkNativeProc(env, 'negative?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n < 0));
+    mkNativeProc(env, 'odd?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n % 2 !== 0));
+    mkNativeProc(env, 'even?', ['n'], ([n]: any) => Util.toL(Util.isNum(n) && n % 2 === 0));
     mkNativeProc(env, 'max', 'args', (args: any) => args.reduce((acc: any, val: any) => Math.max(acc, val)));
     mkNativeProc(env, 'min', 'args', (args: any) => args.reduce((acc: any, val: any) => Math.min(acc, val)));
     mkNativeProc(env, '+', 'args', (args: any) => {
-      const first = args[0];
-      assert(Util.isNum(first))
-      return args.reduce((acc: Num, val: Num) => acc.add(val))
+      if (!(Array.isArray(args) && args.every(Util.isNum)))
+        debugger
+      assert(Array.isArray(args) && args.every(Util.isNum), 'Passed a non-number to (+)')
+      return args.reduce((acc: number, val: number) => acc + val, 0)
     });
     mkNativeProc(env, '*', 'args', (args: any) => {
-      const first = args[0];
-      assert(Util.isNum(first))
-      return args.reduce((acc: Num, val: Num) => acc.mul(val))
+      assert(Array.isArray(args) && args.every(Util.isNum), 'Passed a non-number to (*)')
+      return args.reduce((acc: number, val: number) => acc * val, 1)
     });
     mkNativeProc(env, '-', 'args', (args: any) => {
-      Util.assert(args.length > 0, "procedure requires at least one argument: (-)")
+      assert(args.length > 0, "procedure requires at least one argument: (-)")
+      assert(Array.isArray(args) && args.every(Util.isNum), 'Passed a non-number to (-)')
       if (args.length === 1) return -args[0]
-      else return args.reduce((acc: Num, val: Num) => acc.sub(val))
+      else return args.reduce((acc: number, val: number) => acc - val)
     });
     mkNativeProc(env, '/', 'args', (args: any) => {
-      Util.assert(args.length > 0, "procedure requires at least one argument: (/)")
-      return args.reduce((acc: Num, val: Num) => acc.div(val))
+      assert(args.length > 0, "procedure requires at least one argument: (/)")
+      assert(Array.isArray(args) && args.every(Util.isNum), 'Passed a non-number to (/)')
+      return args.reduce((acc: number, val: number) => acc / val)
     });
     mkNativeProc(env, 'abs', ['n'], ([n]: any) => Math.abs(n));
     mkNativeProc(env, 'quotient', ['x', 'y'], ([x, y]: any) => {
       assert(Util.isNum(x), 'Arguments to quotient should be numbers')
       assert(Util.isNum(y), 'Arguments to quotient should be numbers')
-      return Num.ofInt(x.div(y).value|0)
+      return (x/y)|0
     });
     // procedure: remainder n1 n2
     // procedure: modulo n1 n2
@@ -352,8 +381,7 @@ export async function addGlobals(
     mkNativeProc(env, 'acos', ['n'], ([n]: any) => Math.acos(n));
     mkNativeProc(env, 'atan', ['y', 'x'], ([y, x]: any) => Util.isNone(x) ? Math.atan(y) : Math.atan2(y, x));
     mkNativeProc(env, 'sqrt', ['n'], ([n]: any) => Math.sqrt(n));
-    mkNativeProc(env, 'expt', ['n'], ([n]: any) => Math.exp(n));
-
+    // procedure: expt z1 z2
     // procedure: make-rectangular x1 x2
     // procedure: make-polar x3 x4
     // procedure: real-part z
@@ -366,11 +394,11 @@ export async function addGlobals(
 
     // - 6.2.6 Numerical input and output
     mkNativeProc(env, 'number->string', ['n', 'radix?'], ([n, radix]: any) => {
-      Util.assert(Util.isNum(n), `"number->string" procedure takes a 'number' as an argument`);
-      return (<number>n).toString(radix ?? 10);
+      assert(Util.isNum(n), `"number->string" procedure takes a 'number' as an argument`);
+      return n.toString(radix ?? 10);
     });
     mkNativeProc(env, 'string->number', ['n', 'radix?'], ([n, radix]: any) => {
-      Util.assert(Util.isString(n), `"string->number" procedure takes a 'string' as an argument`);
+      assert(Util.isString(n), `"string->number" procedure takes a 'string' as an argument`);
       return parseInt(n, radix ?? 10);
     });
     // END - 6.2.6 Numerical input and output
@@ -413,7 +441,10 @@ export async function addGlobals(
       return Util.isPair(list) ? list.length : /* empty */ 0
     });
 
-    // library procedure: append list ...
+    mkNativeProc(env, 'append', 'args', (args: any) => {
+      return Util.append(args[0], args.slice(1))
+    })
+
     mkNativeProc(env, 'reverse', ['list'], ([lst]: any) => {
       assert(Util.isList(lst))
       if (Util.isEmpty(lst))
@@ -439,11 +470,11 @@ export async function addGlobals(
       return Util.toL(Util.isSym(n) && !Util.isEmpty(n))
     });
     mkNativeProc(env, 'symbol->string', ['n'], ([n]: any) => {
-      Util.assert(Util.isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
+      assert(Util.isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
       return toString(n)
     });
     mkNativeProc(env, 'string->symbol', ['n'], ([n]: any) => {
-      Util.assert(Util.isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
+      assert(Util.isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
       return Sym(n)
     });
     // END - 6.3.3 Symbols
@@ -480,13 +511,13 @@ export async function addGlobals(
     // - 6.3.5 Strings
     mkNativeProc(env, 'string?', ['n'], ([n]: any) => Util.toL(Util.isString(n)));
     mkNativeProc(env, 'string', 'args', args => {
-      assert(Array.isArray(args) && args.every(arg => Util.isChar(arg)), 'Arguments to `string` must be `char`s')
+      assert(Array.isArray(args) && args.every(Util.isChar), 'Arguments to `string` must be `char`s')
       return args.map(arg => toString(arg)).join('')
     });
     mkNativeProc(env, 'make-string', ['k', 'char'], ([k, char = ' ']: any) => {
       assert(Util.isChar(char), 'make-string [arg(2)] expects a char')
       assert(Util.isNum(k), 'make-string [arg(1)] expects a number')
-      return char.displayText.repeat(k.value)
+      return char.displayText.repeat(k)
     });
     mkNativeProc(env, 'string-length', ['n'], ([n]: any) => {
       assert(Util.isString(n))
@@ -495,7 +526,7 @@ export async function addGlobals(
     mkNativeProc(env, 'string-ref', ['string', 'k'], ([string, k]: any) => {
       assert(Util.isString(string) && string.length >= k)
       assert(Util.isNum(k), format('Invalid `k` param passed to `string-ref`, expected number, got `%s`', typeof k))
-      return new Character(string[k.value])
+      return new Character(string[k])
     });
     mkNativeProc(env, 'string-set!', ['string', 'k', 'char'], ([string, k, char]: any) => {
       assert(Util.isString(string) && string.length > k)
@@ -504,15 +535,15 @@ export async function addGlobals(
       return UNDEF
     });
     mkNativeProc(env, 'string->input-port', ['string'], ([string]: any) => {
-      assert(typeof string === 'string')
+      assert(Util.isString(string))
       return InPort.fromString(string)
     });
     mkNativeProc(env, 'string=?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1 === string2)
     });
     mkNativeProc(env, 'string-ci=?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       if (string1.length !== string2.length)
         return Util.toL(false)
       for (let i = 0; i < string1.length; i++) {
@@ -523,71 +554,71 @@ export async function addGlobals(
       return Util.toL(true)
     });
     mkNativeProc(env, 'string<?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1 < string2)
     });
     mkNativeProc(env, 'string>?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1 > string2)
     });
     mkNativeProc(env, 'string<=?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1 <= string2)
     });
     mkNativeProc(env, 'string>=?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1 >= string2)
     });
     mkNativeProc(env, 'string-ci<?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1.toLowerCase() < string2.toLowerCase())
     });
     mkNativeProc(env, 'string-ci>?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1.toLowerCase() > string2.toLowerCase())
     });
     mkNativeProc(env, 'string-ci<=?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1.toLowerCase() <= string2.toLowerCase())
     });
     mkNativeProc(env, 'string-ci>=?', ['string1', 'string2'], ([string1, string2]: any) => {
-      Util.assert(Util.isString(string1) && Util.isString(string2))
+      assert(Util.isString(string1) && Util.isString(string2))
       return Util.toL(string1.toLowerCase() >= string2.toLowerCase())
     });
     mkNativeProc(env, 'substring', ['string', 'start', 'end'], ([string, start, end]: any) => {
-      Util.assert(Util.isString(string))
+      assert(Util.isString(string))
       return (<string>string).slice(start, end)
     });
     mkNativeProc(env, 'string-append', ['string', '...xs'], ([string, ...xs]: any) => {
-      Util.assert(Util.isString(string))
+      assert(Util.isString(string))
       return (<string>string).concat(...xs)
     });
     mkNativeProc(env, 'string->list', ['string', '...'], ([string]: any) => {
-      Util.assert(Util.isString(string))
+      assert(Util.isString(string))
       return (<string>string).split('')
     });
     mkNativeProc(env, 'list->string', ['list', '...'], ([list]: any) => {
-      assert(Util.isPair(list) && list.every(o => Util.isString(o)))
+      assert(Util.isPair(list) && list.every(Util.isString))
       return list.toArray().join('')
     });
     mkNativeProc(env, 'string-copy', ['string'], ([string]: any) => {
-      Util.assert(Util.isString(string))
+      assert(Util.isString(string))
       return String(string)
     });
     mkNativeProc(env, 'string-fill', ['string', 'char'], ([string, char]: any) => {
-      Util.assert(Util.isString(string))
-      Util.assert(Util.isChar(char))
-      string.replaceAll(/.*/, char)
+      assert(Util.isString(string))
+      assert(Util.isChar(char))
+      string.replaceAll(/.*/, char.displayText)
       return string
     });
     mkNativeProc(env, 'string-pad-end', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
-      Util.assert(Util.isString(string));
-      Util.assert(Util.isNum(maxLength));
+      assert(Util.isString(string));
+      assert(Util.isNum(maxLength));
       return (string as string).padEnd(maxLength, fillString);
     });
     mkNativeProc(env, 'string-pad-start', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
-      Util.assert(Util.isString(string));
-      Util.assert(Util.isNum(maxLength));
+      assert(Util.isString(string));
+      assert(Util.isNum(maxLength));
       return (string as string).padStart(maxLength, fillString);
     });
     // END - 6.3.5 Strings
@@ -599,30 +630,30 @@ export async function addGlobals(
     mkNativeProc(env, 'make-vector', ['k', 'fill?'], ([k, fill]: any) => {
       assert(k !== undefined, 'make-vector not given a size')
       assert(fill === undefined, 'make-vector fill option not implemented')
-      const rv = new Vector(Array(k));
-      return rv
+      const arr = Array.from<Form>(k).fill(fill);
+      return new Vector(arr);
     });
-    mkNativeProc(env, 'vector', ['args'], ([args]: any) => {
+    mkNativeProc(env, 'vector', 'args', (args: any) => {
       return new Vector(args)
     });
     mkNativeProc(env, 'vector-length', ['vec'], ([vec]: any) => {
       assert(Util.isVec(vec), `vector-length expected a Vector. Got: ${typeof vec}`)
-      return (<Vector>vec).data.length
+      return vec.data.length
     });
     mkNativeProc(env, 'vector-ref', ['vec', 'k'], ([vec, k]: any) => {
       assert(Util.isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
       assert(Util.isNum(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
-      return (<Vector>vec).data[k.value]
+      return vec.data[k]
     });
     mkNativeProc(env, 'vector-set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any) => {
       assert(Util.isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
       assert(Util.isNum(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
       assert(obj !== undefined, `vector-ref [arg(3)] is undefined`)
-      return (<Vector>vec).data[k.value] = obj
+      return vec.data[k] = obj
     });
     mkNativeProc(env, 'vector->list', ['vec'], ([vec]: any) => {
       assert(Util.isVec(vec), `vector-list expected a Vector. Got: ${typeof vec}`)
-      return (<Vector>vec).data
+      return list(...vec.data)
     });
     mkNativeProc(env, 'list->vector', ['list'], ([list]: any) => {
       assert(Util.isPair(list), `list->vector expected a list. Got: ${typeof list}`)
@@ -641,9 +672,14 @@ export async function addGlobals(
     mkNativeProc(env, 'procedure?', ['obj'], ([obj]: any) => {
       return Util.toL(isProc(obj) || isNativeProc(obj))
     });
-    // procedure: apply proc arg1 ... args
+    mkNativeProc(env, 'apply', 'args', async (args_: any, env) => {
+      const [proc, args] = args_
+      assert(Util.isCallable(proc), 'called apply with a non procedure')
+      assert(Util.isList(args), 'called apply with a non procedure')
+      return await proc.call(args, env)
+    });
     mkNativeProc(env, 'map', ['proc', '.', 'args'], async ([proc, ...lists]: any) => {
-      assert(Array.isArray(lists) && lists.length >= 1 && lists.every((l: any) => Util.isPair(l)), 'error 3823489')
+      assert(Array.isArray(lists) && lists.length >= 1 && lists.every(Util.isPair), 'error 3823489')
       assert(Util.isCallable(proc), 'error 823746')
       const first = lists[0]
       assert(Util.isPair(first), 'error 1364')

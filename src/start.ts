@@ -21,8 +21,14 @@ import { createEnvironment } from './env';
 
   // await execute('(repl)', env)
 
-  await execute('(load "/tests/runner.scm")', env);
+  await execute('(load "tests/runner.scm")', env);
 
+  // await execute('(load "samples/scratch.scm")', env)
+  // await execute('(load "samples/do.scm")', env)
+  // await execute('(load "samples/let.scm")', env)
+
+  // await execute('(load "samples/quotes.scm")', env);
+  // await execute('(load "samples/begin.scm")', env);
   // Lisp.execute('(begin (write-char #\\() (newline))', env)
   // Lisp.execute('(display (read (open-input-string "hello world")))', env)
 
@@ -30,12 +36,10 @@ import { createEnvironment } from './env';
   // Lisp.execute('(load "tests/spec.scm")', env)
   // Lisp.execute('(load "tests/r5rs.scm")', env)
   // Lisp.execute('(load "samples/fac.scm")', env)
-  // Lisp.execute('(load "samples/do.scm")', env)
   // Lisp.execute('(load "samples/hygiene.scm")', env)
   // Lisp.execute('(load "samples/assoc.scm")', env)
   // await execute('(load "samples/cond.scm")', env)
   // Lisp.execute('(load "samples/repl.scm")', env)
-  // await execute('(load "samples/let.scm")', env)
   // await execute('(load "samples/pair.scm")', env)
   // await execute('(load "samples/letrec.scm")', env)
   // await execute('(load "samples/macro.scm")', env)

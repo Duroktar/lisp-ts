@@ -15,6 +15,7 @@ export class Num {
     public radix?: string,
     public precision?: string,
   ) {
+    assert(typeof value === 'string' || typeof value === 'number', 'Invalid Num type: ' + typeof value)
     this.value = typeof value === 'string' ? parseInt(value) : value
     this.repr = typeof value === 'string' ? value : String(value)
   }

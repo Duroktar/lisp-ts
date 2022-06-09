@@ -31,4 +31,4 @@ export const isNativeProc = (x: unknown): x is NativeProc => x instanceof Native
 export const isProc = (x: unknown): x is Procedure => x instanceof Procedure;
 
 export type Callable = Procedure | NativeProc | SyntaxRulesDef
-export type Proc = Callable | Function
+export type Closure = Callable | Function

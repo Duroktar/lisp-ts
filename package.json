@@ -16,7 +16,7 @@
     "repl": "ts-node src/repl.ts",
     "test:dev": "nodemon --config tests/nodemon.json src/start.ts",
     "test": "jest",
-    "start": "ts-node src/start.ts",
+    "start": "node dist/start.js",
     "start:dev": "nodemon --config tests/nodemon.json dist/start.js"
   },
   "devDependencies": {

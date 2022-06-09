@@ -2,12 +2,13 @@
 /* References: An Optimized R5RS Macro Expander - Jay McCarthy */
 
 import assert from "assert";
-import { eqC, isAtom, isChar, isEmpty, isIdent, isList, isNum, isPair, isString, isSym, isVec, zip, zipUp } from "../utils";
+import { format } from "util";
+import { append, eqC, isAtom, isChar, isEmpty, isIdent, isList, isNum, isPair, isString, isSym, isVec, zip } from "../utils";
 import { Env } from "./env";
 import { InputError, MatchError } from "./error";
-import type { Form, List } from "./forms";
-import { car, cdr } from "./lisp";
-import { list, Pair } from "./pair";
+import type { Atom, Form, List } from "./forms";
+import { cadr, car, cdr } from "./lisp";
+import { cons, list, Pair } from "./pair";
 import { Sym } from "./sym";
 import { toString, toStringSafe } from "./toString";
 
@@ -74,6 +75,7 @@ export class SyntaxRulesDef {
     // 2. Create fresh bindings for each template identifier in the corresponding
     //    template that does not refer to a pattern identifier.
     const outputTemplate = this.bindTemplateIds(template, identifiers, patternEnv, gen)
+    // const outputTemplate = this.bindTemplateIdsNew(template, identifiers, patternEnv, gen)
 
     this.print(`Rewritten Template (${gen}):`.cyan, toStringSafe(outputTemplate))
 
@@ -84,6 +86,7 @@ export class SyntaxRulesDef {
     // 3. Create a new environment that merges the pattern environment returned
     //   from the pattern match with the regular identifier environment created
     //   in step 2.
+
     const entries = zip(...identifiers.aliases.entries())
     const symbols = entries.map((e: any) => list(...e.map(Sym)))
     const mergedEnv = new Env(symbols[0], symbols[1], patternEnv)
@@ -185,10 +188,8 @@ export class SyntaxRulesDef {
       #8 - P is a datum and F is equal to P in the sense of the equal?
            procedure.
     */
-    let a = toString(pattern)
-    let b = toString(form)
-    this.print(`${' '.repeat(indent)}trying to match pattern:`.cyan.bold, a)
-    this.print(`${' '.repeat(indent)} - target matching form:`.yellow, b)
+    this.print(`${' '.repeat(indent)}trying to match pattern:`.cyan.bold, toString(pattern))
+    this.print(`${' '.repeat(indent)} - target matching form:`.yellow, toString(form))
 
     // #1 - P is a non-literal identifier
     if (isIdent(pattern) && !this.isLiteral(pattern)) {
@@ -234,7 +235,8 @@ export class SyntaxRulesDef {
         const fTail = form.slice(pHead.length);
         if (isList(fTail) && isEmpty(fTail)) {
           if (isAtom(pTail)) {
-            // this.match(EMPTY, pTail, env);
+            // console.log('skipping pTail: %s', toStringSafe(pTail))
+            // this.match(fTail, pTail, env, indent + this.indentSize);
           }
           else if (isChar(pTail)) {
             assert(false, 'should not be a character here')
@@ -253,7 +255,7 @@ export class SyntaxRulesDef {
           }
         }
         else {
-          fTail.forEach(f => {
+          fTail.forEach((f: any) => {
             this.match(f, pTail, env, indent + this.indentSize)
           });
         }
@@ -315,9 +317,153 @@ export class SyntaxRulesDef {
 
     return new IdentifierTypes(templateIds, patternIds, literalIds);
   }
+
+  //#region [ rgba(0, 0, 50, 0.2) ]
+  bindTemplateIdsNew(template: Form, ids: IdentifierTypes, env: Env, gen: number, indent = 0): Form {
+    if (!isEmpty(template))
+      this.print(`${' '.repeat(indent)}binding template ids:`.cyan.bold, toString(template), `(type: ${typeof template})`.dim)
+    else
+      return template
+
+    if (!isPair(template)) {
+      if (isString(template) || isNum(template)) {
+        this.print(`${' '.repeat(indent)}1 -bound template to:`.cyan, toStringSafe(template))
+        return template
+      }
+
+      else if (ids.isLitId(template)) {
+        const rv = env.getFrom(template);
+        this.print(`${' '.repeat(indent)}2 -bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        return rv
+      }
+
+      else if (ids.isPatId(template)) {
+        const rv = env.getFrom(template);
+        this.print(`${' '.repeat(indent)}3 -bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        return rv
+      }
+      else {
+        assert(ids.isTplId(template), `Template identifier expected. Got: ${toStringSafe(template)}`)
+
+        const name = toString(template);
+        const denotation = new Den(name, gen);
+
+        env.mergeFrom(denotation.toAtom(), template);
+        ids.setAlias(denotation.toString(), name)
+
+        const rv = denotation.toAtom();
+        this.print(`${' '.repeat(indent)}4 -bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        return rv
+      }
+    }
+    else /* List */ {
+      const head = car(template)
+      const tail = cdr(template)
+      const isSpread = isPair(tail) && car(tail) === Sym('...')
+      const isListSpread = isSpread && isPair(head)
+
+      if (isSpread) {
+        const items = []
+
+        if (isListSpread) {
+          // list of *lists* of variable lookups spread into the result (0 or more)
+          // ex: ((name val) ...) -> res: ((n1 v1) (n2 v2) <etc..>)
+          const mapped = this.bindTemplateIdsNew(head, ids, env, gen, indent + 1)
+
+          const visitAtom = (atom: Atom) => {
+            // this.print(`${' '.repeat(indent)}visiting atom:`.yellow.bold, toString(atom))
+            return atom
+          }
+
+          const visitList = (value: List) => {
+            // this.print(`${' '.repeat(indent)}visiting list:`.yellow.bold, toString(value))
+            if (isEmpty(value))
+              return value
+            // const mapped: Pair = (<Pair>item).map(i => _bindTemplateIds(i, ids, env, gen, indent + this.indentSize));
+            const maxLen: number = value
+              .map(i => isPair(i)   ? i.length :
+                        isAtom(i)   ? 1 :
+                        assert(false, `Invalid i ${i}`)
+              )
+              .toArray()
+              .reduce<number>((a: any, b: any) => Math.max(a, b), 0)
+
+            const result: any[] = []
+
+            for (let i = 0; i < maxLen; i++) {
+              const vals = value.map(m =>
+                isPair(m)   ? m.at(i) :
+                isAtom(m)   ? m :
+                assert(false, `Invalid m ${m}`)
+              )
+              result.push(list(...vals))
+            }
+
+            return list(...result)
+          }
+
+          const result =
+            isList(mapped) ? visitList(mapped) :
+            isAtom(mapped) ? visitAtom(mapped) :
+            mapped
+
+          items.push(result)
+        }
+        else {
+          // list of variable lookups spread into the result (0 or more)
+          // ex: (name ...) -> res: (n1 n2 <etc..>)
+          const mapped = this.bindTemplateIdsNew(head, ids, env, gen, indent + this.indentSize);
+          if (isPair(mapped)) {
+            const arr = mapped.toArray();
+            items.push(...arr)
+          }
+        }
+
+        if (items.length === 0) {
+          return list()
+        }
+        else {
+          const rv = list(...items)
+
+          if (rv.length !== template.length) {
+            if (template.at(-1) !== Sym('...'))
+              this.print(`${' '.repeat(indent)}5 -bound template to:`.red, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+            else
+              this.print(`${' '.repeat(indent)}6 -bound template to:`.red.dim, toStringSafe(rv), `(type: ${typeof rv}, ellipses?: ${isSpread}, list-spread?: ${isListSpread})`.dim)
+          } else {
+            this.print(`${' '.repeat(indent)}7 -bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+          }
+
+          return rv
+        }
+      }
+      else {
+        const expr = this.bindTemplateIdsNew(head, ids, env, gen, indent + 1)
+        const rest = this.bindTemplateIdsNew(tail, ids, env, gen, indent + 1)
+
+        const rv = isPair(expr) ? isPair(rest) ? expr.append(rest) : expr : cons(expr, rest)
+
+        if (rv.length !== template.length) {
+          if (template.at(-1) !== Sym('...'))
+            this.print(`${' '.repeat(indent)}8 -bound template to:`.red, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+          else
+            this.print(`${' '.repeat(indent)}9 -bound template to:`.red.dim, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        } else {
+          this.print(`${' '.repeat(indent)}10-bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        }
+
+        return rv
+      }
+    }
+  } // #endregion
+
+  // #region [ rgba(0, 25, 0, 0.2) ]
   bindTemplateIds(template: Form, ids: IdentifierTypes, env: Env, gen: number): Form {
-    const _rewriteTemplate = (template: Form, ids: IdentifierTypes, env: Env, gen: number): Form => {
-      if (isList(template) && !isEmpty(template)) {
+    const _bindTemplateIds = (template: Form, ids: IdentifierTypes, env: Env, gen: number, indent = 0): Form => {
+      this.print(`${' '.repeat(indent)}binding template ids:`.cyan.bold, toString(template), `(type: ${typeof template})`.dim)
+      // if (toString(template) === 'body2')
+      //   debugger
+      if (isPair(template)) {
         let items: any[] = []
 
         for (let idx = 0; idx < template.length; idx++) {
@@ -325,32 +471,56 @@ export class SyntaxRulesDef {
           const isSpread = template.at(idx+1) === Sym('...')
           const isListSpread = isSpread && isPair(item)
 
-          // let a = toString(item)
           if (isSpread) {
             if (isListSpread) {
               // list of *lists* of variable lookups spread into the result (0 or more)
               // ex: ((name val) ...) -> res: ((n1 v1) (n2 v2) <etc..>)
-              const mapped: Pair = (<Pair>item).map(i => _rewriteTemplate(i, ids, env, gen));
-              const maxLen: number = mapped
-                .map(i => isPair(i) ? i.length :
-                          isSym(i)  ? 1 :
-                          assert(false)
-                    ).toArray().reduce((a: any, b: any) => Math.max(a, b), 0) as number
+              const mapped = _bindTemplateIds(item, ids, env, gen, indent + this.indentSize);
+              // assert(isPair(mapped), 'AHHHHHHHHHH!!!!!!!!!!!!!')
 
-              const result: any[] = []
-              for (let i = 0; i < maxLen; i++) {
-                const vals = mapped.map(m =>
-                  isPair(m) ? m.at(i) :
-                  isSym(m)  ? m :
-                  assert(false)
-                )
-                result.push(list(...vals))
+              const visitAtom = (atom: Atom) => {
+                // this.print(`${' '.repeat(indent)}visiting atom:`.yellow.bold, toString(atom))
+                return atom
               }
-              items.push(list(...result))
-            } else {
+
+              const visitList = (value: List) => {
+                // this.print(`${' '.repeat(indent)}visiting list:`.yellow.bold, toString(value))
+                if (isEmpty(value))
+                  return value
+                // const mapped: Pair = (<Pair>item).map(i => _bindTemplateIds(i, ids, env, gen, indent + this.indentSize));
+                const maxLen: number = value
+                  .map(i => isPair(i)   ? i.length :
+                            isAtom(i)   ? 1 :
+                            assert(false, `Invalid i ${i}`)
+                  )
+                  .toArray()
+                  .reduce<number>((a: any, b: any) => Math.max(a, b), 0)
+
+                const result: any[] = []
+
+                for (let i = 0; i < maxLen; i++) {
+                  const vals = value.map(m =>
+                    isPair(m)   ? m.at(i) :
+                    isAtom(m)   ? m :
+                    assert(false, `Invalid m ${m}`)
+                  )
+                  result.push(list(...vals))
+                }
+
+                return list(...result)
+              }
+
+              const result =
+                isList(mapped) ? visitList(mapped) :
+                isAtom(mapped) ? visitAtom(mapped) :
+                mapped
+
+              items.push(result)
+            }
+            else {
               // list of variable lookups spread into the result (0 or more)
               // ex: (name ...) -> res: (n1 n2 <etc..>)
-              const mapped = _rewriteTemplate(item, ids, env, gen);
+              const mapped = _bindTemplateIds(item, ids, env, gen, indent + this.indentSize);
               if (isPair(mapped)) {
                 const arr = mapped.toArray();
                 items.push(...arr)
@@ -358,8 +528,10 @@ export class SyntaxRulesDef {
             }
             idx++
           }
-          else if (isString(item) || isNum(item))
+
+          else if (isString(item) || isNum(item)) {
             items.push(item)
+          }
 
           else if (ids.isPatId(item)) {
             const arr = env.getFrom<any>(item);
@@ -372,7 +544,7 @@ export class SyntaxRulesDef {
           }
 
           else {
-            const parsed = _rewriteTemplate(item, ids, env, gen)
+            const parsed = _bindTemplateIds(item, ids, env, gen, indent + this.indentSize)
 
             if (!isPair(parsed)) {
               const name = toString(item)
@@ -381,26 +553,41 @@ export class SyntaxRulesDef {
               ids.setAlias(denotation.toString(), name)
             }
 
-            if (Array.isArray(parsed))
-              debugger
             items.push(parsed)
           }
         }
 
-        return list(...items)
+        const rv = list(...items);
+        if (rv.length !== template.length) {
+          if (template.at(-1) !== Sym('...'))
+            this.print(`${' '.repeat(indent)}-  bound template to:`.red, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+          else
+            this.print(`${' '.repeat(indent)}-  bound template to:`.red.dim, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        } else {
+          this.print(`${' '.repeat(indent)}-  bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        }
+        return rv
       }
 
-      if (isString(template) || isNum(template))
-        return env.getFrom(template)
+      if (isString(template) || isNum(template)) {
+        this.print(`${' '.repeat(indent)}-  bound template to:`.cyan, toStringSafe(template))
+        return template
+      }
 
-      if (ids.isLitId(template))
-        return env.getFrom(template)
+      if (ids.isLitId(template)) {
+        const rv = env.getFrom(template);
+        this.print(`${' '.repeat(indent)}-  bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        return rv
+      }
 
       // 2. Create fresh bindings for each template identifier in the
       //    corresponding template that does not refer to a pattern identifier.
 
-      if (ids.isPatId(template))
-        return env.getFrom(template)
+      if (ids.isPatId(template)) {
+        const rv = env.getFrom(template);
+        this.print(`${' '.repeat(indent)}-  bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
+        return rv
+      }
 
       assert(ids.isTplId(template), `Template identifier expected. Got: ${toStringSafe(template)}`)
       const name = toString(template);
@@ -410,25 +597,28 @@ export class SyntaxRulesDef {
       env.mergeFrom(denotation.toAtom(), template);
       ids.setAlias(denotation.toString(), name)
 
-      return denotation.toAtom()
-    }
-
-    if (isList(template)) {
-      const rv = _rewriteTemplate(template, ids, env, gen);
-      if (Array.isArray(rv))
-        debugger
+      const rv = denotation.toAtom();
+      this.print(`${' '.repeat(indent)}-  bound template to:`.cyan, toStringSafe(rv), `(type: ${typeof rv})`.dim)
       return rv
     }
 
-    const rewritten = _rewriteTemplate(template, ids, env, gen)
-    if (isPair(rewritten))
-      return car(rewritten)
+    if (isList(template)) {
+      const rv = _bindTemplateIds(template, ids, env, gen);
+      return rv
+    }
+
+    const rewritten = _bindTemplateIds(template, ids, env, gen)
+    if (isPair(rewritten)) {
+      return car(rewritten);
+    }
     assert(rewritten, `Error rewritting template: ${toStringSafe(template)}`)
     return rewritten
-  }
-  generateOutput(template: Form, ids: IdentifierTypes, env: Env): Form {
+  } // #endregion
+
+  generateOutput(template: Form, ids: IdentifierTypes, env: Env, indent = 0): Form {
+    this.print(`${' '.repeat(indent)}generating output: `.magenta.bold, toString(template), `(type: ${typeof template})`.dim)
     if (isPair(template)) {
-      return template.map(t => this.generateOutput(t, ids, env))
+      return template.map(t => this.generateOutput(t, ids, env, indent + this.indentSize))
     }
     else {
       if (Den.isDenotation(template)) {
@@ -476,7 +666,7 @@ class Den /* Denotation */ {
       return false
 
     const n = parseInt(gen, 10);
-    return isNum(n)
+    return typeof n === 'number'
   }
 }
 

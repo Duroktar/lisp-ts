@@ -14,9 +14,6 @@ export const quote = (expr: Form): Form => {
   assert(Utils.isPair(expr), 'quote operates on a pair');
   return cdr(expr);
 }
-export const atom = (expr: Form): Form => {
-  return Utils.toL(Utils.isAtom(expr));
-}
 
 export const eq = (x: Form, y: Form): Form => {
   return Utils.toL(Utils.isPair(x) ? x.equal(y) : x === y);

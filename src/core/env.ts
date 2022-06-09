@@ -2,7 +2,7 @@ import assert from "assert";
 import { isSym, isPair } from "../utils";
 import { toString } from "./toString";
 import * as Errors from "./error";
-import type { Proc } from "./proc";
+import type { Closure } from "./proc";
 import { Sym } from "./sym";
 import type { Atom, Form } from "./forms";
 import { EMPTY } from "./const";
@@ -49,27 +49,27 @@ export class Env {
     }
 
   }
-  get<T extends Form | Proc>(name: string): T {
+  get<T extends Form | Closure>(name: string): T {
     const result = this.inner[name] ?? this.outer?.get(name);
     if (result === undefined) {
       throw new Errors.UndefinedVariableError(String(name));
     }
     return result as T;
   }
-  getFrom<T extends Form | Proc>(expr: Form): T {
+  getFrom<T extends Form | Closure>(expr: Form): T {
     return this.get(toString(expr)) as T
   }
-  getOrDefault<T extends Form | Proc, R = T>(name: string, d?: R): T | R {
+  getOrDefault<T extends Form | Closure, R = T>(name: string, d?: R): T | R {
     const result = this.inner[name] ?? this.outer?.getOrDefault(name);
     return (result ?? d) as any;
   }
-  set(name: string, value: Form | Proc): void {
+  set(name: string, value: Form | Closure): void {
     this.inner[name] = value;
   }
-  setFrom(expr: Form, value: Form | Proc): void {
+  setFrom(expr: Form, value: Form | Closure): void {
     this.inner[toString(expr)] = value;
   }
-  mergeFrom(expr: Form, value: Form | Proc): void {
+  mergeFrom(expr: Form, value: Form | Closure): void {
     if (!this.hasFrom(expr)) {
       this.setFrom(expr, list(value));
       return
@@ -81,11 +81,11 @@ export class Env {
       this.setFrom(expr, cons(merger, value))
     }
   }
-  update(name: string, value: Form | Proc): void {
+  update(name: string, value: Form | Closure): void {
     let env = this.find(name)
     if (env) { env.set(name, value) }
   }
-  updateFrom(expr: Form, value: Form | Proc): void {
+  updateFrom(expr: Form, value: Form | Closure): void {
     return this.update(toString(expr), value)
   }
   find(name: string): Env | undefined {
@@ -137,5 +137,5 @@ export class Env {
   entries(): [string, Form][] {
     return this.map(([key, value]) => [key, value])
   }
-  private inner: Record<Atom, Form | Proc>;
+  private inner: Record<Atom, Form | Closure>;
 }

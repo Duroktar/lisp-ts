@@ -22,7 +22,7 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'):
   if (isNone(expr))
     return expr;
   if (isNum(expr))
-    return expr.repr;
+    return String(expr);
   if (isEmpty(expr))
     return '()';
   if (expr instanceof TSchemeModule) {

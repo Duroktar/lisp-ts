@@ -1,24 +1,18 @@
+import assert from "assert";
+import { format } from "util";
 import { Character } from "./core/char";
 import { EMPTY, FALSE, isPeculiarIdentifier, isSpecialInitial, isSpecialSubsequent, TRUE } from "./core/const";
-import { Sym, SymTable } from "./core/sym";
 import type { Atom, Form, List } from "./core/forms";
+import { car, cdr } from "./core/lisp";
+import { cons, list, Pair } from "./core/pair";
+import { isNativeProc, isProc, NativeProc, Procedure } from "./core/proc";
+import { Sym, SymTable } from "./core/sym";
+import { isSyntaxRulesDef, SyntaxRulesDef } from "./core/syntax";
 import { toString } from "./core/toString";
 import { Vector } from "./core/vec";
-import { whitespace, identifier, initial, letter, subsequent, digit, character } from "./syntax";
-import { Pair, list } from "./core/pair";
-import { NativeProc, isNativeProc, isProc, Procedure } from "./core/proc";
-import { SyntaxRulesDef, isSyntaxRulesDef } from "./core/syntax";
-import { Num } from "./core/num";
+import { character, digit, identifier, initial, letter, subsequent, whitespace } from "./syntax";
 
 export type Predicate = (...args: any[]) => boolean
-
-export const assert = <T extends any>(p: T, msg = ''): T extends false ? never : T => {
-  if (p !== true) {
-    throw new Error(msg || `assert error: ${p}`);
-  } else {
-    return p as any;
-  }
-};
 
 type Exists<P> = Exclude<P, undefined | null>;
 
@@ -38,32 +32,30 @@ export const expect = <E, P extends boolean | ((e: E) => boolean)>(e: E, p: P, m
   }
 };
 
-export const isList = (x: unknown): x is Pair | symbol => (isPair(x) && x.isList()) || isEmpty(x);
-export const isPair = (x: unknown): x is Pair => Pair.is(x);
-export const isAtom = (x: unknown): x is Atom => isSym(x);
-export const isSym = (x: unknown): x is symbol => typeof x === 'symbol';
-export const isNum = (x: unknown): x is Num => x instanceof Num;
-export const isVec = (x: unknown): x is Vector => x instanceof Vector;
-export const isString = (c: any): c is string => typeof c === 'string';
-export const isChar = (x: unknown): x is Character => x instanceof Character;
-export const isEmpty = (x: unknown): x is symbol => x === EMPTY;
+export const isList = (x: Form): x is List => (isPair(x) && x.isList()) || isEmpty(x);
+export const isPair = (x: Form): x is Pair => Pair.is(x);
+export const isAtom = (x: Form): x is Atom => isSym(x) || isString(x) || isNum(x);
+export const isSym = (x: Form): x is symbol => typeof x === 'symbol';
+export const isNum = (x: Form): x is number => typeof x === 'number';
+export const isVec = (x: Form): x is Vector => x instanceof Vector;
+export const isString = (c: Form): c is string => typeof c === 'string';
+export const isChar = (x: Form): x is Character => x instanceof Character;
+export const isEmpty = (x: Form): x is symbol => x === EMPTY;
 export const isNone = (x: unknown): x is undefined | null => x === undefined || x === null;
-export const isExpr = (x: unknown): x is Form => isPair(x) || isAtom(x) || isString(x) || isNum(x);
-export const isConst = (x: unknown) => isNum(x) || isString(x)
-export const isIdent = (x: unknown): x is symbol => isSym(x) && !isEmpty(x)
+export const isExpr = (x: Form): x is Form => isPair(x) || isAtom(x);
+export const isConst = (x: Form) => isNum(x) || isString(x) || isChar(x)
+export const isIdent = (x: Form): x is symbol => isSym(x) && !isEmpty(x)
 
-export const isCallable = (x: unknown): x is Procedure | NativeProc | SyntaxRulesDef => {
+export const isCallable = (x: Form): x is Procedure | NativeProc | SyntaxRulesDef => {
   return isProc(x) || isNativeProc(x) || isSyntaxRulesDef(x);
 }
 
-export const isEqv = (x: unknown, y: unknown): boolean => {
-  if (isNum(x) && isNum(y))
+export const isEqv = (x: Form, y: Form): boolean => {
+  if (isChar(x))
     return x.equal(y)
-  if (isChar(x) && isChar(y))
-    return x.displayText === y.displayText
   return (x === y);
 }
-export const isEq = (x: unknown, y: unknown): boolean => {
+export const isEq = (x: Form, y: Form): boolean => {
   return isEqv(x, y)
 }
 export const isEqual = (a1: Form, b1: Form): boolean => {
@@ -93,7 +85,7 @@ export const zip = (...rows: Form[][]) => {
 }
 
 export const zipUp = (...rows: (Form[] | Form)[]) => {
-  if (isEmpty(rows)) return []
+  if (rows.length === 0) return []
   const h: ProxyHandler<any> = {
     get(target, prop) {
       switch (prop) {
@@ -194,4 +186,17 @@ export const debounce = <T extends Function>(func: T, timeout = 300) => {
     clearTimeout(timer!);
     timer = setTimeout(() => { func(...args); }, timeout);
   }) as any as T;
+}
+
+export function append(first: List, ...rest: Form[]): List {
+  if (rest.length === 0) return first
+  if (isEmpty(first)) return append.apply(null, <any>rest)
+  return cons(car(first), append(<List>cdr(first), append.apply(null, <any>rest)))
+}
+
+export const push = (lst: List, item: any): List => {
+  if (isEmpty(lst))
+    return list(item)
+  else
+    return lst.push(item)
 }

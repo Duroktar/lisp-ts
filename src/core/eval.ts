@@ -2,7 +2,7 @@ import assert from "assert";
 import { isSym, isTruthy, isPair, isList, isEmpty } from "../utils";
 import { EMPTY, UNDEF } from "./const";
 import { Env } from "./env";
-import { atom, cadddr, caddr, cadr, car, cdr } from "./lisp";
+import { cadddr, caddr, cadr, car, cdr } from "./lisp";
 import { isNativeProc, isProc, Procedure } from "./proc";
 import { SymTable } from "./sym";
 import type { Form } from "./forms";
@@ -16,7 +16,6 @@ export const evaluate = async (e: Form, a: Env): Promise<Form> => {
     else if (!isPair(e)) return e ?? EMPTY;
     else switch (e.car) {
       case SymTable.QUOTE: return cadr(e);
-      case SymTable.ATOM: return atom(await evaluate(cadr(e), a));
       case SymTable.CAR: return car(await evaluate(cadr(e), a));
       case SymTable.CDR: return cdr(await evaluate(cadr(e), a));
       case SymTable.LAMBDA: {

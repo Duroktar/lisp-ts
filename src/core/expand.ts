@@ -6,7 +6,7 @@ import { evaluate } from "./eval";
 import type { Form } from "./forms";
 import { caaddr, caar, caddr, cadr, car, cddr, cdr } from "./lisp";
 import { cons, list, Pair } from "./pair";
-import { isProc, Proc } from "./proc";
+import { isProc, Closure } from "./proc";
 import { Sym, SymTable } from "./sym";
 import { isSyntaxRulesDef, SyntaxRulesDef } from "./syntax";
 import { toString, toStringSafe } from "./toString";
@@ -61,7 +61,7 @@ export const expand = async (e: Form, topLevel = false, lexicalEnv: Env): Promis
     return await expandQuasiquote(cadr(e));
   }
   else if (lexicalEnv.hasFrom(car(e))) {
-    const proc = lexicalEnv.getFrom<Proc>(car(e));
+    const proc = lexicalEnv.getFrom<Closure>(car(e));
     if (Utils.isCallable(proc)) {
       const result = await proc.call(cdr(e), lexicalEnv);
       return await expand(result, false, lexicalEnv);
@@ -119,6 +119,10 @@ async function expandLambda(e: Pair, env: Env): Promise<Pair> {
   const expression = cddr(e)
   const allAtoms = Utils.isPair(params) && params.every(Utils.isSym);
   const improper = (Utils.isPair(params) && !params.isList()) && params.dottedEvery(Utils.isSym)
+  if (!(allAtoms || improper || Utils.isSym(params))) {
+    let repr = toString(e)
+    debugger
+  }
   assert(allAtoms || improper || Utils.isSym(params), `Invalid lambda args. Expected a list of atoms, an improper list of atoms, or a single atom but instead got: ${toString(params)}, ${toString(e)}`);
   assert(Pair.is(expression) && expression.length >= 1, `lambda expression empty`);
   const body = (expression.length > 1) && cons(SymTable.BEGIN, expression)

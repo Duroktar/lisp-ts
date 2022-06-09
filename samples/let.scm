@@ -7,7 +7,7 @@
      ((lambda (name ...) body1 body2 ...)
       val ...))))
 
-(let ([x (+ 2 2)] [y 'hat]) (writeln (+ x x)))
+(let ([x 'first] [y 'second]) (eqv? x y))
 
 ; (let ((r (- x (* y q)))) (if (eqv? r 0) 0 (if (eqv? (< x 0) (< y 0)) r (+ r y))))
 

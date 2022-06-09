@@ -1,15 +1,9 @@
 import { Character } from "../core/char";
-import { EMPTY } from "../core/const";
 import { tokenize } from "../core/lisp";
-import { Num } from "../core/num";
-import { cons, list } from "../core/pair";
+import { list } from "../core/pair";
 import { Sym } from "../core/sym";
 import { Vector } from "../core/vec";
 import { createEnvironment } from "../env";
-
-let ONE   = Num.ofInt(1),
-    TWO   = Num.ofInt(2),
-    THREE = Num.ofInt(3);
 
 describe("(read) tests", () => {
   test("(read) character", async () => {
@@ -35,7 +29,7 @@ describe("(read) tests", () => {
   test("(read) number", async () => {
     const env = await createEnvironment()
     expect(await tokenize("3", env))
-      .toStrictEqual(THREE);
+      .toStrictEqual(3);
   });
 
   test("(read) symbol", async () => {
@@ -54,7 +48,7 @@ describe("(read) tests", () => {
   test("(read) list", async () => {
     const env = await createEnvironment()
     const actual = await tokenize("(1 2 3)", env);
-    const expected = list(ONE, TWO, THREE);
+    const expected = list(1, 2, 3);
     expect(expected.equal(actual)).toBe(true);
   });
 
@@ -62,7 +56,7 @@ describe("(read) tests", () => {
     const env = await createEnvironment()
     const result: Vector = (await tokenize("#(1 2 3)", env)) as any;
     expect(result).toBeInstanceOf(Vector);
-    expect(result.data).toStrictEqual([ONE, TWO, THREE]);
+    expect(result.data).toStrictEqual([1, 2, 3]);
   });
 
   test("(read) (eq 'x 'y) => (eq (quote x) (quote y))", async () => {

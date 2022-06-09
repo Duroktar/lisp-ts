@@ -101,6 +101,8 @@ export async function start(prompt: string, options: TSchemeReplOptions) {
       try {
         const x = await Lisp.parse(cmd, env)
         const val = await evaluate(x, env.env)
+        if (Array.isArray(val))
+          debugger
         callback(null, toString(val))
       } catch (err) {
         // if (err instanceof Errors.RuntimeWarning) {
