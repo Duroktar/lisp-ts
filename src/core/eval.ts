@@ -1,15 +1,16 @@
-import assert from "assert";
-import { isSym, isTruthy, isPair, isList, isEmpty } from "../utils";
+import { isEmpty, isList, isPair, isSym, isTruthy } from "../guard";
+import { iEnv } from "../interface/iEnv";
+import { assert } from "../utils";
 import { EMPTY, UNDEF } from "./const";
-import { Env } from "./env";
-import { cadddr, caddr, cadr, car, cdr } from "./lisp";
-import { isNativeProc, isProc, Procedure } from "./proc";
-import { SymTable } from "./sym";
+import { Env } from "./data/env";
 import type { Form } from "./forms";
-import { toString, toStringSafe } from "./toString";
-import { list, Pair } from "./pair";
+import { cadddr, caddr, cadr, car, cdr } from "./lisp";
+import { list, Pair } from "./data/pair";
+import { isNativeProc, isProc, Procedure } from "./data/proc";
+import { SymTable } from "./data/sym";
+import { toString } from "./toString";
 
-export const evaluate = async (e: Form, a: Env): Promise<Form> => {
+export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
   while (true) {
     // console.log('evaluating term:', toStringSafe(e));
     if (isSym(e)) return a.getFrom<Form>(e);
@@ -67,7 +68,7 @@ export const evaluate = async (e: Form, a: Env): Promise<Form> => {
   }
 };
 
-const evaluateList = async (e: Form, a: Env): Promise<Form> => {
+const evaluateList = async (e: Form, a: iEnv): Promise<Form> => {
   assert(isList(e), 'evaluateList passed a non list value')
   if (isEmpty(e)) return e
   let rv = []

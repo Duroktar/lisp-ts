@@ -1,11 +1,10 @@
 import 'colors';
 import { execute } from './core/lisp';
-import { createEnvironment } from './env';
+import { createServerWorld } from './world/server';
 // import * as Lisp from './core/lisp'
 
-
 (async () => {
-  const env = await createEnvironment();
+  const env = await createServerWorld();
 
   // const t = await tokenize(`(if (> 3 2) 'yes 'no)`, env)
   // console.log('tokenized:', toString(t))
@@ -19,9 +18,9 @@ import { createEnvironment } from './env';
   // await execute('(debug-macro! #t)', env)
   // await execute('(load "stdlib/r5rs.scm")', env)
 
-  // await execute('(repl)', env)
+  await execute('(repl)', env)
 
-  await execute('(load "tests/runner.scm")', env);
+  // await execute('(load "tests/runner.scm")', env);
 
   // await execute('(load "samples/scratch.scm")', env)
   // await execute('(load "samples/do.scm")', env)

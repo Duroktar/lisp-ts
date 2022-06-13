@@ -1,0 +1,22 @@
+import { Form } from "../core/forms"
+import { Closure } from "../core/data/proc"
+
+export interface iEnv {
+  get<T extends Form | Closure>(name: string): T
+  getFrom<T extends Form | Closure>(expr: Form): T
+  getOrDefault<T extends Form | Closure>(name: string, d?: any): T | any
+  set(name: string, value: Form | Closure): void
+  setFrom(expr: Form, value: Form | Closure): void
+  mergeFrom(expr: Form, value: Form | Closure): void
+  update(name: string, value: Form | Closure): void
+  updateFrom(expr: Form, value: Form | Closure): void
+  find(name: string): iEnv | undefined
+  has(name: string): boolean
+  hasFrom(expr: Form): boolean
+  size(): number
+  map<T>(fn: (args: [k: string, v: Form]) => T): T[]
+  merge(env: iEnv): iEnv
+  keys(): string[]
+  values(): Form[]
+  entries(): [string, Form][]
+}

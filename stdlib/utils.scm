@@ -1,0 +1,1 @@
+(define (pp obj) (string->symbol (colorized (format obj))))

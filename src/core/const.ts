@@ -1,5 +1,5 @@
 import type { specialInitial, specialSubsequent, peculiarIdentifier, syntacticKeyword, expressionKeyword } from "../syntax";
-import { Sym } from "./sym";
+import { Sym } from "./data/sym";
 
 export const EMPTY: symbol = Sym('()');
 export const NIL:   symbol = EMPTY;

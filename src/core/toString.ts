@@ -1,12 +1,11 @@
+import { isChar, isEmpty, isNone, isNum, isString, isSym, isVec } from "../guard";
 import { EMPTY, UNDEF } from "./const";
-import { TSchemeModule } from "./module";
-import { NativeProc, Procedure } from "./proc";
-import { SyntaxRulesDef } from "./syntax";
+import { Pair } from "./data/pair";
+import { NativeProc, Procedure } from "./data/proc";
+import { SyntaxRulesDef } from "./data/syntax";
 import { Form } from "./forms";
-import { isSym, isString, isNone, isNum, isEmpty, symName, isChar, isVec } from "../utils";
+import { TSchemeModule } from "./module";
 import { Port } from "./port";
-import { Pair } from "./pair";
-import { inspect } from "util";
 
 export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'): string => {
   if (expr === undefined)
@@ -26,7 +25,7 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'):
   if (isEmpty(expr))
     return '()';
   if (expr instanceof TSchemeModule) {
-    return `(module "${expr.basename}")`;
+    return `(module "${expr.displayName}")`;
   }
   if (expr instanceof NativeProc) {
     return `(nativefunc ${expr.name})`;
@@ -67,7 +66,6 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'):
 
   const err = new Error('fallthrough condition');
   console.log(`d'oh!`, expr)
-  console.log(inspect(expr))
   console.log(err.stack)
   throw err
 };

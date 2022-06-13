@@ -1,4 +1,3 @@
-import assert from 'assert';
 import { highlight } from 'cli-highlight';
 import colors from 'colors';
 import { InvalidArgumentError, program } from 'commander';
@@ -8,12 +7,14 @@ import getPath from 'platform-folders';
 import repl from 'pretty-repl';
 import { Recoverable, ReplOptions } from 'repl';
 import io from 'socket.io-client';
-import * as Errors from "./core/error";
+import * as Errors from "./core/data/error";
 import { evaluate } from './core/eval';
 import * as Lisp from "./core/lisp";
 import { toString } from "./core/toString";
-import { createEnvironment, Environment } from './env';
+import { createServerWorld } from './world/server';
+import { iWorld } from "./interface/iWorld";
 import * as Utils from "./utils";
+import * as isList from "./guard";
 
 const APPDATA = Utils.exists(getPath('appdata'), 'Error looking up appdata directory!');
 const HISTORY_FILE_PTH = join(APPDATA, 'lisp-ts', 'repl', 'history', '0.log');
@@ -27,7 +28,7 @@ type TSchemeReplOptions = {
   colors: boolean
 }
 
-export const initializeREPL = async (env: Environment, options: TSchemeReplOptions) => {
+export const initializeREPL = async (env: iWorld, options: TSchemeReplOptions) => {
 
   if (existsSync(HISTORY_FILE_PTH) === false) {
       mkdirSync(path.dirname(HISTORY_FILE_PTH), { recursive: true })
@@ -36,24 +37,33 @@ export const initializeREPL = async (env: Environment, options: TSchemeReplOptio
 
   await Lisp.execute(`(load "stdlib/r5rs.scm")`, env)
 
-  console.error(`Welcome to ${'lisp-ts'.blue} ${('v' + LANGUAGE_VERSION).yellow}`)
+  if (options.colors)
+    console.error(`Welcome to ${'lisp-ts'.blue} ${('v' + LANGUAGE_VERSION).yellow}`)
+  else
+    console.error(`Welcome to lisp-ts ${('v' + LANGUAGE_VERSION)}`)
 }
 
-export async function start(prompt: string, options: TSchemeReplOptions) {
-  const env = await createEnvironment()
+export async function start(options: TSchemeReplOptions) {
+  const env = await createServerWorld()
 
   const prettyOpts = options.colors ? { colorize: colorizer } : {}
 
+  const prompt = options.colors
+    ? `${'lisp-ts'.blue}${'.>'.yellow} `
+    : 'lisp-ts.> '
+
   const replOptions: ReplOptions = {
+    ...prettyOpts,
     ignoreUndefined: true,
+    useColors: options.colors,
+    preview: false,
     prompt,
     writer,
-    ...prettyOpts,
   };
 
   if (options.attach) {
     const getAttachTargetAddress = (val: string | number) => {
-      if (Utils.isString(val)) return val;
+      if (isList.isString(val)) return val;
       else return `http://localhost:${val}`;
     }
 
@@ -101,8 +111,6 @@ export async function start(prompt: string, options: TSchemeReplOptions) {
       try {
         const x = await Lisp.parse(cmd, env)
         const val = await evaluate(x, env.env)
-        if (Array.isArray(val))
-          debugger
         callback(null, toString(val))
       } catch (err) {
         // if (err instanceof Errors.RuntimeWarning) {
@@ -115,10 +123,24 @@ export async function start(prompt: string, options: TSchemeReplOptions) {
     replOptions.eval = _eval
   }
 
+  function writer(output: string) {
+    if (typeof output !== 'string') {
+      return String(output)
+    }
+    switch (output) {
+      case undefined:
+        return options.colors ? colors.dim('undefined') : 'undefined'
+      default:
+        return output.startsWith('Error: ')
+          ? output
+          : options.colors ? colorizer(output) : output
+    }
+  }
+
   await initializeREPL(env, options)
 
   repl
-    .start(replOptions)
+    .start({ ...replOptions })
     .setupHistory(HISTORY_FILE_PTH, err => { if (err) throw err; })
 
 }
@@ -127,24 +149,12 @@ function colorizer(output: string) {
   return highlight(output, {language: LANGUAGE_ID, ignoreIllegals: true})
 }
 
-function writer(output: string) {
-  if (typeof output !== 'string') {
-    return String(output)
-  }
-  switch (output) {
-    case undefined:
-      return colors.dim('undefined')
-    default:
-      return output.startsWith('Error: ')
-        ? output
-        : colorizer(output)
-  }
-}
-
 function errorHandler(err: unknown, callback: any): any {
   if (err instanceof Error) {
     if (err instanceof Errors.UndefinedVariableError) {
       if (err.message.endsWith('undefined variable: undefined'))
+        return callback(null)
+      if (err.message.endsWith('undefined variable: #<eof-object>'))
         return callback(null)
       return callback(null, err.message)
     }
@@ -180,9 +190,9 @@ const options: TSchemeReplOptions = program
   .version('0.8.0')
   .option('-a, --attach <value>', 'Attach to a running TScheme program through websocket.', parseAttachOption)
   .option('--r5rs <boolean>', 'Include the r5rs standard library.', true)
-  .option('--colors <boolean>', 'Use colors in the terminal output.', true)
+  .option('--colors <boolean>', 'Use colors in the terminal output.', v => v === 'false' ? false : true)
   .parse()
   .opts()
 
-start(`${'lisp-ts'.blue}${'.>'.yellow} `, options)
-  .catch(console.error)
+
+start(options).catch(console.error)

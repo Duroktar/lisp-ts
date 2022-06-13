@@ -1,12 +1,13 @@
+import { expect, test, describe } from 'vitest'
 import * as Lisp from "../core/lisp";
-import { list } from "../core/pair";
-import { Procedure } from "../core/proc";
-import { createEnvironment } from "../env";
+import { list } from "../core/data/pair";
+import { Procedure } from "../core/data/proc";
+import { createServerWorld } from "../world/server";
 
 describe('evaluate works', () => {
 
   test('(eval) testing (+ .. n)', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     expect(await Lisp.execute("(+ 1)", env)).toBe(1)
     expect(await Lisp.execute("(+ 1 1)", env)).toBe(2)
     expect(await Lisp.execute("(+ 1 1 1)", env)).toBe(3)
@@ -14,7 +15,7 @@ describe('evaluate works', () => {
   })
 
   test('(eval) testing (* .. n)', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     expect(await Lisp.execute("(* 2)", env)).toBe(2)
     expect(await Lisp.execute("(* 2 2)", env)).toBe(4)
     expect(await Lisp.execute("(* 2 2 2)", env)).toBe(8)
@@ -22,7 +23,7 @@ describe('evaluate works', () => {
   });
 
   test('(eval) (quote t) -> t', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     const actual = await Lisp.execute(
       `(quote 5)`,
       env);
@@ -30,7 +31,7 @@ describe('evaluate works', () => {
   });
 
   test("(eval) (car '(1 3)) -> 1", async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     const actual = await Lisp.execute(
       `(car '(1 3))`
     , env)
@@ -38,7 +39,7 @@ describe('evaluate works', () => {
   });
 
   test("(eval) (cdr '(1 3)) -> 3", async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     const actual = await Lisp.execute(
       `(cdr '(1 3))`,
       env);
@@ -47,7 +48,7 @@ describe('evaluate works', () => {
   });
 
   test('(eval) lambda -> Procedure', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     expect(await Lisp.execute(`
       (lambda (x) (+ x 3))
     `, env))
@@ -55,14 +56,14 @@ describe('evaluate works', () => {
   });
 
   test('(eval) define x -> x ∈ env', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     await Lisp.execute(`(define x 11)`, env);
     const actual = env.env.get('x');
     expect(actual).toBe(11)
   });
 
   test('(eval) define (x y) -> (lambda y) ∈ env', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     await Lisp.execute(`(define (y x) x)`, env);
 
     expect(env.env.get('y'))
@@ -70,7 +71,7 @@ describe('evaluate works', () => {
   });
 
   test('(eval) begin x1 x2 ... xɴ -> xɴ', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     const actual = await Lisp.execute(
       `(begin (+ 1 3) (+ 2 3) (+ 3 3))
     `, env)
@@ -78,7 +79,7 @@ describe('evaluate works', () => {
   });
 
   test('(eval) if x y z -> y if x else z', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
 
     // happy path
     const actual = await Lisp.execute(
@@ -95,7 +96,7 @@ describe('evaluate works', () => {
   });
 
   test('(eval) (x ∈ env) set! x y -> (x ∈ env) == y', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
 
     await Lisp.execute(`(define x 11)`, env);
     await Lisp.execute(`(set! x 99)`, env)
@@ -104,7 +105,7 @@ describe('evaluate works', () => {
   });
 
   test('(eval) ((lambda) x) -> x', async () => {
-    const env = await createEnvironment()
+    const env = await createServerWorld()
     const actual = await Lisp.execute(
       `((lambda (x) x) 55)`, env);
     const expected = 55

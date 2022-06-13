@@ -4,11 +4,12 @@ import { isAbsolute, join, relative } from "path";
 import { EOF } from "./core/const";
 import { evaluate } from "./core/eval";
 import { expand } from "./core/expand";
-import { TSchemeModule } from "./core/module";
-import { InPort, SourceFile } from "./core/port";
-import { read } from "./core/read";
 import { Form } from "./core/forms";
-import { Environment } from "./env";
+import { TSchemeModuleFS } from "./core/module/TSchemeModuleFS";
+import { InPort } from "./core/port";
+import { ServerSourceFile } from "./core/port/File/server";
+import { read } from "./core/read";
+import { iWorld } from "./interface/iWorld";
 
 export function parseLoadSymbol(sym: symbol, ext = '.scm') {
   const repr = sym.description
@@ -22,9 +23,9 @@ export function parseLoadSymbol(sym: symbol, ext = '.scm') {
   return repr + ext
 }
 
-export async function readFile(path: string, global: Environment): Promise<Form[]> {
-  const port = new InPort(new SourceFile(path), 'file');
-  const getNext = async () => await read(port, global.readerEnv);
+export async function readFile(path: string, world: iWorld): Promise<Form[]> {
+  const port = new InPort(new ServerSourceFile(path), 'file');
+  const getNext = async () => await read(port, world.readerEnv);
   let terms = []
   for (let next = await getNext(); next !== EOF; next = await getNext()) {
     terms.push(next);
@@ -32,33 +33,33 @@ export async function readFile(path: string, global: Environment): Promise<Form[
   return terms;
 };
 
-export async function parseFile(path: string, global: Environment): Promise<Form[]> {
-  const file = await readFile(path, global);
+export async function parseFile(path: string, world: iWorld): Promise<Form[]> {
+  const file = await readFile(path, world);
   const rv: Form[] = []
   for (let f of file) {
-    rv.push(await expand(f, true, global.lexicalEnv))
+    rv.push(await expand(f, true, world.lexicalEnv))
   }
   return rv;
 };
 
-export async function executeFile(path: string, global: Environment): Promise<Form[]> {
-  const file = await parseFile(path, global);
+export async function executeFile(path: string, world: iWorld): Promise<Form[]> {
+  const file = await parseFile(path, world);
   const rv: Form[] = []
   for (let f of file) {
-    rv.push(await evaluate(f, global.env))
+    rv.push(await evaluate(f, world.env))
   }
   return rv;
 };
 
-export async function loadFile(file: string, global: Environment, bustCache = true) {
-  if (!TSchemeModule.loaderCache.has(file) || bustCache) {
-    const cacheData = new TSchemeModule(file)
+export async function loadFile(file: string, world: iWorld, bustCache = true) {
+  if (!TSchemeModuleFS.loaderCache.has(file) || bustCache) {
+    const cacheData = new TSchemeModuleFS(file)
 
     if (isAbsolute(file)) {
-      const absPath = join(global.env.get('#cwd'), file);
-      await executeFile(absPath, global);
+      const absPath = join(world.env.get('#cwd'), file);
+      await executeFile(absPath, world);
     } else {
-      const fromPath = global.env.get('#cwd');
+      const fromPath = world.env.get('#cwd');
 
       assert(typeof fromPath === 'string',
         `can't resolve path to imported file`);
@@ -68,10 +69,10 @@ export async function loadFile(file: string, global: Environment, bustCache = tr
       assert(existsSync(relPath),
         `import not found: ${relPath}`)
 
-      await executeFile(relPath, global);
+      await executeFile(relPath, world);
     }
-    TSchemeModule.loaderCache.set(file, cacheData);
+    TSchemeModuleFS.loaderCache.set(file, cacheData);
   }
 
-  return TSchemeModule.loaderCache.get(file)
+  return TSchemeModuleFS.loaderCache.get(file)
 };

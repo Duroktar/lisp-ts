@@ -1,43 +1,13 @@
-import rlSYnc from "readline-sync"
-import assert from "assert"
-import { fromEvent, Observable, withLatestFrom, first, firstValueFrom, map, flatMap, mergeMap, takeUntil, ReplaySubject, lastValueFrom, Subject } from 'rxjs';
-import { existsSync, readFileSync, writeSync } from "fs"
-import { Server, Socket } from "socket.io"
-import { io, Socket as Client } from "socket.io-client";
+import { iWorld } from "../../interface/iWorld"
 import type { delimiter, whitespace } from "../../syntax"
 import { delimiters } from "../const"
-import { quotes } from "../macro"
-import { debounce, isNewline } from "../../utils";
-import { Queue } from "../queue";
-import { Environment } from "../../env";
-rlSYnc.setDefaultOptions({prompt: ''});
+import { quotes } from "../data/macro"
 
 export abstract class File {
   abstract read(): Promise<string>
   abstract write(text: string): void
   abstract close(): void
   static EOF_STRING = '#<eof-object>'
-}
-
-export class SourceFile implements File {
-  constructor(filepath: string) {
-    this.data = String(readFileSync(filepath))
-  }
-  async readline(): Promise<string> {
-    const [line, ...lines] = this.data.split('\n')
-    this.data = lines.join('\n')
-    return line
-  }
-  async read(): Promise<string> {
-    const x = this.data[0] ?? File.EOF_STRING
-    this.data = this.data.slice(1)
-    return x
-  }
-  write(text: string): void {
-    this.data = this.data.concat(text)
-  }
-  close() { }
-  private data: string = ''
 }
 
 export class RawText implements File {
@@ -58,114 +28,6 @@ export class RawText implements File {
   close(): void { }
 }
 
-export class StdIn implements File {
-  async readline(): Promise<string> {
-    return rlSYnc.prompt({hideEchoBack: false, history: true, prompt: ''})
-  }
-  async read(): Promise<string> {
-    if (this._buffer.length === 0) {
-      const rv = rlSYnc.prompt({ hideEchoBack: false, history: false, prompt: '' });
-      this._buffer.push(...rv, File.EOF_STRING)
-    }
-    return this._buffer.shift()!
-  }
-  write(text: string): void {
-    throw new Error("Cannot write to stdin")
-  }
-  close(): void { }
-  private _buffer: string[] = []
-}
-
-export class StdOut implements File {
-  write(output: string | number): void {
-    if (typeof output !== "number")
-      this._write(output)
-    else
-      this._write(String(output))
-  }
-  flush = debounce(() => process.stdout)
-  read(): Promise<string> {
-    throw new Error("Cannot read from stdout")
-  }
-  close(): void { }
-  private _write(value: string) {
-    process.stdout.write(value, () => [])
-  }
-}
-
-export class SocketClient implements File {
-  private data: string[] = []
-  private socket: Client
-  private fifo = new Queue()
-  private connection?: Socket;
-  constructor(address: string) {
-    this.socket = io(address, {})
-    this.socket.on('connection', connection => {
-      this.connection = connection
-      connection.on('data', (data: string) => {
-        this.fifo.putNowait(data)
-        this.fifo.putNowait('\n')
-      })
-    })
-  }
-  async readline(): Promise<string> {
-    let data
-    do { data = await this.read() }
-    while (!isNewline(data) && !isEofString(data))
-    return data
-  }
-  async read(): Promise<string> {
-    if (this.data.length === 0) {
-      const x = await this.fifo.get()
-      assert(typeof x === 'string', 'data must be a string (SocketServer)')
-      this.data.push(...x)
-    }
-    return this.data.shift()!
-  }
-  write(text: string): void {
-    this.socket.send(text)
-  }
-  close() {
-    delete this.connection
-    this.socket.close()
-  }
-}
-
-export class SocketServer implements File {
-  private data: string[] = []
-  private socket: Server
-  private fifo = new Queue()
-  private connection?: Socket;
-  constructor(port: string | number) {
-    this.socket = new Server(Number(port), {})
-    this.socket.on('connection', (connection) => {
-      this.connection = connection
-      connection.on('data', data => {
-        this.fifo.putNowait(data)
-        this.fifo.putNowait('\n')
-      })
-    })
-  }
-  async read(): Promise<string> {
-    if (this.data.length === 0) {
-      const x = await this.fifo.get()
-      assert(typeof x === 'string', 'data must be a string (SocketServer)')
-      this.data.push(...x)
-    }
-    return this.data.shift()!
-  }
-  write(output: string | number): void {
-    if (this.connection)
-      this.socket.emit('data', String(output))
-    else
-      console.log('no connection!')
-  }
-  close() {
-    delete this.connection
-    this.socket.close()
-  }
-}
-
 export abstract class Port {
   constructor(
     public file: File,
@@ -184,20 +46,8 @@ export class IOPort extends Port {
   constructor(file: File, name: string) {
     super(file, `input-port:${name}`)
   }
-  static fromFile(file: string) {
-    return new IOPort(new SourceFile(file), 'file')
-  }
   static fromString(text: string) {
     return new IOPort(new RawText(text), 'string')
-  }
-  static fromStdIn() {
-    return new IOPort(new StdIn(), 'stdin')
-  }
-  static fromSocketClient(address: string): any {
-    return new IOPort(new SocketClient(address), `socket-client:${address}`)
-  }
-  static fromSocketServer(port: string | number): any {
-    return new IOPort(new SocketServer(port), `socket-server:${port}`)
   }
   public async readChar(): Promise<string> {
     if (!this.closed) {
@@ -230,20 +80,8 @@ export class InPort extends Port {
   constructor(file: File, name: string) {
     super(file, `input-port:${name}`)
   }
-  static fromFile(file: string) {
-    return new InPort(new SourceFile(file), 'file')
-  }
   static fromString(text: string) {
     return new InPort(new RawText(text), 'string')
-  }
-  static fromStdIn() {
-    return new InPort(new StdIn(), 'stdin')
-  }
-  static fromSocketClient(address: string): any {
-    return new InPort(new SocketClient(address), `socket-client:${address}`)
-  }
-  static fromSocketServer(port: string | number): any {
-    return new InPort(new SocketServer(port), `socket-server:${port}`)
   }
   public async readChar(): Promise<string> {
     if (!this.closed) {
@@ -271,20 +109,8 @@ export class OutPort extends Port {
   constructor(file: File, name: string) {
     super(file, `output-port:${name}`)
   }
-  static fromFile(file: string) {
-    return new OutPort(new SourceFile(file), 'file')
-  }
   static fromString(text: string) {
     return new OutPort(new RawText(text), 'string')
-  }
-  static fromStdOut() {
-    return new OutPort(new StdOut(), 'stdout')
-  }
-  static fromSocketClient(address: string): any {
-    return new OutPort(new SocketClient(address), 'socket-client')
-  }
-  static fromSocketServer(port: string | number): any {
-    return new OutPort(new SocketServer(port), 'socket-server')
   }
   public write(text: string): void {
     if (this.closed)
@@ -295,7 +121,7 @@ export class OutPort extends Port {
 
 // library procedure
 export const callWithInputFile = (file: string, proc: Function) => {
-  assert(existsSync(file))
+  // assert(existsSync(file))
 }
 // library procedure
 export const callWithOutputFile = (file: string, proc: Function) => {
@@ -316,9 +142,9 @@ export const isIOPort = (obj: any) => {
 }
 
 // procedure
-export const currentInputPort = (ctx: Environment): InPort => ctx.env.get<any>('*current-input-port*')
+export const currentInputPort = (ctx: iWorld): InPort => ctx.env.get<any>('*current-input-port*')
 // procedure
-export const currentOutputPort = (ctx: Environment): OutPort => ctx.env.get<any>('*current-output-port*')
+export const currentOutputPort = (ctx: iWorld): OutPort => ctx.env.get<any>('*current-output-port*')
 
 class UnimplementedOptionalProcedureError extends Error {}
 
@@ -329,15 +155,6 @@ export const withInputFromFile = (str: string, proc: Function) => {
 // optional procedure
 export const withOutputFromFile = (str: string, proc: Function) => {
   throw new UnimplementedOptionalProcedureError('withOutputFromFile')
-}
-
-// procedure
-export const openInputFile = (filename: string) => {
-  return InPort.fromFile(filename)
-}
-// procedure
-export const openOutputFile = (filename: string) => {
-  return OutPort.fromFile(filename)
 }
 
 // procedure
@@ -358,3 +175,4 @@ export const isEofString = (obj: any) => obj === File.EOF_STRING
 export const isDelimiter = (c: any): c is delimiter => isWhiteSpace(c) || delimiters.has(c);
 export const isQuoteChar = (c: any): boolean => quotes[c] !== undefined;
 export const isWhiteSpace = (c: any): c is whitespace => c === ' ' || c === '\t' || c === '\n'
+

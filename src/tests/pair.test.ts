@@ -1,5 +1,6 @@
+import { expect, test, describe } from 'vitest'
 import { EMPTY } from "../core/const";
-import { cons, list, Pair } from "../core/pair";
+import { cons, list, Pair } from "../core/data/pair";
 
 describe("(pair) tests", () => {
   describe("(cons) helper tests", () => {

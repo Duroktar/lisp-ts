@@ -447,6 +447,14 @@
 (test '(2 3)
     ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (set! y 3) (list x y))))))
 
+(test '11357
+  (let ((a 3)
+        (b 5))
+    (let ((c (- a 2))
+          (d (+ b 2))
+          (e 10000))
+      (+ e (* c 1000) (* a 100) (* b 10) d))))
+
 ; (test '(a b c)
 ;     (let* ((path '())
 ;            (add (lambda (s) (set! path (cons s path)))))

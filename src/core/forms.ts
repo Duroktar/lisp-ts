@@ -1,7 +1,7 @@
-import { type Character } from "./char";
-import { type Pair } from "./pair";
-import { type Closure } from "./proc";
-import { type Vector } from "./vec";
+import { type Character } from "./data/char";
+import { type Pair } from "./data/pair";
+import { type Closure } from "./data/proc";
+import { type Vector } from "./data/vec";
 
 export type Atom = symbol | string | number;
 export type List = Pair | symbol;

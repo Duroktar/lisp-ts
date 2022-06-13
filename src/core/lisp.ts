@@ -1,29 +1,29 @@
-import * as Utils from "../utils";
+import { isPair, toL } from "../guard";
+import { iWorld } from "../interface/iWorld";
+import { assert } from "../utils";
+import { Resume } from "./data/cont";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
+import type { Form } from "./forms";
 import { InPort } from "./port";
 import { read } from "./read";
-import type { Form } from "./forms";
-import { Environment } from "../env";
-import { Resume } from "./cont";
-import assert from "assert";
 import { toStringSafe } from "./toString";
 
 // primitives (7)
 export const quote = (expr: Form): Form => {
-  assert(Utils.isPair(expr), 'quote operates on a pair');
+  assert(isPair(expr), 'quote operates on a pair');
   return cdr(expr);
 }
 
 export const eq = (x: Form, y: Form): Form => {
-  return Utils.toL(Utils.isPair(x) ? x.equal(y) : x === y);
+  return toL(isPair(x) ? x.equal(y) : x === y);
 }
 export const car = (expr: Form): Form => {
-  assert(Utils.isPair(expr), `Argument to car must be a pair. got: ${toStringSafe(expr)}`)
+  assert(isPair(expr), `Argument to car must be a pair. got: ${toStringSafe(expr)}`)
   return expr.car;
 }
 export const cdr = (expr: Form): Form => {
-  assert(Utils.isPair(expr), `Argument to cdr must be a pair. got: ${toStringSafe(expr)}`)
+  assert(isPair(expr), `Argument to cdr must be a pair. got: ${toStringSafe(expr)}`)
   return expr.cdr!;
 }
 // END primitives
@@ -36,23 +36,23 @@ export const cdddr = (e: any) => cdr(cdr(cdr(e)))
 export const cadddr = (e: any) => car(cdr(cdr(cdr(e))))
 export const caaddr = (e: any) => car(car(cdr(cdr(e))))
 
-export const tokenize = async (code: string, env: Environment): Promise<Form> => {
-  return await read(InPort.fromString(code), env.readerEnv);
+export const tokenize = async (code: string, world: iWorld): Promise<Form> => {
+  return await read(InPort.fromString(code), world.readerEnv);
 };
 
-export const parse = async (code: string, {readerEnv, lexicalEnv}: Environment): Promise<Form> => {
+export const parse = async (code: string, {readerEnv, lexicalEnv}: iWorld): Promise<Form> => {
   return await expand(await read(InPort.fromString(code), readerEnv), true, lexicalEnv);
 };
 
-export const execute = async (code: string, env: Environment): Promise<Form> => {
-  const parsed = await parse(code, env);
-  return await evaluate(parsed, env.env);
+export const execute = async (code: string, world: iWorld): Promise<Form> => {
+  const parsed = await parse(code, world);
+  return await evaluate(parsed, world.env);
 };
 
-export const debugExecute = async (code: string, env: Environment): Promise<Form> => {
+export const debugExecute = async (code: string, world: iWorld): Promise<Form> => {
   async function innerDebugExecute(level = 1): Promise<any> {
     try {
-      const result = await execute(code, env);
+      const result = await execute(code, world);
       return result;
     } catch (outerError) {
       if (outerError instanceof Error) {
@@ -65,7 +65,7 @@ export const debugExecute = async (code: string, env: Environment): Promise<Form
               (newline)
               (write "Entering REPL...")
               (newline)
-              (repl)))`, env)
+              (repl)))`, world)
         } catch (innerError) {
           // console.error('innerError')
           // console.error(innerError)
@@ -79,6 +79,6 @@ export const debugExecute = async (code: string, env: Environment): Promise<Form
     }
   }
 
-  await execute(`(load "stdlib/io.scm")`, env)
+  await execute(`(load "stdlib/io.scm")`, world)
   return await innerDebugExecute();
 };
