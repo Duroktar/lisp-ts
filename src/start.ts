@@ -1,7 +1,6 @@
 import 'colors';
 import { execute } from './core/lisp';
 import { createServerWorld } from './world/server';
-// import * as Lisp from './core/lisp'
 
 (async () => {
   const env = await createServerWorld();

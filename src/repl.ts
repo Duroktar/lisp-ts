@@ -10,11 +10,10 @@ import io from 'socket.io-client';
 import * as Errors from "./core/data/error";
 import { evaluate } from './core/eval';
 import * as Lisp from "./core/lisp";
-import { toString } from "./core/toString";
+import { toString, toStringSafe } from "./core/print";
 import { createServerWorld } from './world/server';
 import { iWorld } from "./interface/iWorld";
 import * as Utils from "./utils";
-import * as isList from "./guard";
 
 const APPDATA = Utils.exists(getPath('appdata'), 'Error looking up appdata directory!');
 const HISTORY_FILE_PTH = join(APPDATA, 'lisp-ts', 'repl', 'history', '0.log');
@@ -63,7 +62,7 @@ export async function start(options: TSchemeReplOptions) {
 
   if (options.attach) {
     const getAttachTargetAddress = (val: string | number) => {
-      if (isList.isString(val)) return val;
+      if (typeof val === 'string') return val;
       else return `http://localhost:${val}`;
     }
 
@@ -110,7 +109,9 @@ export async function start(options: TSchemeReplOptions) {
     async function _eval(cmd: string, context: any, filename: string, callback: any) {
       try {
         const x = await Lisp.parse(cmd, env)
+        // console.log('`eval_` Parsed:', toString(x))
         const val = await evaluate(x, env.env)
+        console.log('`eval_` Evaluated:', toStringSafe(val))
         callback(null, toString(val))
       } catch (err) {
         // if (err instanceof Errors.RuntimeWarning) {

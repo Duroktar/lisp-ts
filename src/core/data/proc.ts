@@ -1,6 +1,6 @@
 import type { iEnv } from "../../interface/iEnv";
 import { evaluate } from "../eval";
-import type { Form } from "../forms";
+import type { Form } from "../form";
 import { Env } from "./env";
 import type { SyntaxRulesDef } from "./syntax";
 
@@ -27,9 +27,6 @@ export class Procedure {
     return await evaluate(this.expr, closure);
   }
 }
-
-export const isNativeProc = (x: unknown): x is NativeProc => x instanceof NativeProc;
-export const isProc = (x: unknown): x is Procedure => x instanceof Procedure;
 
 export type Callable = Procedure | NativeProc | SyntaxRulesDef
 export type Closure = Callable | Function

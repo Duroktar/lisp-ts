@@ -1,7 +1,4 @@
-import { iWorld } from "../../interface/iWorld"
-import type { delimiter, whitespace } from "../../syntax"
-import { delimiters } from "../const"
-import { quotes } from "../data/macro"
+import type { iWorld } from "../../../interface/iWorld"
 
 export abstract class File {
   abstract read(): Promise<string>
@@ -129,19 +126,6 @@ export const callWithOutputFile = (file: string, proc: Function) => {
 }
 
 // procedure
-export const isInputPort = (obj: any) => {
-  return obj instanceof InPort
-}
-// procedure
-export const isOutputPort = (obj: any) => {
-  return obj instanceof OutPort
-}
-
-export const isIOPort = (obj: any) => {
-  return obj instanceof IOPort
-}
-
-// procedure
 export const currentInputPort = (ctx: iWorld): InPort => ctx.env.get<any>('*current-input-port*')
 // procedure
 export const currentOutputPort = (ctx: iWorld): OutPort => ctx.env.get<any>('*current-output-port*')
@@ -170,9 +154,3 @@ export const readChar = (port: InPort) => {
 export const peekChar = (port: InPort) => {
   return port.peekChar()
 }
-
-export const isEofString = (obj: any) => obj === File.EOF_STRING
-export const isDelimiter = (c: any): c is delimiter => isWhiteSpace(c) || delimiters.has(c);
-export const isQuoteChar = (c: any): boolean => quotes[c] !== undefined;
-export const isWhiteSpace = (c: any): c is whitespace => c === ' ' || c === '\t' || c === '\n'
-

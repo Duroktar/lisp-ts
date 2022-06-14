@@ -98,6 +98,8 @@
           (name2 'y))
       `(a `(b ,,name1 ,',name2 d) e)))
 
+;(let ((name1 'x) (name2 'y)) `(a `(b ,,name1 ,',name2 d) e))
+
 (test '(list 3 4)
  (quasiquote (list (unquote (+ 1 2)) 4)))
 

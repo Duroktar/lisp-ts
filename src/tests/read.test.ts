@@ -67,3 +67,10 @@ describe("(read) tests", () => {
     expect(expected.equal(actual)).toBe(true);
   });
 });
+
+test("(read) test `((unquote))", async () => {
+  const env = await createServerWorld()
+  const actual = await tokenize("`((unquote))", env);
+  const expected = list(Sym('quasiquote'), list(list(Sym('unquote'))))
+  expect(actual).toEqual(expected);
+});

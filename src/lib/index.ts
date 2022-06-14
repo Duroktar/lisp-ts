@@ -4,19 +4,18 @@ import { EMPTY, FALSE, NIL, TRUE, UNDEF } from "../core/const";
 import { Resume } from "../core/data/cont";
 import { Character } from "../core/data/char";
 import { cons, list, Pair } from "../core/data/pair";
-import { isNativeProc, isProc } from "../core/data/proc";
 import { isSyntaxRulesDef, SyntaxRulesDef } from "../core/data/syntax";
 import { Vector } from "../core/data/vec";
 import { InvalidCallableExpression, NotImplementedError, RuntimeWarning, UndefinedVariableError } from "../core/data/error";
 import { evaluate } from "../core/eval";
 import { expand } from "../core/expand";
-import { Form } from "../core/forms";
+import { Form } from "../core/form";
 import * as Lisp from "../core/lisp";
-import { currentInputPort, currentOutputPort, InPort, isEofString, isInputPort, isIOPort, isOutputPort, OutPort } from "../core/port";
+import { currentInputPort, currentOutputPort, InPort, OutPort } from "../core/data/port";
 import { read } from "../core/read";
 import { Sym } from "../core/data/sym";
-import { print, toString, toStringSafe } from "../core/toString";
-import { isCallable, isChar, isEmpty, isF, isList, isNone, isNum, isPair, isString, isSym, isT, isVec, toL } from "../guard";
+import { print, toString, toStringSafe } from "../core/print";
+import { isCallable, isChar, isEmpty, isEofString, isF, isInputPort, isIOPort, isList, isNativeProc, isNone, isNum, isOutputPort, isPair, isProc, isString, isSym, isT, isVec } from "../guard";
 import { iEnv } from "../interface/iEnv";
 import { iWorld } from "../interface/iWorld";
 import * as Util from "../utils";
@@ -47,20 +46,20 @@ export async function addGlobals(
     env.set('#t', TRUE);
     env.set('#f', FALSE);
 
-    mkNativeProc(env, 'boolean?', ['obj'], ([obj]: any) => toL(obj === TRUE || obj === FALSE));
-    mkNativeProc(env, 'char?', ['obj'], ([obj]: any) => toL(isChar(obj)));
-    mkNativeProc(env, 'vector?', ['obj'], ([obj]: any) => toL(isVec(obj)));
-    mkNativeProc(env, 'procedure?', ['obj'], ([obj]: any) => toL(isProc(obj) || isNativeProc(obj)));
-    mkNativeProc(env, 'pair?', ['obj'], ([obj]: any) => toL(isPair(obj)));
-    mkNativeProc(env, 'number?', ['n'], ([n]: any) => toL(isNum(n)));
-    mkNativeProc(env, 'string?', ['n'], ([n]: any) => toL(isString(n)));
-    mkNativeProc(env, 'port?', ['obj'], ([obj]: any) => toL(isInputPort(obj) || isOutputPort(obj) || isIOPort(obj)));
+    mkNativeProc(env, 'boolean?', ['obj'], ([obj]: any) => Util.toL(obj === TRUE || obj === FALSE));
+    mkNativeProc(env, 'char?', ['obj'], ([obj]: any) => Util.toL(isChar(obj)));
+    mkNativeProc(env, 'vector?', ['obj'], ([obj]: any) => Util.toL(isVec(obj)));
+    mkNativeProc(env, 'procedure?', ['obj'], ([obj]: any) => Util.toL(isProc(obj) || isNativeProc(obj)));
+    mkNativeProc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(isPair(obj)));
+    mkNativeProc(env, 'number?', ['n'], ([n]: any) => Util.toL(isNum(n)));
+    mkNativeProc(env, 'string?', ['n'], ([n]: any) => Util.toL(isString(n)));
+    mkNativeProc(env, 'port?', ['obj'], ([obj]: any) => Util.toL(isInputPort(obj) || isOutputPort(obj) || isIOPort(obj)));
 
-    mkNativeProc(env, 'null?', ['n'], ([n]: any) => toL(isEmpty(n)));
-    mkNativeProc(env, 'list?', ['n'], ([n]: any) => toL(isEmpty(n) || (isPair(n) && n.isList())));
+    mkNativeProc(env, 'null?', ['n'], ([n]: any) => Util.toL(isEmpty(n)));
+    mkNativeProc(env, 'list?', ['n'], ([n]: any) => Util.toL(isEmpty(n) || (isPair(n) && n.isList())));
 
-    mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => toL(Util.isEqv(a, b)));
-    mkNativeProc(env, 'eq?', ['a', 'b'], ([a, b]: any) => toL(Util.isEq(a, b)));
+    mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEqv(a, b)));
+    mkNativeProc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
   }
   // #region [ rgba(20, 50, 80, 0.8) ] - TScheme
   //  - TScheme
@@ -171,7 +170,7 @@ export async function addGlobals(
       });
     });
 
-    mkNativeProc(env, 'i/o-port?', ['obj'], ([obj]: any) => toL(isIOPort(obj)));
+    mkNativeProc(env, 'i/o-port?', ['obj'], ([obj]: any) => Util.toL(isIOPort(obj)));
   }
   //#endregion
 
@@ -207,7 +206,9 @@ export async function addGlobals(
           (if test
               (begin result1 result2 ...)
               (cond clause1 clause2 ...)))))
+    `, world)
 
+    await Lisp.execute(`
       (define-syntax case
         (syntax-rules (else)
           ((case (key ...)
@@ -227,14 +228,18 @@ export async function addGlobals(
           (if (memv key '(atoms ...))
               (begin result1 result2 ...)
               (case key clause clauses ...)))))
+    `, world)
 
+    await Lisp.execute(`
       (define-syntax and
         (syntax-rules ()
           ([and] #t)
           ([and test] test)
           ([and test1 test2 ...]
             (if test1 [and test2 ...] #f))))
+    `, world)
 
+    await Lisp.execute(`
       (define-syntax or
         (syntax-rules ()
           ([or] #f)
@@ -242,13 +247,17 @@ export async function addGlobals(
           ([or test1 test2 ...]
             (let ([x test1])
               (if x x (or test2 ...))))))
+    `, world)
 
+    await Lisp.execute(`
       (define-syntax let
         (syntax-rules ()
           ((let ((name val) ...) body1 body2 ...)
             ((lambda (name ...) body1 body2 ...)
             val ...))))
+    `, world)
 
+    await Lisp.execute(`
       (define-syntax let*
         (syntax-rules ()
           ((let* () body1 body2 ...)
@@ -258,30 +267,37 @@ export async function addGlobals(
             (let ((name1 val1))
               (let* ((name2 val2) ...)
                 body1 body2 ...)))))
+    `, world)
 
-      ;; from: https://stackoverflow.com/questions/2835582/what-if-any-is-wrong-with-this-definition-of-letrec-in-scheme
-      (define-syntax letrec
-        (syntax-rules ()
-          ((letrec ((name val) ...) body bodies ...)
-          ((lambda ()
-            (define name val) ... body bodies ...)))))
+    // from: https://stackoverflow.com/questions/2835582/what-if-any-is-wrong-with-this-definition-of-letrec-in-scheme
+    await Lisp.execute(`
+    (define-syntax letrec
+      (syntax-rules ()
+        ((letrec ((name val) ...) body bodies ...)
+        ((lambda ()
+          (define name val) ... body bodies ...)))))
+    `, world)
 
-      (define-syntax do
-        (syntax-rules ()
-          ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
-              (test expression ...)
-              command ...)
-            (let loop ((variable init) ...)
-              (if test
-                  (begin expression ...)
-                  (begin
-                    command ...
-                    (loop (do "step" variable step ...) ...)))))
-          ((do "step" variable)
-            variable)
-          ((do "step" variable step)
-            step)))
+    await Lisp.execute(`
+    (define-syntax do
+      (syntax-rules ()
+        ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
+            (test expression ...)
+            command ...)
+          (let loop ((variable init) ...)
+            (if test
+                (begin expression ...)
+                (begin
+                  command ...
+                  (loop (do "step" variable step ...) ...)))))
+        ((do "step" variable)
+          variable)
+        ((do "step" variable step)
+          step)))
 
+    `, world)
+
+    await Lisp.execute(`
       (define-syntax delay
         (syntax-rules ()
           ((delay expression)
@@ -299,30 +315,30 @@ export async function addGlobals(
     //  - 6. Standard procedures
     // - 6.1 Equivalence Predicates
 
-    mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => toL(Util.isEqv(a, b)));
-    mkNativeProc(env, 'eq?', ['a', 'b'], ([a, b]: any) => toL(Util.isEq(a, b)));
-    mkNativeProc(env, 'equal?', ['a', 'b'], ([a, b]: any) => toL(Util.isEqual(a, b)));
+    mkNativeProc(env, 'eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEqv(a, b)));
+    mkNativeProc(env, 'eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
+    mkNativeProc(env, 'equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEqual(a, b)));
     // END - 6.1 Equivalence predicates
 
     // - 6.2 Numbers
     // - 6.2.5 Numerical operations
-    mkNativeProc(env, 'number?', ['n'], ([n]: any) => toL(isNum(n)));
+    mkNativeProc(env, 'number?', ['n'], ([n]: any) => Util.toL(isNum(n)));
     // procedure: complex? obj
     // procedure: real? obj
     // procedure: rational? obj
     // procedure: integer? obj
     // procedure: exact? z
     // procedure: inexact? z
-    mkNativeProc(env, '=', ['args'], ([l, r]: any) => toL(l === r));
-    mkNativeProc(env, '>', ['args'], ([l, r]: any) => toL(l > r));
-    mkNativeProc(env, '<', ['args'], ([l, r]: any) => toL(l < r));
-    mkNativeProc(env, '>=', ['args'], ([l, r]: any) => toL(l >= r));
-    mkNativeProc(env, '<=', ['args'], ([l, r]: any) => toL(l <= r));
-    mkNativeProc(env, 'zero?', ['n'], ([n]: any) => toL(n === 0));
-    mkNativeProc(env, 'positive?', ['n'], ([n]: any) => toL(isNum(n) && n > 0));
-    mkNativeProc(env, 'negative?', ['n'], ([n]: any) => toL(isNum(n) && n < 0));
-    mkNativeProc(env, 'odd?', ['n'], ([n]: any) => toL(isNum(n) && n % 2 !== 0));
-    mkNativeProc(env, 'even?', ['n'], ([n]: any) => toL(isNum(n) && n % 2 === 0));
+    mkNativeProc(env, '=', ['args'], ([l, r]: any) => Util.toL(l === r));
+    mkNativeProc(env, '>', ['args'], ([l, r]: any) => Util.toL(l > r));
+    mkNativeProc(env, '<', ['args'], ([l, r]: any) => Util.toL(l < r));
+    mkNativeProc(env, '>=', ['args'], ([l, r]: any) => Util.toL(l >= r));
+    mkNativeProc(env, '<=', ['args'], ([l, r]: any) => Util.toL(l <= r));
+    mkNativeProc(env, 'zero?', ['n'], ([n]: any) => Util.toL(n === 0));
+    mkNativeProc(env, 'positive?', ['n'], ([n]: any) => Util.toL(isNum(n) && n > 0));
+    mkNativeProc(env, 'negative?', ['n'], ([n]: any) => Util.toL(isNum(n) && n < 0));
+    mkNativeProc(env, 'odd?', ['n'], ([n]: any) => Util.toL(isNum(n) && n % 2 !== 0));
+    mkNativeProc(env, 'even?', ['n'], ([n]: any) => Util.toL(isNum(n) && n % 2 === 0));
     mkNativeProc(env, 'max', 'args', (args: any) => args.reduce((acc: any, val: any) => Math.max(acc, val)));
     mkNativeProc(env, 'min', 'args', (args: any) => args.reduce((acc: any, val: any) => Math.min(acc, val)));
     mkNativeProc(env, '+', 'args', (args: any) => {
@@ -400,11 +416,11 @@ export async function addGlobals(
     env.set('#t', TRUE);
     env.set('#f', FALSE);
     mkNativeProc(env, 'not', ['obj'], ([obj]: any) => obj === FALSE ? TRUE : FALSE);
-    mkNativeProc(env, 'boolean?', ['obj'], ([obj]: any) => toL(obj === TRUE || obj === FALSE));
+    mkNativeProc(env, 'boolean?', ['obj'], ([obj]: any) => Util.toL(obj === TRUE || obj === FALSE));
     // END - 6.3.1 Booleans
 
     // - 6.3.2 Pairs and lists
-    mkNativeProc(env, 'pair?', ['obj'], ([obj]: any) => toL(isPair(obj)));
+    mkNativeProc(env, 'pair?', ['obj'], ([obj]: any) => Util.toL(isPair(obj)));
     mkNativeProc(env, 'cons', ['a', 'b'], ([a, b]: any) => new Pair(a, b));
     mkNativeProc(env, 'car', 'args', (args: any) => Lisp.car(args));
     mkNativeProc(env, 'cdr', 'args', (args: any) => Lisp.cdr(args));
@@ -424,8 +440,8 @@ export async function addGlobals(
     // library procedure: cdddar pair
     // library procedure: cddddr pair
 
-    mkNativeProc(env, 'null?', ['n'], ([n]: any) => toL(isEmpty(n)));
-    mkNativeProc(env, 'list?', ['n'], ([n]: any) => toL(isEmpty(n) || (isPair(n) && n.isList())));
+    mkNativeProc(env, 'null?', ['n'], ([n]: any) => Util.toL(isEmpty(n)));
+    mkNativeProc(env, 'list?', ['n'], ([n]: any) => Util.toL(isEmpty(n) || (isPair(n) && n.isList())));
     mkNativeProc(env, 'list', 'args', (args: any) => list(...args));
     mkNativeProc(env, 'length', ['list'], ([list]: any) => {
       Util.assert(isList(list), 'argument to length must be a list')
@@ -433,7 +449,8 @@ export async function addGlobals(
     });
 
     mkNativeProc(env, 'append', 'args', (args: any) => {
-      return Util.append(args[0], args.slice(1))
+      Util.assert(!Array.isArray(args[0]), 'Bad append! Bad!')
+      return Util.append(args[0], ...args.slice(1))
     })
 
     mkNativeProc(env, 'reverse', ['list'], ([lst]: any) => {
@@ -458,7 +475,7 @@ export async function addGlobals(
 
     // - 6.3.3 Symbols
     mkNativeProc(env, 'symbol?', ['n'], ([n]: any) => {
-      return toL(isSym(n) && !isEmpty(n))
+      return Util.toL(isSym(n) && !isEmpty(n))
     });
     mkNativeProc(env, 'symbol->string', ['n'], ([n]: any) => {
       Util.assert(isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
@@ -472,7 +489,7 @@ export async function addGlobals(
 
     // - 6.3.4 Characters
     mkNativeProc(env, 'char?', ['obj'], ([obj]: any) => {
-      return toL(isChar(obj))
+      return Util.toL(isChar(obj))
     });
     // procedure: char=? char1 char2
     // procedure: char<? char1 char2
@@ -500,7 +517,7 @@ export async function addGlobals(
     // END - 6.3.4 Characters
 
     // - 6.3.5 Strings
-    mkNativeProc(env, 'string?', ['n'], ([n]: any) => toL(isString(n)));
+    mkNativeProc(env, 'string?', ['n'], ([n]: any) => Util.toL(isString(n)));
     mkNativeProc(env, 'string', 'args', args => {
       Util.assert(Array.isArray(args) && args.every(isChar), 'Arguments to `string` must be `char`s')
       return args.map(arg => toString(arg)).join('')
@@ -531,50 +548,50 @@ export async function addGlobals(
     });
     mkNativeProc(env, 'string=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1 === string2)
+      return Util.toL(string1 === string2)
     });
     mkNativeProc(env, 'string-ci=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
       if (string1.length !== string2.length)
-        return toL(false)
+        return Util.toL(false)
       for (let i = 0; i < string1.length; i++) {
         if ((<string>string1[i]).toLowerCase() === string2[i].toLowerCase())
           continue
-        return toL(false)
+        return Util.toL(false)
       }
-      return toL(true)
+      return Util.toL(true)
     });
     mkNativeProc(env, 'string<?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1 < string2)
+      return Util.toL(string1 < string2)
     });
     mkNativeProc(env, 'string>?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1 > string2)
+      return Util.toL(string1 > string2)
     });
     mkNativeProc(env, 'string<=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1 <= string2)
+      return Util.toL(string1 <= string2)
     });
     mkNativeProc(env, 'string>=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1 >= string2)
+      return Util.toL(string1 >= string2)
     });
     mkNativeProc(env, 'string-ci<?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1.toLowerCase() < string2.toLowerCase())
+      return Util.toL(string1.toLowerCase() < string2.toLowerCase())
     });
     mkNativeProc(env, 'string-ci>?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1.toLowerCase() > string2.toLowerCase())
+      return Util.toL(string1.toLowerCase() > string2.toLowerCase())
     });
     mkNativeProc(env, 'string-ci<=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1.toLowerCase() <= string2.toLowerCase())
+      return Util.toL(string1.toLowerCase() <= string2.toLowerCase())
     });
     mkNativeProc(env, 'string-ci>=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return toL(string1.toLowerCase() >= string2.toLowerCase())
+      return Util.toL(string1.toLowerCase() >= string2.toLowerCase())
     });
     mkNativeProc(env, 'substring', ['string', 'start', 'end'], ([string, start, end]: any) => {
       Util.assert(isString(string))
@@ -616,7 +633,7 @@ export async function addGlobals(
 
     // - 6.3.6 Vectors
     mkNativeProc(env, 'vector?', ['obj'], ([obj]: any) => {
-      return toL(isVec(obj))
+      return Util.toL(isVec(obj))
     });
     mkNativeProc(env, 'make-vector', ['k', 'fill?'], ([k, fill]: any) => {
       Util.assert(k !== undefined, 'make-vector not given a size')
@@ -661,7 +678,7 @@ export async function addGlobals(
 
     // - 6.4 Control Features
     mkNativeProc(env, 'procedure?', ['obj'], ([obj]: any) => {
-      return toL(isProc(obj) || isNativeProc(obj))
+      return Util.toL(isProc(obj) || isNativeProc(obj))
     });
     mkNativeProc(env, 'apply', 'args', async (args_: any, env) => {
       const [proc, args] = args_
@@ -727,8 +744,8 @@ export async function addGlobals(
       throw new NotImplementedError('call-with-input-file')
     });
 
-    mkNativeProc(env, 'input-port?', ['obj'], ([obj]: any) => toL(isInputPort(obj)));
-    mkNativeProc(env, 'output-port?', ['obj'], ([obj]: any) => toL(isOutputPort(obj)));
+    mkNativeProc(env, 'input-port?', ['obj'], ([obj]: any) => Util.toL(isInputPort(obj)));
+    mkNativeProc(env, 'output-port?', ['obj'], ([obj]: any) => Util.toL(isOutputPort(obj)));
 
     mkNativeProc(env, 'current-input-port', [], () => env.get('*current-input-port*'));
     mkNativeProc(env, 'current-output-port', [], () => env.get('*current-output-port*'));
@@ -756,11 +773,11 @@ export async function addGlobals(
       return await p.peekChar()
     });
 
-    mkNativeProc(env, 'eof-object?', ['obj'], ([obj]: any) => toL(isEofString(obj)));
+    mkNativeProc(env, 'eof-object?', ['obj'], ([obj]: any) => Util.toL(isEofString(obj)));
 
     mkNativeProc(env, 'char-ready?', ['port'], ([port]: any) => {
       const p: InPort = port ?? currentInputPort(world)
-      return toL(isEofString(p) || p.charReady())
+      return Util.toL(isEofString(p) || p.charReady())
     });
     // END - 6.6.2 Input
 
@@ -871,7 +888,7 @@ export async function addGlobals(
 
     mkNativeProc(env, 'exit-repl', [], () => {
       if (isT(world.env.get('*in-repl-mode*')))
-        world.env.set('*in-repl-mode*', toL(false))
+        world.env.set('*in-repl-mode*', Util.toL(false))
       else
         throw new Error('not in repl mode');
     })
@@ -889,7 +906,7 @@ export async function addGlobals(
     })
 
     mkNativeProc(env, 'repl', [], async () => {
-      world.env.set('*in-repl-mode*', toL(true))
+      world.env.set('*in-repl-mode*', Util.toL(true))
 
       let lastInput: any, lastExpand: any, lastOutput: any, greet = true;
 
@@ -907,7 +924,7 @@ export async function addGlobals(
             o.write('\n')
         } catch (err) {
           if (err instanceof Resume) {
-            world.env.set('*in-repl-mode*', toL(false))
+            world.env.set('*in-repl-mode*', Util.toL(false))
             throw err
           }
           if (err instanceof Error) {

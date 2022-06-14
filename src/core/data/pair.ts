@@ -2,7 +2,7 @@ import { format } from "util";
 import { isAtom, isList } from "../../guard";
 import { assert } from "../../utils";
 import { EMPTY } from "../const";
-import { Form, List } from "../forms";
+import { Form, List } from "../form";
 import { car } from "../lisp";
 
 // import { isEmpty } from "../utils";

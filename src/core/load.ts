@@ -1,15 +1,15 @@
 import assert from "assert";
 import { existsSync } from "fs";
 import { isAbsolute, join, relative } from "path";
-import { EOF } from "./core/const";
-import { evaluate } from "./core/eval";
-import { expand } from "./core/expand";
-import { Form } from "./core/forms";
-import { TSchemeModuleFS } from "./core/module/TSchemeModuleFS";
-import { InPort } from "./core/port";
-import { ServerSourceFile } from "./core/port/File/server";
-import { read } from "./core/read";
-import { iWorld } from "./interface/iWorld";
+import { EOF } from "./const";
+import { evaluate } from "./eval";
+import { expand } from "./expand";
+import { Form } from "./form";
+import { TSchemeModuleFS } from "./data/module";
+import { InPort } from "./data/port";
+import { ServerSourceFile } from "./data/port/File/server";
+import { read } from "./read";
+import { iWorld } from "../interface/iWorld";
 
 export function parseLoadSymbol(sym: symbol, ext = '.scm') {
   const repr = sym.description

@@ -1,4 +1,4 @@
-import { Form } from "../core/forms"
+import { Form } from "../core/form"
 import { Closure } from "../core/data/proc"
 
 export interface iEnv {

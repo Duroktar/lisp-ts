@@ -1,5 +1,5 @@
 import { isEmpty, isList } from "../guard";
-import type { Form } from "../core/forms";
+import type { Form } from "../core/form";
 import { list } from "../core/data/pair";
 import { NativeProc } from "../core/data/proc";
 import { Sym } from "../core/data/sym";

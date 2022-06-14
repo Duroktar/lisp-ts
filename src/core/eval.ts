@@ -1,14 +1,14 @@
-import { isEmpty, isList, isPair, isSym, isTruthy } from "../guard";
+import { isEmpty, isList, isNativeProc, isPair, isProc, isSym, isTruthy } from "../guard";
 import { iEnv } from "../interface/iEnv";
 import { assert } from "../utils";
 import { EMPTY, UNDEF } from "./const";
 import { Env } from "./data/env";
-import type { Form } from "./forms";
+import type { Form } from "./form";
 import { cadddr, caddr, cadr, car, cdr } from "./lisp";
 import { list, Pair } from "./data/pair";
-import { isNativeProc, isProc, Procedure } from "./data/proc";
+import { Procedure } from "./data/proc";
 import { SymTable } from "./data/sym";
-import { toString } from "./toString";
+import { toString } from "./print";
 
 export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
   while (true) {
@@ -54,7 +54,8 @@ export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
         const proc = await evaluate(car(e), a);
         const args = await evaluateList(cdr(e), a);
         if (isNativeProc(proc)) {
-          return await proc.call(args)
+          const rv = await proc.call(args);
+          return rv
         }
         else if (isProc(proc)) {
           e = proc.expr

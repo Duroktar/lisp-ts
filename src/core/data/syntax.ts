@@ -1,15 +1,15 @@
 
 /* References: An Optimized R5RS Macro Expander - Jay McCarthy */
-
+import 'colors'
 import { assert, zip } from "../../utils";
 import { isAtom, isChar, isEmpty, isIdent, isList, isNum, isPair, isString, isSym, isVec } from "../../guard";
 import { Env } from "./env";
 import { InputError, MatchError } from "./error";
-import type { Atom, Form, List } from "../forms";
+import type { Atom, Form, List } from "../form";
 import { cadr, car, cdr } from "../lisp";
 import { cons, list, Pair } from "./pair";
 import { Sym } from "./sym";
-import { toString, toStringSafe } from "../toString";
+import { toString, toStringSafe } from "../print";
 import { iEnv } from "../../interface/iEnv";
 
 

@@ -2,11 +2,11 @@ import { isPair, isSym } from "../../guard";
 import type { iEnv } from "../../interface/iEnv";
 import { EMPTY } from "../const";
 import * as Errors from "./error";
-import type { Atom, Form } from "../forms";
+import type { Atom, Form } from "../form";
 import { car, cdr } from "../lisp";
 import { cons, list, Pair } from "./pair";
 import type { Closure } from "./proc";
-import { toString } from "../toString";
+import { toString } from "../print";
 
 export class Env implements iEnv {
   constructor(params: Form = EMPTY, args: Form = EMPTY, public outer?: iEnv) {
@@ -138,3 +138,22 @@ export class Env implements iEnv {
   }
   private inner: Record<Atom, Form | Closure>;
 }
+
+/*
+(mcons
+  'a
+  (mcons
+    (mcons
+      'quasiquote
+      (mcons
+        (mcons
+          'b
+          (mcons
+            (mcons (unquote (mcons (mcons '+ (mcons 1 (mcons 2 '()))) '())))
+            (mcons
+              (mcons (unquote (mcons (mcons 'foo (mcons (mcons (unquote (mcons (mcons '+ (mcons 1 (mcons 3 '()))) '()))) (mcons 'd '()))) '())))
+              (mcons 'e '()))))
+        '()))
+    (mcons 'f '())))
+
+*/

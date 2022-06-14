@@ -23,6 +23,6 @@
     },
     "vitest.commandLine": "yarn test --",
     "vitest.enable": true,
-    "vitest.showFailMessages": true,
+    "vitest.showFailMessages": false,
     "testing.automaticallyOpenPeekView": "never"
 }

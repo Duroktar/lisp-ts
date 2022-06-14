@@ -1,6 +1,6 @@
+import { execute } from './core/lisp';
+import { toString } from './core/print';
 import { createClientWorld } from './world/client';
-import { execute, parse, tokenize } from './core/lisp';
-import { toString } from './core/toString';
 
 const body = document.body
 

@@ -1,13 +1,13 @@
-import { isPair, toL } from "../guard";
+import { isPair } from "../guard";
 import { iWorld } from "../interface/iWorld";
-import { assert } from "../utils";
+import { assert, toL } from "../utils";
 import { Resume } from "./data/cont";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
-import type { Form } from "./forms";
-import { InPort } from "./port";
+import type { Form } from "./form";
+import { InPort } from "./data/port";
 import { read } from "./read";
-import { toStringSafe } from "./toString";
+import { toString, toStringSafe } from "./print";
 
 // primitives (7)
 export const quote = (expr: Form): Form => {
@@ -46,6 +46,8 @@ export const parse = async (code: string, {readerEnv, lexicalEnv}: iWorld): Prom
 
 export const execute = async (code: string, world: iWorld): Promise<Form> => {
   const parsed = await parse(code, world);
+  const r = toString(parsed, true);
+  console.log(r)
   return await evaluate(parsed, world.env);
 };
 

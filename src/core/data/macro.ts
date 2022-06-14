@@ -7,7 +7,7 @@ export const quotes: Record<string, symbol> = {
   ",@": SymTable.UNQUOTESPLICING,
 };
 
-export const quoteAtomToString = Object.fromEntries(
+export const quoteMap: Record<symbol, string> = Object.fromEntries(
   Object.entries(quotes)
-    .map(([k, v]) => [v.description, k])
+    .map(([k, v]) => [v, k])
 )

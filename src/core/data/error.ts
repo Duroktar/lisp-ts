@@ -1,6 +1,6 @@
-import type { Form } from "../forms";
+import type { Form } from "../form";
 import type { SyntaxRulesDef } from "./syntax";
-import { toString, toStringSafe } from "../toString";
+import { toString, toStringSafe } from "../print";
 
 export type Position = {
   line: number;

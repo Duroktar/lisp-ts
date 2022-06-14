@@ -1,19 +1,24 @@
-import { isChar, isEmpty, isNone, isNum, isString, isSym, isVec } from "../guard";
+import { isChar, isEmpty, isNone, isNum, isPair, isString, isSym, isVec } from "../guard";
 import { EMPTY, UNDEF } from "./const";
 import { Pair } from "./data/pair";
 import { NativeProc, Procedure } from "./data/proc";
 import { SyntaxRulesDef } from "./data/syntax";
-import { Form } from "./forms";
-import { TSchemeModule } from "./module";
-import { Port } from "./port";
+import { Form } from "./form";
+import { TSchemeModule } from "./data/module/base";
+import { Port } from "./data/port";
+
+const nextIndent = (indent?: number) => indent === undefined ? indent : indent + 1;
 
 export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'): string => {
   if (expr === undefined)
     return expr
-  if (isSym(expr))
-    return expr?.description!;
+  if (isSym(expr)) {
+    const str = expr?.description!;
+    // if (str === 'cons') return 'mcons'
+    return str;
+  }
   if (isVec(expr))
-    return `#(${expr.data.map(x => toString(x)).join(' ')})`;
+    return `#(${expr.data.map(x => toString(x, inspect_, lambdaSymbol)).join(' ')})`;
   if (isString(expr))
     return `"${expr}"`;
   if (isChar(expr))
@@ -42,11 +47,19 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'):
     return `(${lambdaSymbol} ${expr.name})`;
   }
   if (Pair.is(expr)) {
+    // if (!inspect_ && typeof expr.car === 'symbol' && quoteMap[expr.car]) {
+    //   const str = toString(expr.cdr, inspect_);
+    //   // console.log('here', str)
+    //   if (str[0] === '(' && str[1] === ')')
+    //     return `${quoteMap[expr.car]}${str.slice(1, -1)}`
+    //   else
+    //     return `${quoteMap[expr.car]}${str}`
+    // }
     const res: any[] = []
     let next: Form = expr
     while (Pair.is(next)) {
       if (Array.isArray(next.car)) {
-        debugger
+        throw new Error("FUUUUK")
       }
       res.push(toString(next.car, inspect_, lambdaSymbol))
       next = next.cdr
@@ -60,7 +73,7 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'):
 
   if (Array.isArray(expr)) {
     const rv = expr.map(e => toString(e, inspect_, lambdaSymbol)).join(' ');
-    console.log('SHOULD NOT BE AN ARRAY HERE: %s', rv)
+    // console.log('SHOULD NOT BE AN ARRAY HERE: %s', rv)
     return rv
   }
 

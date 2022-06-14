@@ -1,6 +1,6 @@
 import { basename, dirname } from "path";
-import { Atom } from "../forms";
-import { TSchemeModule } from "./index";
+import { Atom } from "../../form";
+import { TSchemeModule } from "./base";
 
 export class TSchemeModuleFS extends TSchemeModule {
   public basename: string;

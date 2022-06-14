@@ -1,6 +1,6 @@
 import { isSym } from "../../guard";
 import { assert } from "../../utils";
-import { Form } from "../forms";
+import { Form } from "../form";
 import { Sym } from "./sym";
 
 export class Character {

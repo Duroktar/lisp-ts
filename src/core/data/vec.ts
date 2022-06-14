@@ -1,6 +1,6 @@
 import { format } from "util";
 import { assert } from "../../utils";
-import type { Form } from "../forms";
+import type { Form } from "../form";
 
 export class Vector {
   constructor(public data: Form[]) {

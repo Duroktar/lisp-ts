@@ -1,12 +1,11 @@
-import { isPeculiarIdentifier, isSpecialInitial, isSpecialSubsequent } from "./core/const";
-import type { Form, List } from "./core/forms";
-import { car, cdr } from "./core/lisp";
+import { FALSE, TRUE } from "./core/const";
+import { AssertionError } from "./core/data/error";
 import { cons, list } from "./core/data/pair";
 import { Sym, SymTable } from "./core/data/sym";
-import { toString } from "./core/toString";
-import { isChar, isVec, isPair, isString, isEmpty } from "./guard";
-import { character, digit, identifier, initial, letter, subsequent, whitespace } from "./syntax";
-import { AssertionError } from "./core/data/error";
+import type { Form, List } from "./core/form";
+import { car, cdr } from "./core/lisp";
+import { toString } from "./core/print";
+import { isChar, isEmpty, isList, isPair, isVec } from "./guard";
 
 export type Predicate = (...args: any[]) => boolean
 
@@ -120,20 +119,7 @@ export const eqC = (a: any) => (b: any) => a === b;
 
 export const searchIdx = (...keys: string[]) => keys.reduce((acc, key) => ({...acc, [key]: 1}), {})
 
-export const first = (a: any) => isPair(a) ? a.car : undefined;
-
-export const isNewline = (c: any): c is whitespace => c === '\n'
-export const isWhiteSpace = (c: any): c is whitespace => c === ' ' || c === '\t' || isNewline(c)
-export const isIdentifier = (c: any): c is identifier => {
-  const [x, ...xs] = isString(c) ? c : []
-  return (isInitial(x) && xs.every(isSubsequent)) || isPeculiarIdentifier(c)
-};
-export const isInitial = (c: any): c is initial => isLetter(c) || isSpecialInitial(c)
-export const isLetter = (c: any): c is letter => !! (isString(c) && c.match(/^[A-z]*$/));
-export const isSubsequent = (c: any): c is subsequent => isInitial(c) || isDigit(c) || isSpecialSubsequent(c);
-export const isDigit = (c: any): c is digit => !! (isString(c) && c.match(/^[0-9]*$/));
-// export const isNumber = (c: any): c is number => typeof c === 'number';
-export const isCharacter = (c: any): c is character => !! (isString(c) && c.match(/^#\\([A-z]|(space|newline)){1}$/));
+// export const first = (a: any) => isPair(a) ? a.car : undefined;
 
 export function gcd(x: number, y: number) {
   x = Math.abs(x);
@@ -168,9 +154,18 @@ export const debounce = <T extends Function>(func: T, timeout = 300) => {
 }
 
 export function append(first: List, ...rest: Form[]): List {
-  if (rest.length === 0) return first
-  if (isEmpty(first)) return append.apply(null, <any>rest)
-  return cons(car(first), append(<List>cdr(first), append.apply(null, <any>rest)))
+  if (rest.length === 0) {
+    return first
+  }
+  else if (isEmpty(first)) {
+    return append(<List>rest[0], ...rest.slice(1))
+  }
+  else {
+    return cons(
+      car(first),
+      append(<List>cdr(first), append(<List>rest[0], ...rest.slice(1)))
+    )
+  }
 }
 
 export const push = (lst: List, item: any): List => {
@@ -179,3 +174,5 @@ export const push = (lst: List, item: any): List => {
   else
     return lst.push(item)
 }
+
+export const toL = (e: boolean): Form => e ? TRUE : FALSE;

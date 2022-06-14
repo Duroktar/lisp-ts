@@ -1,8 +1,9 @@
 import { Socket } from "socket.io";
 import { io, Socket as Client } from "socket.io-client";
-import { assert, isNewline } from "../../../utils";
-import { Queue } from "../../data/queue";
-import { File, isEofString } from "../index";
+import { isNewline, isEofString } from "../../../../guard";
+import { assert } from "../../../../utils";
+import { Queue } from "../../../data/queue";
+import { File } from "../index";
 
 
 export class SocketClient implements File {

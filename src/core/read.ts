@@ -1,4 +1,4 @@
-import { isPair } from "../guard";
+import { isEofString, isPair } from "../guard";
 import { iEnv } from "../interface/iEnv";
 import { append, assert, Predicate, push } from "../utils";
 import { EMPTY, TRUE } from "./const";
@@ -6,9 +6,10 @@ import { Character } from "./data/char";
 import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./data/error";
 import { cons, list } from "./data/pair";
 import { Vector } from "./data/vec";
-import { Form, List } from "./forms";
-import { InPort, isEofString } from "./port";
+import { Form, List } from "./form";
+import { InPort } from "./data/port";
 import { Sym, SymTable } from "./data/sym";
+import { toString } from "./print";
 
 
 const numberRegex = /^\#?(?:(?<radix>(?:(?:[e|i]?[b|o|d|x]{1})|(?:[b|o|d|x]{1}[e|i]?))?)(?:(?<integer>\d*)|(?<number>(?:\d+(?:\.(?:\d)+))))(?<precision>(?:[s|f|d|l]{1}\d+))?)$/gim
