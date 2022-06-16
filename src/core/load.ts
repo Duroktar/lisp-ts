@@ -25,7 +25,7 @@ export function parseLoadSymbol(sym: symbol, ext = '.scm') {
 
 export async function readFile(path: string, world: iWorld): Promise<Form[]> {
   const port = new InPort(new ServerSourceFile(path), 'file');
-  const getNext = async () => await read(port, world.readerEnv);
+  const getNext = async () => await read(port, world);
   let terms = []
   for (let next = await getNext(); next !== EOF; next = await getNext()) {
     terms.push(next);
@@ -37,7 +37,7 @@ export async function parseFile(path: string, world: iWorld): Promise<Form[]> {
   const file = await readFile(path, world);
   const rv: Form[] = []
   for (let f of file) {
-    rv.push(await expand(f, true, world.lexicalEnv))
+    rv.push(await expand(f, true, world))
   }
   return rv;
 };

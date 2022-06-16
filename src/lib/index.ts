@@ -4,7 +4,7 @@ import { EMPTY, FALSE, NIL, TRUE, UNDEF } from "../core/const";
 import { Resume } from "../core/data/cont";
 import { Character } from "../core/data/char";
 import { cons, list, Pair } from "../core/data/pair";
-import { isSyntaxRulesDef, SyntaxRulesDef } from "../core/data/syntax";
+import { isSyntaxRulesDef, SyntaxRulesDef } from "../core/data/macro/syntax";
 import { Vector } from "../core/data/vec";
 import { InvalidCallableExpression, NotImplementedError, RuntimeWarning, UndefinedVariableError } from "../core/data/error";
 import { evaluate } from "../core/eval";
@@ -40,7 +40,7 @@ export async function addGlobals(
 
   const options = {...defaultOptions, ...opts }
 
-  const {env, readerEnv, lexicalEnv} = world
+  const {env, lexicalEnv} = world
 
   if (options.minimal) {
     env.set('#t', TRUE);
@@ -278,39 +278,49 @@ export async function addGlobals(
           (define name val) ... body bodies ...)))))
     `, world)
 
-    await Lisp.execute(`
-    (define-syntax do
-      (syntax-rules ()
-        ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
-            (test expression ...)
-            command ...)
-          (let loop ((variable init) ...)
-            (if test
-                (begin expression ...)
-                (begin
-                  command ...
-                  (loop (do "step" variable step ...) ...)))))
-        ((do "step" variable)
-          variable)
-        ((do "step" variable step)
-          step)))
+    // await Lisp.execute(`
+    // (define-syntax do
+    //   (syntax-rules ()
+    //     ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
+    //         (test expression ...)
+    //         command ...)
+    //       (let loop ((variable init) ...)
+    //         (if test
+    //             (begin expression ...)
+    //             (begin
+    //               command ...
+    //               (loop (do "step" variable step ...) ...)))))
+    //     ((do "step" variable)
+    //       variable)
+    //     ((do "step" variable step)
+    //       step)))
 
-    `, world)
+    // `, world)
 
-    await Lisp.execute(`
-      (define-syntax delay
-        (syntax-rules ()
-          ((delay expression)
-            (let ((forced #f)
-                  (memo #f))
-              (lambda ()
-                (if forced
-                    memo
-                    (begin
-                      (set! memo expression)
-                      (set! forced #t)
-                      memo)))))))
-    `, world)
+    // await Lisp.execute(`
+    //   (define-syntax delay
+    //     (syntax-rules ()
+    //       ((delay expression)
+    //         (let ((forced #f)
+    //               (memo #f))
+    //           (lambda ()
+    //             (if forced
+    //                 memo
+    //                 (begin
+    //                   (set! memo expression)
+    //                   (set! forced #t)
+    //                   memo)))))))
+    // `, world)
+
+    // await Lisp.execute(
+    //   "(define-syntax quasiquote (syntax-rules (unquote unquote-splicing) " +
+    //   " (`,expr                 expr)" +
+    //   " (`(,@first . rest)      (append first `rest))" +
+    //   " (`(first . rest)        (cons `first `rest))" +
+    //   " (`#(,@first rest ...)   (list->vector `(,@first rest ...)))" +
+    //   " (`#(expr ...)           (list->vector `(expr ...)))" +
+    //   " (`expr                  'expr)))"
+    // , world)
 
     //  - 6. Standard procedures
     // - 6.1 Equivalence Predicates
@@ -758,7 +768,7 @@ export async function addGlobals(
     mkNativeProc(env, 'read', ['port'], async ([port]: any) => {
       const p: InPort = port ?? currentInputPort(world)
       // console.log('reading port', p.name)
-      const data = await read(p, readerEnv);
+      const data = await read(p, world);
       // console.log('reading port (data):', data)
       return data
     });
@@ -845,7 +855,7 @@ export async function addGlobals(
 
     mkNativeProc(env, 'macroexpand', ['expr'], async ([expr]: any) => {
       // console.log(toStringSafe(env.get<Procedure>('equal?').expr))
-      const rv = await expand(expr, true, env);
+      const rv = await expand(expr, true, world);
       return rv
     });
 
@@ -915,8 +925,8 @@ export async function addGlobals(
         const o = currentOutputPort(world)
         try {
           if (greet) o.write(world.env.get('*current-repl-prompt*'))
-          lastInput = await read(p, world.readerEnv);
-          lastExpand = await expand(lastInput, true, world.lexicalEnv)
+          lastInput = await read(p, world);
+          lastExpand = await expand(lastInput, true, world)
           lastOutput = await evaluate(lastExpand, world.env)
           const outputText = toStringSafe(lastOutput);
           o.write(outputText)

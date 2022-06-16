@@ -37,17 +37,17 @@ export const cadddr = (e: any) => car(cdr(cdr(cdr(e))))
 export const caaddr = (e: any) => car(car(cdr(cdr(e))))
 
 export const tokenize = async (code: string, world: iWorld): Promise<Form> => {
-  return await read(InPort.fromString(code), world.readerEnv);
+  return await read(InPort.fromString(code), world);
 };
 
-export const parse = async (code: string, {readerEnv, lexicalEnv}: iWorld): Promise<Form> => {
-  return await expand(await read(InPort.fromString(code), readerEnv), true, lexicalEnv);
+export const parse = async (code: string, world: iWorld): Promise<Form> => {
+  return await expand(await read(InPort.fromString(code), world), true, world);
 };
 
 export const execute = async (code: string, world: iWorld): Promise<Form> => {
   const parsed = await parse(code, world);
-  const r = toString(parsed, true);
-  console.log(r)
+  // const r = toString(parsed, true);
+  // console.log(r)
   return await evaluate(parsed, world.env);
 };
 

@@ -2,7 +2,7 @@ import type { iEnv } from "../../interface/iEnv";
 import { evaluate } from "../eval";
 import type { Form } from "../form";
 import { Env } from "./env";
-import type { SyntaxRulesDef } from "./syntax";
+import type { SyntaxRulesDef } from "./macro/syntax";
 
 export abstract class NativeProc {
   abstract name: string;

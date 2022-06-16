@@ -3,7 +3,7 @@ import { Character } from "./core/data/char";
 import { Pair } from "./core/data/pair";
 import { NativeProc, Procedure } from "./core/data/proc";
 import { Sym } from "./core/data/sym";
-import { isSyntaxRulesDef, SyntaxRulesDef } from "./core/data/syntax";
+import { isSyntaxRulesDef, SyntaxRulesDef } from "./core/data/macro/syntax";
 import { Vector } from "./core/data/vec";
 import { Atom, Form, List } from "./core/form";
 import { File, InPort, IOPort, OutPort } from "./core/data/port";

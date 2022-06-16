@@ -19,10 +19,9 @@
         "**/.gradle": true,
         "**/.factorypath": true,
         "**/node_modules": true,
-        // "**/dist": true,
+        "**/dist": true,
     },
     "vitest.commandLine": "yarn test --",
     "vitest.enable": true,
-    "vitest.showFailMessages": false,
-    "testing.automaticallyOpenPeekView": "never"
+    "vitest.showFailMessages": false
 }

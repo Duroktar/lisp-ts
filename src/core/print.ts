@@ -1,13 +1,12 @@
-import { isChar, isEmpty, isNone, isNum, isPair, isString, isSym, isVec } from "../guard";
+import { isChar, isEmpty, isNone, isNum, isString, isSym, isVec } from "../guard";
 import { EMPTY, UNDEF } from "./const";
-import { Pair } from "./data/pair";
-import { NativeProc, Procedure } from "./data/proc";
-import { SyntaxRulesDef } from "./data/syntax";
-import { Form } from "./form";
+import { quoteMap } from "./data/quote";
 import { TSchemeModule } from "./data/module/base";
+import { Pair } from "./data/pair";
 import { Port } from "./data/port";
-
-const nextIndent = (indent?: number) => indent === undefined ? indent : indent + 1;
+import { NativeProc, Procedure } from "./data/proc";
+import { SyntaxRulesDef } from "./data/macro/syntax";
+import { Form } from "./form";
 
 export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'): string => {
   if (expr === undefined)
@@ -47,14 +46,13 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'):
     return `(${lambdaSymbol} ${expr.name})`;
   }
   if (Pair.is(expr)) {
-    // if (!inspect_ && typeof expr.car === 'symbol' && quoteMap[expr.car]) {
-    //   const str = toString(expr.cdr, inspect_);
-    //   // console.log('here', str)
-    //   if (str[0] === '(' && str[1] === ')')
-    //     return `${quoteMap[expr.car]}${str.slice(1, -1)}`
-    //   else
-    //     return `${quoteMap[expr.car]}${str}`
-    // }
+    if (!inspect_ && typeof expr.car === 'symbol' && quoteMap[expr.car]) {
+      const str = toString(expr.cdr, inspect_);
+      if (str.startsWith('(') && str.endsWith(')'))
+        return `${quoteMap[expr.car]}${str.slice(1, -1)}`
+      else
+        return `${quoteMap[expr.car]}${str}`
+    }
     const res: any[] = []
     let next: Form = expr
     while (Pair.is(next)) {

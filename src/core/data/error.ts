@@ -1,5 +1,5 @@
 import type { Form } from "../form";
-import type { SyntaxRulesDef } from "./syntax";
+import type { SyntaxRulesDef } from "./macro/syntax";
 import { toString, toStringSafe } from "../print";
 
 export type Position = {

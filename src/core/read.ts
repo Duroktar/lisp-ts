@@ -1,20 +1,19 @@
 import { isEofString, isPair } from "../guard";
-import { iEnv } from "../interface/iEnv";
+import { iWorld } from "../interface/iWorld";
 import { append, assert, Predicate, push } from "../utils";
 import { EMPTY, TRUE } from "./const";
 import { Character } from "./data/char";
 import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./data/error";
 import { cons, list } from "./data/pair";
-import { Vector } from "./data/vec";
-import { Form, List } from "./form";
 import { InPort } from "./data/port";
 import { Sym, SymTable } from "./data/sym";
-import { toString } from "./print";
+import { Vector } from "./data/vec";
+import { Form, List } from "./form";
 
 
 const numberRegex = /^\#?(?:(?<radix>(?:(?:[e|i]?[b|o|d|x]{1})|(?:[b|o|d|x]{1}[e|i]?))?)(?:(?<integer>\d*)|(?<number>(?:\d+(?:\.(?:\d)+))))(?<precision>(?:[s|f|d|l]{1}\d+))?)$/gim
 
-export const read = async (port: InPort, readerEnv: iEnv): Promise<Form> => {
+export const read = async (port: InPort, world: iWorld): Promise<Form> => {
   let cursor = await port.readChar()
 
   const advance = async () => {
@@ -205,9 +204,9 @@ export const read = async (port: InPort, readerEnv: iEnv): Promise<Form> => {
   }
 
   async function parseReadMacro(): Promise<Form> {
-    if (readerEnv.has(current())) {
+    if (world.readerEnv.has(current())) {
       const value = await advance();
-      const macro = readerEnv.get<Function>(value);
+      const macro = world.readerEnv.get<Function>(value);
       return await macro(readMacroLocals);
     }
     return await parseHashPrefix();

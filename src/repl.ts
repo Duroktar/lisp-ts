@@ -43,7 +43,7 @@ export const initializeREPL = async (env: iWorld, options: TSchemeReplOptions) =
 }
 
 export async function start(options: TSchemeReplOptions) {
-  const env = await createServerWorld()
+  const world = await createServerWorld()
 
   const prettyOpts = options.colors ? { colorize: colorizer } : {}
 
@@ -92,7 +92,7 @@ export async function start(options: TSchemeReplOptions) {
           return callback(null)
         }
 
-        await Lisp.tokenize(cmd, env)
+        await Lisp.tokenize(cmd, world)
         socket.emit('data', cmd)
 
         socket.once('data', (result, ...rest) => {
@@ -108,10 +108,10 @@ export async function start(options: TSchemeReplOptions) {
   else {
     async function _eval(cmd: string, context: any, filename: string, callback: any) {
       try {
-        const x = await Lisp.parse(cmd, env)
+        const x = await Lisp.parse(cmd, world)
         // console.log('`eval_` Parsed:', toString(x))
-        const val = await evaluate(x, env.env)
-        console.log('`eval_` Evaluated:', toStringSafe(val))
+        const val = await evaluate(x, world.env)
+        // console.log('`eval_` Evaluated:', toStringSafe(val))
         callback(null, toString(val))
       } catch (err) {
         // if (err instanceof Errors.RuntimeWarning) {
@@ -138,7 +138,7 @@ export async function start(options: TSchemeReplOptions) {
     }
   }
 
-  await initializeREPL(env, options)
+  await initializeREPL(world, options)
 
   repl
     .start({ ...replOptions })
