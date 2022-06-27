@@ -1,7 +1,7 @@
 import { Env } from "../core/data/env";
-import { addGlobals } from "../lib";
-import { addServerFeatures } from "../lib/server";
-import { iWorld } from "../interface/iWorld";
+import { addGlobals } from "../builtins";
+import { addServerFeatures } from "../builtins/server";
+import type { iWorld } from "../interface/iWorld";
 
 export async function createServerWorld(globals = true): Promise<iWorld> {
   const readerEnv = new Env();

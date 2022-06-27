@@ -17,7 +17,7 @@ import { createServerWorld } from './world/server';
   // await execute('(debug-macro! #t)', env)
   // await execute('(load "stdlib/r5rs.scm")', env)
 
-  await execute('(repl)', env)
+  // await execute('(repl)', env)
 
   // await execute('(load "tests/runner.scm")', env);
 
@@ -34,7 +34,7 @@ import { createServerWorld } from './world/server';
   // Lisp.execute('(load "tests/spec.scm")', env)
   // Lisp.execute('(load "tests/r5rs.scm")', env)
   // Lisp.execute('(load "samples/fac.scm")', env)
-  // Lisp.execute('(load "samples/hygiene.scm")', env)
+  await execute('(load "samples/hygiene.scm")', env)
   // Lisp.execute('(load "samples/assoc.scm")', env)
   // await execute('(load "samples/cond.scm")', env)
   // Lisp.execute('(load "samples/repl.scm")', env)

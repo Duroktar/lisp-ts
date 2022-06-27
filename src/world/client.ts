@@ -1,6 +1,6 @@
 import { Env } from "../core/data/env";
-import { addGlobals } from "../lib";
-import { addClientFeatures } from "../lib/client";
+import { addGlobals } from "../builtins";
+import { addClientFeatures } from "../builtins/client";
 import type { iWorld } from "../interface/iWorld";
 
 export async function createClientWorld(globals = true): Promise<iWorld> {

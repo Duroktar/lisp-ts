@@ -176,3 +176,18 @@ export const push = (lst: List, item: any): List => {
 }
 
 export const toL = (e: boolean): Form => e ? TRUE : FALSE;
+
+export function range(start: number, end: number) {
+  const r = []
+  for (let i = start; i < end; i++) {
+    r.push(i)
+  }
+  return r
+}
+
+export function sequence<T, R>(...fns: [...((t: T) => R)[], T]) {
+  const data = fns.pop() as T
+  return (<((t: T) => R)[]>fns).map(f => f(data))
+}
+
+export function error(msg?: string): never { throw new Error(msg) }

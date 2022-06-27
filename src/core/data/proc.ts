@@ -2,24 +2,28 @@ import type { iEnv } from "../../interface/iEnv";
 import { evaluate } from "../eval";
 import type { Form } from "../form";
 import { Env } from "./env";
-import type { SyntaxRulesDef } from "./macro/syntax";
+import type { Syntax } from "../data/macro/syntax";
 
-export abstract class NativeProc {
-  abstract name: string;
-  abstract params: Form;
-  abstract env: iEnv;
+export type CallableFunc = (args: Form, env: iEnv) => Promise<Form> | Form;
+
+export class NativeFunc {
+  constructor(
+    public env: iEnv,
+    public params: Form,
+    public expr: any,
+    public name = 'λ',
+  ) {}
   public async call(args: Form, env?: iEnv): Promise<Form> {
     const closure = new Env(this.params, args, env ?? this.env)
-    return await this._call(args, closure);
+    return await this.expr(args, closure);
   }
-  abstract _call(args: Form, env?: iEnv): Promise<Form>;
 }
 
 export class Procedure {
   constructor(
+    public env: iEnv,
     public params: Form,
     public expr: Form,
-    public env: iEnv,
     public name = 'λ',
   ) {}
   public async call(args: Form, env?: iEnv): Promise<Form> {
@@ -28,5 +32,5 @@ export class Procedure {
   }
 }
 
-export type Callable = Procedure | NativeProc | SyntaxRulesDef
+export type Callable = Procedure | NativeFunc | Syntax
 export type Closure = Callable | Function

@@ -1,7 +1,9 @@
 import { Form } from "../core/form"
-import { Closure } from "../core/data/proc"
+import { Closure, NativeFunc } from "../core/data/proc"
 
 export interface iEnv {
+  define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray?: boolean): void
+  syntax(name: string, cb: (args: Form, env: iEnv) => any): void
   get<T extends Form | Closure>(name: string): T
   getFrom<T extends Form | Closure>(expr: Form): T
   getOrDefault<T extends Form | Closure>(name: string, d?: any): T | any

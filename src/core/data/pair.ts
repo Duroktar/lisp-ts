@@ -1,24 +1,42 @@
 import { format } from "util";
-import { isAtom, isList } from "../../guard";
+import { isAtom, isBinding, isList, isPair } from "../../guard";
 import { assert } from "../../utils";
-import { EMPTY } from "../const";
+import { EMPTY, NIL } from "../const";
 import { Form, List } from "../form";
 import { car } from "../lisp";
 
-// import { isEmpty } from "../utils";
-
-// type List = any
-// type Form = any
-// export const EMPTY = Symbol.for('()');
-// const isEmpty = (x: Form) => x === EMPTY
-// const car = (x: Form) => x.car
-// const cdr = (x: Form) => x.cdr
-
-export class Pair {
+export class Pair  {
   constructor(
     public car: Form,
-    public cdr: Form | Pair,
+    public cdr: Form | Pair = NIL,
   ) {}
+
+  public parent?: Pair;
+
+  replace(expression: Form) {
+    if (this.parent) {
+      if (isPair(this.parent)) {
+        this.parent.car = expression
+        this.parent.hosts(expression)
+      }
+    }
+  }
+
+  hosts(value: Form) {
+    if (isPair(value) || isBinding(value))
+      value.parent = this
+  }
+
+  *each(): any {
+    let pair: Form = this,
+        tail: List = NIL;
+    while (isPair(pair)) {
+      yield(pair.car)
+      tail = pair
+      pair = pair.cdr
+    }
+    return tail
+  }
 
   map = (fn: (value: Form) => any): Pair => {
     const first = fn(this.car);
@@ -160,6 +178,17 @@ export class Pair {
       next.cdr = cons(val, EMPTY)
     }
     return this
+  }
+
+  get tail(): Pair {
+    let pair: Form = this,
+        tail: List = NIL;
+    while (isPair(pair)) {
+      tail = pair
+      pair = pair.cdr
+    }
+    assert(isPair(tail), 'Invalid tail')
+    return tail
   }
 
   toArray() {

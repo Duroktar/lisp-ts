@@ -1,23 +1,20 @@
-import { isPair, isSym } from "../../guard";
+import { isEmpty, isList, isPair, isString, isSym } from "../../guard";
 import type { iEnv } from "../../interface/iEnv";
 import { EMPTY } from "../const";
-import * as Errors from "./error";
+import { Syntax } from "../data/macro/syntax";
 import type { Atom, Form } from "../form";
 import { car, cdr } from "../lisp";
-import { cons, list, Pair } from "./pair";
-import type { Closure } from "./proc";
 import { toString } from "../print";
+import * as Errors from "./error";
+import { cons, list, Pair } from "./pair";
+import { Closure, NativeFunc } from "./proc";
+import { Sym } from "./sym";
 
 export class Env implements iEnv {
   constructor(params: Form = EMPTY, args: Form = EMPTY, public outer?: iEnv) {
     if (isPair(params) && isPair(args)) {
 
       function getParams(params: Pair, args: Pair): [string, any][] {
-        // if (params.length === 0) return []
-        // if (car(params) === Sym('...')) {
-        //   assert(cdr(params) === EMPTY, 'no args allowed after `...`')
-        //   return [[toString(car(params)), args]]
-        // }
         const x0 = car(params)
         const x1 = car(args)
         const xs0 = cdr(params)
@@ -136,24 +133,18 @@ export class Env implements iEnv {
   entries(): [string, Form][] {
     return this.map(([key, value]) => [key, value])
   }
+  define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray = true): void {
+    const paramList = isString(params) ? Sym(params) : list(...params.map(Sym));
+    const handler = (args: Form, env: iEnv) => cb(parseArgs(toArray, args), env);
+    this.set(name, new NativeFunc(this, paramList, handler, name));
+  }
+  syntax(name: string, cb: (args: Form, env: iEnv) => any): void {
+    this.set(name, new Syntax(name, this, cb));
+  }
+
   private inner: Record<Atom, Form | Closure>;
 }
 
-/*
-(mcons
-  'a
-  (mcons
-    (mcons
-      'quasiquote
-      (mcons
-        (mcons
-          'b
-          (mcons
-            (mcons (unquote (mcons (mcons '+ (mcons 1 (mcons 2 '()))) '())))
-            (mcons
-              (mcons (unquote (mcons (mcons 'foo (mcons (mcons (unquote (mcons (mcons '+ (mcons 1 (mcons 3 '()))) '()))) (mcons 'd '()))) '())))
-              (mcons 'e '()))))
-        '()))
-    (mcons 'f '())))
-
-*/
+function parseArgs(toArray: boolean, args: Form): Form | Form[] {
+  return toArray ? (isList(args) ? (isEmpty(args) ? [] : args.toArray()) : args) : args;
+}

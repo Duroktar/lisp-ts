@@ -7,6 +7,8 @@ export const FALSE: symbol = Sym('#f');
 export const UNDEF: symbol = Sym('#<undef>');
 export const EOF: symbol   = Sym('#<eof-object>')
 
+export const ellipsis      = Symbol.for('...')
+
 export const specialInitials     = new Set('! $ % & * / : = < > ? ~ _ ^'.split(' '));
 export const specialSubsequents  = new Set('+ - . @'.split(' '));
 export const peculiarIdentifiers = new Set('+ - ...'.split(' '));

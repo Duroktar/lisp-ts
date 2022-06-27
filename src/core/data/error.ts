@@ -1,5 +1,5 @@
 import type { Form } from "../form";
-import type { SyntaxRulesDef } from "./macro/syntax";
+import type { Syntax } from "./macro/syntax";
 import { toString, toStringSafe } from "../print";
 
 export type Position = {
@@ -45,7 +45,7 @@ export class MalformedStringError extends Error {
 }
 export class MatchError extends Error {
   constructor(
-    public def: SyntaxRulesDef,
+    public def: Syntax,
     public form: Form,
   ) {
     super(`no matches found for pattern: ${toStringSafe(form)}`)
@@ -71,7 +71,7 @@ export class NotImplementedError extends Error {}
 
 export class InputError extends Error {
   constructor(
-    public def: SyntaxRulesDef,
+    public def: Syntax,
     public form: Form,
   ) {
     super()

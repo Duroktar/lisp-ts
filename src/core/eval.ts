@@ -1,4 +1,4 @@
-import { isEmpty, isList, isNativeProc, isPair, isProc, isSym, isTruthy } from "../guard";
+import { isBinding, isEmpty, isExpansion, isList, isNativeProc, isPair, isProc, isSym, isTruthy } from "../guard";
 import { iEnv } from "../interface/iEnv";
 import { assert } from "../utils";
 import { EMPTY, UNDEF } from "./const";
@@ -12,7 +12,7 @@ import { toString } from "./print";
 
 export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
   while (true) {
-    // console.log('evaluating term:', toStringSafe(e));
+    // console.log('evaluating term:', toString(e));
     if (isSym(e)) return a.getFrom<Form>(e);
     else if (!isPair(e)) return e ?? EMPTY;
     else switch (e.car) {
@@ -20,7 +20,7 @@ export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
       case SymTable.CAR: return car(await evaluate(cadr(e), a));
       case SymTable.CDR: return cdr(await evaluate(cadr(e), a));
       case SymTable.LAMBDA: {
-        return new Procedure(cadr(e), caddr(e), a) as any;
+        return new Procedure(a, cadr(e), caddr(e));
       }
       case SymTable.DEFINE: {
         const value = await evaluate(caddr(e), a);
@@ -54,7 +54,7 @@ export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
         const proc = await evaluate(car(e), a);
         const args = await evaluateList(cdr(e), a);
         if (isNativeProc(proc)) {
-          const rv = await proc.call(args);
+          let rv = await proc.call(args, a);
           return rv
         }
         else if (isProc(proc)) {
@@ -62,8 +62,9 @@ export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
           a = new Env(proc.params, args, proc.env)
           break
         }
-        else
-          return UNDEF
+        else {
+          throw new Error('Unexpected: ' + e.constructor.name)
+        }
       }
     }
   }

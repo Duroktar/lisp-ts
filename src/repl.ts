@@ -34,7 +34,7 @@ export const initializeREPL = async (env: iWorld, options: TSchemeReplOptions) =
       writeFileSync(HISTORY_FILE_PTH, '')
   }
 
-  await Lisp.execute(`(load "stdlib/r5rs.scm")`, env)
+  // await Lisp.execute(`(load "stdlib/r5rs.scm")`, env)
 
   if (options.colors)
     console.error(`Welcome to ${'lisp-ts'.blue} ${('v' + LANGUAGE_VERSION).yellow}`)

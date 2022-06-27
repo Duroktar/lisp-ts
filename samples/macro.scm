@@ -231,4 +231,7 @@
 
 ;; ----------------------------------------------------------------
 
-`(list ,(+ 1 2) 4)
+; `(list ,(+ 1 2) 4)
+
+; (define-syntax and (syntax-rules (then =>) ((and expr1 expr2 ...) (begin expr1 expr2 ...))))
+; (and 1 2 3)

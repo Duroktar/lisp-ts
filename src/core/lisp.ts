@@ -41,7 +41,10 @@ export const tokenize = async (code: string, world: iWorld): Promise<Form> => {
 };
 
 export const parse = async (code: string, world: iWorld): Promise<Form> => {
-  return await expand(await read(InPort.fromString(code), world), true, world);
+  const tokens = await read(InPort.fromString(code), world);
+  const result = await expand(tokens, true, world);
+  const repr = toString(tokens)
+  return result;
 };
 
 export const execute = async (code: string, world: iWorld): Promise<Form> => {
