@@ -11,6 +11,10 @@ import { toString, toStringSafe } from "./print";
 
 const DEBUG = false
 
+function debugLog(...args: string[]): void {
+  if (DEBUG) { console.log('[Expand]:', ...args) }
+}
+
 export const expand = async (e: Form, topLevel = false, world: iWorld): Promise<Form> => {
   // console.log('EXPANDING')
   if (!isPair(e)) { return e }
@@ -53,15 +57,15 @@ export const expand = async (e: Form, topLevel = false, world: iWorld): Promise<
     return await expandQuasiquote(cadr(e));
   }
   else if (world.lexicalEnv.hasFrom(car(e))) {
-    // console.log('[Expand]: found macro: ', toString(car(e)));
+   debugLog('found macro: ', toString(car(e)));
     const proc = world.lexicalEnv.getFrom<Closure>(car(e));
     if (isCallable(proc)) {
-      // console.log('[Expand]: calling macro: ', proc.name);
+     debugLog('calling macro: ', proc.name);
       const result = await proc.call(cdr(e), world.env);
-      // console.log('[Expand]: result of calling macro: ', toString(result));
+     debugLog('result of calling macro: ', toString(result));
       if (isExpansion(result)) {
         const rv = await expand(result.expression, false, world);
-        // console.log('[Expand]: macro expansion: ', toString(rv));
+       debugLog('macro expansion: ', toString(rv));
         return rv;
       }
       return await expand(result, false, world);

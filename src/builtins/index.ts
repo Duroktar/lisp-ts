@@ -274,65 +274,70 @@ export async function addGlobals(
     await Lisp.execute(`
       (define-syntax let
         (syntax-rules ()
-          ((let ((name val) ...) body1 body2 ...)
-            ((lambda (name ...) body1 body2 ...)
-            val ...))))
+          ((let ((variable init) ...) body ...)
+            ((lambda (variable ...)
+                body ...)
+            init ...))
+          ((let name ((variable init) ...) body ...)
+            (letrec ((name (lambda (variable ...)
+                            body ...)))
+              (name init ...)))))
     `, world)
 
     await Lisp.execute(`
       (define-syntax let*
         (syntax-rules ()
-          ((let* () body1 body2 ...)
-            (let () body1 body2 ...))
-          ((let* ((name1 val1) (name2 val2) ...)
-              body1 body2 ...)
-            (let ((name1 val1))
-              (let* ((name2 val2) ...)
-                body1 body2 ...)))))
+          ((let* ((n1 e1) (n2 e2) (n3 e3) ...) body ...)
+            (let ((n1 e1))
+              (let* ((n2 e2) (n3 e3) ...) body ...)))
+          ((let* ((name expression) ...) body ...)
+            (let ((name expression) ...) body ...))))
     `, world)
 
-    // from: https://stackoverflow.com/questions/2835582/what-if-any-is-wrong-with-this-definition-of-letrec-in-scheme
     await Lisp.execute(`
-    (define-syntax letrec
-      (syntax-rules ()
-        ((letrec ((name val) ...) body bodies ...)
-        ((lambda ()
-          (define name val) ... body bodies ...)))))
+      (define-syntax letrec
+        (syntax-rules ()
+          ((letrec ((variable init) ...) body ...)
+            ((lambda ()
+              (define variable init) ...
+              body ...)))))
     `, world)
 
-    // await Lisp.execute(`
-    // (define-syntax do
-    //   (syntax-rules ()
-    //     ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
-    //         (test expression ...)
-    //         command ...)
-    //       (let loop ((variable init) ...)
-    //         (if test
-    //             (begin expression ...)
-    //             (begin
-    //               command ...
-    //               (loop (do "step" variable step ...) ...)))))
-    //     ((do "step" variable)
-    //       variable)
-    //     ((do "step" variable step)
-    //       step)))
+    await Lisp.execute(`
+      (define-syntax do
+        (syntax-rules ()
+          ((do ((variable init step ...) ...)
+              (test expression ...)
+              command ...)
+            (let loop ((variable init) ...)
+              (if test
+                  (begin expression ...)
+                  (begin
+                    command ...
+                    (loop (do "step" variable step ...) ...)))))
+          ((do "step" variable)
+            variable)
+          ((do "step" variable step)
+            step)))
+    `, world)
 
-    // `, world)
+    world.lexicalEnv.set('let-syntax', world.lexicalEnv.get('let'))
+    world.lexicalEnv.set('letrec-syntax', world.lexicalEnv.get('letrec'))
 
-    // await Lisp.execute(`
-    //   (define-syntax delay
-    //     (syntax-rules ()
-    //       ((delay expression)
-    //         (let ((forced #f)
-    //               (memo #f))
-    //           (lambda ()
-    //             (if forced
-    //                 memo
-    //                 (begin
-    //                   (set! memo expression)
-    //                   (set! forced #t)
-    //                   memo)))))))
-    // `, world)
+    await Lisp.execute(`
+      (define-syntax delay
+        (syntax-rules ()
+          ((delay expression)
+            (let ((forced #f)
+                  (memo #f))
+              (lambda ()
+                (if forced
+                    memo
+                    (begin
+                      (set! memo expression)
+                      (set! forced #t)
+                      memo)))))))
+    `, world)
 
     // await Lisp.execute(
     //   "(define-syntax quasiquote (syntax-rules (unquote unquote-splicing) " +
@@ -553,8 +558,8 @@ export async function addGlobals(
       return args.map(arg => toString(arg)).join('')
     });
     env.define('make-string', ['k', 'char'], ([k, char = ' ']: any) => {
-      Util.assert(isChar(char), 'make-string [arg(2)] expects a char')
-      Util.assert(isNum(k), 'make-string [arg(1)] expects a number')
+      Util.assert(isChar(char), 'make-string arg(2) expects a char')
+      Util.assert(isNum(k), 'make-string arg(1) expects a number')
       return char.displayText.repeat(k)
     });
     env.define('string-length', ['n'], ([n]: any) => {
@@ -665,32 +670,34 @@ export async function addGlobals(
     env.define('vector?', ['obj'], ([obj]: any) => {
       return Util.toL(isVec(obj))
     });
-    env.define('make-vector', ['k', 'fill?'], ([k, fill]: any) => {
-      Util.assert(k !== undefined, 'make-vector not given a size')
-      Util.assert(fill === undefined, 'make-vector fill option not implemented')
-      const arr = Array.from<Form>(k).fill(fill);
+    env.define('make-vector', ['k', 'fill?'], ([k, fill = 0]: any) => {
+      Util.assert(isNum(k), 'make-vector not given a size')
+      // Util.assert(fill === undefined, 'make-vector fill option not implemented')
+      const arr = Array(k).fill(fill);
       return new Vector(arr);
     });
     env.define('vector', 'args', (args: any) => {
       return new Vector(args)
     });
     env.define('vector-length', ['vec'], ([vec]: any) => {
-      Util.assert(isVec(vec), `vector-length expected a Vector. Got: ${typeof vec}`)
+      Util.assert(isVec(vec), `vector-length expected a 'Vector' but got '${typeof vec}'`)
       return vec.data.length
     });
     env.define('vector-ref', ['vec', 'k'], ([vec, k]: any) => {
-      Util.assert(isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
-      Util.assert(isNum(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
+      Util.assert(isVec(vec), `vector-ref arg(1) expected a 'Vector' but got '${typeof vec}'`)
+      Util.assert(isNum(k), `vector-ref arg(2) expected a Number. Got: ${typeof k}`)
       return vec.data[k]
     });
-    env.define('vector-set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any) => {
-      Util.assert(isVec(vec), `vector-ref [arg(1)] expected a Vector. Got: ${typeof vec}`)
-      Util.assert(isNum(k), `vector-ref [arg(2)] expected a Number. Got: ${typeof vec}`)
-      Util.assert(obj !== undefined, `vector-ref [arg(3)] is undefined`)
+    env.define('vector-set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any, a) => {
+      if (!isVec(vec))
+        debugger
+      Util.assert(isVec(vec), `vector-set! arg(1) expected a 'Vector' but got '${typeof vec}'`)
+      Util.assert(isNum(k), `vector-set! arg(2) expected a Number. Got: ${typeof k}`)
+      Util.assert(obj !== undefined, `vector-set! arg(3) is undefined`)
       return vec.data[k] = obj
     });
     env.define('vector->list', ['vec'], ([vec]: any) => {
-      Util.assert(isVec(vec), `vector-list expected a Vector. Got: ${typeof vec}`)
+      Util.assert(isVec(vec), `vector-list expected a 'Vector' but got '${typeof vec}'`)
       return list(...vec.data)
     });
     env.define('list->vector', ['list'], ([list]: any) => {
@@ -698,8 +705,8 @@ export async function addGlobals(
       return new Vector(list.toArray())
     });
     env.define('vector-fill!', ['vec', 'fill'], ([vec, fill]: any) => {
-      Util.assert(isVec(vec), `vector-list expected a Vector. Got: ${typeof vec}`)
-      Util.assert(fill, `vector-list [arg(2)] expected an argument`)
+      Util.assert(isVec(vec), `vector-fill! expected a Vector. Got: ${typeof vec}`)
+      Util.assert(fill, `vector-fill! arg(2) expected an argument`)
       for (let i = 0; i < vec.data.length; i++) {
         vec.data[i] = fill
       }

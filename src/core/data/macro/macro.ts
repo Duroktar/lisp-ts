@@ -1,14 +1,20 @@
-import { isList, isNil, isPair, isIdentifier } from "../../../guard";
+import { isIdentifier, isList, isNil, isPair } from "../../../guard";
 import type { iEnv } from "../../../interface/iEnv";
 import { error } from "../../../utils";
 import { ellipsis } from "../../const";
-import type { List, Form } from "../../form";
+import type { Form, List } from "../../form";
 import { toString } from "../../print";
-import type { Pair } from "../pair";
+import { Pair } from "../pair";
 import { NativeFunc } from "../proc";
 import { Expansion } from "./expansion";
 import { Matches } from "./matches";
 import { Syntax } from "./syntax";
+
+const debug = false;
+
+function debugLog(...args: any[]): void {
+  if (debug) { console.log('[Macro]:'.cyan, ...args); }
+}
 
 /**
  * Returned by `syntax-rules`
@@ -29,7 +35,7 @@ export class Macro extends NativeFunc {
 
   async call(cells: List, scope: iEnv) {
     const [rule, matches] = this.ruleFor(cells, scope);
-    // console.log('[Macro]: creating Expansion..')
+    debugLog('creating Expansion..')
     return new Expansion(this.env, scope, (<any>rule.cdr).car, matches);
   }
 
@@ -37,18 +43,20 @@ export class Macro extends NativeFunc {
     for (let rule of this.expr.each()) {
       const matches = this.ruleMatches(scope, rule.car.cdr, cells)
       if (matches instanceof Matches) {
+        debugLog('found match..', '\n\trule:', toString(rule.car.cdr), '\n\tform:', toString(cells))
         return [rule, matches]
       }
     }
-    console.log('[Macro]: no match.. form:', toString(cells))
-    return error('No match..')
+    debugLog('no match.. form:', toString(cells))
+
+    return error('No match.. form: ' + toString(cells))
   }
 
   private ruleMatches(
     scope: iEnv,
     pattern: Form,
     input: Form,
-    matches?: any,
+    matches?: Matches,
     depth = 0,
   ): boolean | Matches {
 
@@ -87,7 +95,7 @@ export class Macro extends NativeFunc {
         let dx = followed_by_ellipsis ? 1 : 0
 
         if (followed_by_ellipsis)
-          matches.descend(Syntax.pattern_vars(token, this.params), depth + dx)
+          matches.descend(Syntax.patternVars(token, this.params), depth + dx)
 
         // Set up a closure to consume input using the current pattern
         // expression. Calls +rule_matches+ with the current scope,
@@ -134,10 +142,8 @@ export class Macro extends NativeFunc {
     // both refer to no location). If it's a normal pattern variable, store
     // the current input, whatever it is, in the +matches+.
     else if (isIdentifier(pattern)) {
-
       if (isPair(this.params) && this.params.includes(toString(pattern))) {
         if (pattern === input) {
-          console.log("Senior gusto marino!")
           return this.env.get(toString(pattern)) === scope.get(toString(input))
           // (this.scope.innermost_binding(pattern) === scope.innermost_binding(input))
         }

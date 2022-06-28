@@ -8,6 +8,12 @@ import { Binding } from "./binding";
 import type { Matches } from "./matches";
 import { toString } from "../../print";
 
+const debug = false;
+
+function debugLog(...args: any[]): void {
+  if (debug) { console.log('[Expansion]:'.green, ...args); }
+}
+
 export class Expansion {
 
   public expression: Form;
@@ -28,13 +34,18 @@ export class Expansion {
     depth = 0,
     ignoringEllipses = false,
   ): Form {
+
+    debugLog('expanding template:', toString(template))
+
     if (isList(template)) {
 
       if (isNil(template)) {
-        return NIL
+        debugLog('template is nil ..')
+        return template
       }
 
       if (template.car === ellipsis) {
+        debugLog('template car is an ellipsis.. expanding cadr(template)')
         return this.expand(cadr(template), matches, depth, true)
       }
 
@@ -44,6 +55,10 @@ export class Expansion {
           template_pair : any = template;
 
       const push = (value: Form) => {
+        // if (value === undefined) {
+        //   debugLog('SKIPPED AN UNDEFINED VALUE'.red)
+        //   return
+        // }
         let pair = new Pair(value)
         pair.hosts(value)
         result = result ?? pair
@@ -71,7 +86,7 @@ export class Expansion {
         // correct number of times depending on the +matches+
         if (cell === ellipsis && !ignoringEllipses) {
           matches.expand(repeater, depth + 1, () => {
-            push(this.expand(repeater, matches, depth + dx))
+            push(this.expand(repeater, matches, depth + 1))
           })
         }
 
@@ -90,6 +105,7 @@ export class Expansion {
         last.cdr = this.expand(template_pair, matches, depth, ignoringEllipses)
       }
 
+      debugLog('returning result:', toString(result))
       return result
     }
     else if (isIdentifier(template)) {
@@ -98,29 +114,38 @@ export class Expansion {
       // are handled.
       if (matches.has(template)) {
         const rv = matches.get(template);
-        // console.log('[Expansion]: pattern variable:', template, 'returned:', toString(rv))
+        debugLog('pattern variable:', template, 'returned:', toString(rv))
         return rv
       }
 
 
       // Otherwise, if using unhygienic macros, return the template
       // verbatim.
-      if (!this.hygienic)
+      if (!this.hygienic) {
+        debugLog('returned template:', template, 'unhygienic'.dim)
         return template
+      }
 
       // If using hygienic macros: bind the identifier to the macro's
       // lexical scope if it is defined there, otherwise rename it as
       // appropriate to avoid clashes with variables in the calling scope.
-      return this.lexicalScope.has(template.description!)
-        ? new Binding(template, this.lexicalScope, false)
-        : this.rename(template)
-
+      if (this.lexicalScope.has(template.description!)) {
+        const rv = new Binding(template, this.lexicalScope, false)
+        debugLog('returning binding', toString(rv))
+        return rv
+      }
+      else {
+        const rv = this.rename(template)
+        debugLog('returning renamed', toString(rv))
+        return rv
+      }
     }
     else {
-      // console.log('[Expansion]: else case returned:', template)
+      debugLog('returned datum:', toString(template))
       return template
     }
   }
+
   private rename(sym: symbol) {
     const id = sym.description!
     if (this.callingScope.has(id)) {

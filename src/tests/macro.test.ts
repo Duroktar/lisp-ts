@@ -28,10 +28,53 @@ test("(macro) testing 2", async () => {
   expect(expected.equal(actual)).toBe(true)
 })
 
-test.only("(macro) testing 3", async () => {
+test("(macro) testing 3", async () => {
   const env = await createServerWorld()
   const actual = await execute(`
-    (run-tests)
+    (do ((vec (make-vector 5))
+         (i 0 (+ i 1)))
+        ((= i 5) vec)
+        (vector-set! vec i i))
+  `, env);
+  const expected = list(Sym('+'), 1);
+  expect(expected.equal(actual)).toBe(true)
+})
+
+test("(macro) testing do (works)", async () => {
+  const env = await createServerWorld()
+  const actual = await execute(`
+    (do ((x 0 (+ x 1))) ((= x 3) (writeln 'done)) (writeln 'looping))
+  `, env);
+  const expected = list(Sym('+'), 1);
+  expect(expected.equal(actual)).toBe(true)
+})
+
+test("(macro) testing do (broken 0)", async () => {
+  const env = await createServerWorld()
+  const actual = await execute(`
+    (do ((x 0 (+ x 1)) (y 666)) ((= x 3) (writeln 'done)) (writeln 'looping))
+  `, env);
+  const expected = list(Sym('+'), 1);
+  expect(expected.equal(actual)).toBe(true)
+})
+
+test("(macro) testing do (broken 1)", async () => {
+  const env = await createServerWorld()
+  const actual = await execute(`
+    (do ((vec (make-vector 5)) (i 0 (+ i 1))) ((= i 5) vec) (vector-set! vec i i))
+  `, env);
+  const expected = list(Sym('+'), 1);
+  expect(expected.equal(actual)).toBe(true)
+})
+
+test.only("(macro) testing do (broken 2)", async () => {
+  const env = await createServerWorld()
+  const actual = await execute(`
+  (do ([x 6 (- x 1)]
+       [acc 1])
+    ((zero? x) acc)
+    (display x) (newline)
+    (set! acc (* acc x)))
   `, env);
   const expected = list(Sym('+'), 1);
   expect(expected.equal(actual)).toBe(true)

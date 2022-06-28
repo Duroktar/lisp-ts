@@ -64,42 +64,45 @@
 
 (define-syntax let
   (syntax-rules ()
-    ((let ((name val) ...) body1 body2 ...)
-      ((lambda (name ...) body1 body2 ...)
-      val ...))))
+    ((let ((variable init) ...) body ...)
+      ((lambda (variable ...)
+          body ...)
+      init ...))
+    ((let name ((variable init) ...) body ...)
+      (letrec ((name (lambda (variable ...)
+                      body ...)))
+        (name init ...)))))
 
 (define-syntax let*
   (syntax-rules ()
-    ((let* () body1 body2 ...)
-      (let () body1 body2 ...))
-    ((let* ((name1 val1) (name2 val2) ...)
-        body1 body2 ...)
-      (let ((name1 val1))
-        (let* ((name2 val2) ...)
-          body1 body2 ...)))))
+    ((let* ((n1 e1) (n2 e2) (n3 e3) ...) body ...)
+      (let ((n1 e1))
+        (let* ((n2 e2) (n3 e3) ...) body ...)))
+    ((let* ((name expression) ...) body ...)
+      (let ((name expression) ...) body ...))))
 
-;; from: https://stackoverflow.com/questions/2835582/what-if-any-is-wrong-with-this-definition-of-letrec-in-scheme
 (define-syntax letrec
   (syntax-rules ()
-    ((letrec ((name val) ...) body bodies ...)
-     ((lambda ()
-       (define name val) ... body bodies ...)))))
+    ((letrec ((variable init) ...) body ...)
+      ((lambda ()
+        (define variable init) ...
+        body ...)))))
 
-; (define-syntax do
-;   (syntax-rules ()
-;     ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
-;         (test expression ...)
-;         command ...)
-;       (let loop ((variable init) ...)
-;         (if test
-;             (begin expression ...)
-;             (begin
-;               command ...
-;               (loop (do "step" variable step ...) ...)))))
-;     ((do "step" variable)
-;       variable)
-;     ((do "step" variable step)
-;       step)))
+(define-syntax do
+  (syntax-rules ()
+    ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
+        (test expression ...)
+        command ...)
+      (let loop ((variable init) ...)
+        (if test
+            (begin expression ...)
+            (begin
+              command ...
+              (loop (do "step" variable step ...) ...)))))
+    ((do "step" variable)
+      variable)
+    ((do "step" variable step)
+      step)))
 
 (define-syntax delay
   (syntax-rules ()
@@ -113,18 +116,6 @@
                 (set! memo expression)
                 (set! forced #t)
                 memo)))))))
-
-; (let loop (((vec i make-vector 0) (vec i 5 0)))
-;   (if (= i 5)
-;     (begin vec)
-;     (begin
-;       (vector-set! vec i i)
-;       (loop ((do "step" vec i +) (do "step" vec i i) (do "step" vec i 1))))))
-
-; (do ((vec (make-vector 5))
-;     (i 0 (+ i 1)))
-;     ((= i 5) vec)
-;   (vector-set! vec i i))
 
 ;;  - 6. Standard procedures
 ;; - 6.1 Equivalence Predicates

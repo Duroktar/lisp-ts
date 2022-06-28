@@ -29,7 +29,7 @@ export class Syntax {
   static RESERVED = ['_', '...']
   static debug: boolean = false
 
-  static pattern_vars(
+  static patternVars(
     pattern: Form,
     excluded: List = NIL,
     results: string[] = [],
@@ -42,18 +42,17 @@ export class Syntax {
     if (isIdentifier(pattern)) {
       const name = pattern.description!
 
-      if ((isPair(excluded) && excluded.includes(name)) || Syntax.RESERVED.includes(name))
-        return results
-
-      if (!results.includes(name))
+      if ((isPair(excluded) && excluded.includes(name)) || Syntax.RESERVED.includes(name)) {
+        // return
+      } else if (!results.includes(name))
         results.push(name)
     }
 
     if (isPair(pattern)) {
-        for (let cell of pattern.each()) {
-          this.pattern_vars(cell, excluded, results)
-        }
-        return this.pattern_vars(pattern.tail.cdr, excluded, results)
+      for (let cell of pattern.each()) {
+        Syntax.patternVars(cell, excluded, results)
+      }
+      Syntax.patternVars(pattern.tail.cdr, excluded, results)
     }
 
     return results

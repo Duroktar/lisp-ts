@@ -1,18 +1,18 @@
-import { isBinding, isEmpty, isExpansion, isList, isNativeProc, isPair, isProc, isSym, isTruthy } from "../guard";
+import { isEmpty, isList, isNativeProc, isPair, isProc, isSym, isTruthy } from "../guard";
 import { iEnv } from "../interface/iEnv";
 import { assert } from "../utils";
 import { EMPTY, UNDEF } from "./const";
 import { Env } from "./data/env";
-import type { Form } from "./form";
-import { cadddr, caddr, cadr, car, cdr } from "./lisp";
 import { list, Pair } from "./data/pair";
 import { Procedure } from "./data/proc";
 import { SymTable } from "./data/sym";
+import type { Form } from "./form";
+import { cadddr, caddr, cadr, car, cdr } from "./lisp";
 import { toString } from "./print";
 
 export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
   while (true) {
-    // console.log('evaluating term:', toString(e));
+    // console.log('[evaluate]: evaluating term:'.dim, toString(e));
     if (isSym(e)) return a.getFrom<Form>(e);
     else if (!isPair(e)) return e ?? EMPTY;
     else switch (e.car) {
