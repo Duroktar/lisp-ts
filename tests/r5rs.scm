@@ -46,7 +46,7 @@
 
 (test 35 (let ((x 2) (y 3)) (let ((x 7) (z (+ x y))) (* z x))))
 
-;; (test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
+(test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
 
 ;; (test -2 (let ()
 ;;            (define x 2)
@@ -70,15 +70,15 @@
           ((null? x)
            sum))))
 
-; (test '((6 1 3) (-5 -2))
-;     (let loop ((numbers '(3 -2 1 6 -5)) (nonneg '()) (neg '()))
-;       (cond
-;        ((null? numbers)
-;         (list nonneg neg))
-;        ((>= (car numbers) 0)
-;         (loop (cdr numbers) (cons (car numbers) nonneg) neg))
-;        ((< (car numbers) 0)
-;         (loop (cdr numbers) nonneg (cons (car numbers) neg))))))
+(test '((6 1 3) (-5 -2))
+    (let loop ((numbers '(3 -2 1 6 -5)) (nonneg '()) (neg '()))
+      (cond
+       ((null? numbers)
+        (list nonneg neg))
+       ((>= (car numbers) 0)
+        (loop (cdr numbers) (cons (car numbers) nonneg) neg))
+       ((< (car numbers) 0)
+        (loop (cdr numbers) nonneg (cons (car numbers) neg))))))
 
 (test '(list 3 4) `(list ,(+ 1 2) 4))
 
@@ -97,8 +97,6 @@
     (let ((name1 'x)
           (name2 'y))
       `(a `(b ,,name1 ,',name2 d) e)))
-
-;(let ((name1 'x) (name2 'y)) `(a `(b ,,name1 ,',name2 d) e))
 
 (test '(list 3 4)
  (quasiquote (list (unquote (+ 1 2)) 4)))
@@ -263,10 +261,10 @@
 
 (test #f (list? '(a . b)))
 
-; (test #f
-;     (let ((x (list 'a)))
-;       (set-cdr! x x)
-;       (list? x)))
+;; (test #f
+;;     (let ((x (list 'a)))
+;;       (set-cdr! x x)
+;;       (list? x)))
 
 (test '(a 7 c) (list 'a (+ 3 4) 'c))
 
@@ -457,40 +455,40 @@
           (e 10000))
       (+ e (* c 1000) (* a 100) (* b 10) d))))
 
-; (test '(a b c)
-;     (let* ((path '())
-;            (add (lambda (s) (set! path (cons s path)))))
-;       (dynamic-wind (lambda () (add 'a)) (lambda () (add 'b)) (lambda () (add 'c)))
-;       (reverse path)))
+(test '(a b c)
+    (let* ((path '())
+           (add (lambda (s) (set! path (cons s path)))))
+      (dynamic-wind (lambda () (add 'a)) (lambda () (add 'b)) (lambda () (add 'c)))
+      (reverse path)))
 
-; (test '(connect talk1 disconnect connect talk2 disconnect)
-;     (let ((path '())
-;           (c #f))
-;       (let ((add (lambda (s)
-;                    (set! path (cons s path)))))
-;         (dynamic-wind
-;             (lambda () (add 'connect))
-;             (lambda ()
-;               (add (call-with-current-continuation
-;                     (lambda (c0)
-;                       (set! c c0)
-;                       'talk1))))
-;             (lambda () (add 'disconnect)))
-;         (if (< (length path) 4)
-;             (c 'talk2)
-;             (reverse path)))))
+(test '(connect talk1 disconnect connect talk2 disconnect)
+    (let ((path '())
+          (c #f))
+      (let ((add (lambda (s)
+                   (set! path (cons s path)))))
+        (dynamic-wind
+            (lambda () (add 'connect))
+            (lambda ()
+              (add (call-with-current-continuation
+                    (lambda (c0)
+                      (set! c c0)
+                      'talk1))))
+            (lambda () (add 'disconnect)))
+        (if (< (length path) 4)
+            (c 'talk2)
+            (reverse path)))))
 
-; (test 2 (let-syntax
-;             ((foo (syntax-rules ::: ()
-;                     ((foo ... args :::)
-;                      (args ::: ...)))))
-;           (foo 3 - 5)))
+;; (test 2 (let-syntax
+;;             ((foo (syntax-rules ::: ()
+;;                     ((foo ... args :::)
+;;                      (args ::: ...)))))
+;;           (foo 3 - 5)))
 
-; (test '(5 4 1 2 3)
-;     (let-syntax
-;         ((foo (syntax-rules ()
-;                 ((foo args ... penultimate ultimate)
-;                  (list ultimate penultimate args ...)))))
-;       (foo 1 2 3 4 5)))
+;; (test '(5 4 1 2 3)
+;;     (let-syntax
+;;         ((foo (syntax-rules ()
+;;                 ((foo args ... penultimate ultimate)
+;;                  (list ultimate penultimate args ...)))))
+;;       (foo 1 2 3 4 5)))
 
 (test-end)

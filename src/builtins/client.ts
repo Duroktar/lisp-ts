@@ -1,6 +1,6 @@
 import { SocketServerUnavailableError } from "../core/data/error";
-import { InPort, OutPort } from "../core/data/port";
-import { SocketClient } from "../core/data/port/Socket/client";
+import { InPort, OutPort } from "../core/port";
+import { SocketClient } from "../core/port/Socket/client";
 import { iWorld } from "../interface/iWorld";
 import { assert } from "../utils";
 

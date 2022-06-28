@@ -3,7 +3,7 @@ import { iWorld } from "../interface/iWorld";
 import { assert, sequence } from "../utils";
 import { UNDEF } from "./const";
 import { cons, list, type Pair } from "./data/pair";
-import type { Closure } from "./data/proc";
+import type { Closure } from "./callable/proc";
 import { SymTable } from "./data/sym";
 import type { Form } from "./form";
 import { caar, caddr, cadr, car, cddr, cdr } from "./lisp";

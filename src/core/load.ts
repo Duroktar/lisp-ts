@@ -5,9 +5,9 @@ import { EOF } from "./const";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
 import { Form } from "./form";
-import { TSchemeModuleFS } from "./data/module";
-import { InPort } from "./data/port";
-import { ServerSourceFile } from "./data/port/File/server";
+import { TSchemeModuleFS } from "./module";
+import { InPort } from "./port";
+import { ServerSourceFile } from "./port/File/server";
 import { read } from "./read";
 import { iWorld } from "../interface/iWorld";
 

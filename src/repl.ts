@@ -114,9 +114,6 @@ export async function start(options: TSchemeReplOptions) {
         // console.log('`eval_` Evaluated:', toStringSafe(val))
         callback(null, toString(val))
       } catch (err) {
-        // if (err instanceof Errors.RuntimeWarning) {
-        //   throw err
-        // }
         errorHandler(err, callback)
       }
     }
@@ -167,6 +164,10 @@ function errorHandler(err: unknown, callback: any): any {
     }
     if (err instanceof Errors.MalformedStringError) {
       return callback(null, err.message)
+    }
+    if (err instanceof Errors.RuntimeWarning) {
+      console.log('runtime warning (repl)')
+      return callback(null, err.retval)
     }
     return callback(null, err.message)
   }

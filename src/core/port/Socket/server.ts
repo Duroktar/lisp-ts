@@ -1,6 +1,6 @@
 import assert from "assert";
 import { Server, Socket } from "socket.io";
-import { Queue } from "../../../data/queue";
+import { Queue } from "../../data/queue";
 import { File } from "../index";
 
 export class SocketServer implements File {

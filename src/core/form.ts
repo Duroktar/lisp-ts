@@ -1,7 +1,7 @@
 import { type Character } from "./data/char";
-import type { Binding, Expansion } from "./data/macro";
+import type { Binding, Expansion } from "./callable/macro";
 import { type Pair } from "./data/pair";
-import { type Closure } from "./data/proc";
+import { type Closure } from "./callable/proc";
 import { type Vector } from "./data/vec";
 
 export type Atom = symbol | string | number;

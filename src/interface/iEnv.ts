@@ -1,8 +1,9 @@
 import { Form } from "../core/form"
-import { Closure, NativeFunc } from "../core/data/proc"
+import { Callable, Closure } from "../core/callable/proc"
+import { NativeFunc } from "../core/callable/func"
 
 export interface iEnv {
-  define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray?: boolean): void
+  define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray?: boolean): Callable
   syntax(name: string, cb: (args: Form, env: iEnv) => any): void
   get<T extends Form | Closure>(name: string): T
   getFrom<T extends Form | Closure>(expr: Form): T

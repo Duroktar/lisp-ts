@@ -1,13 +1,14 @@
 import { isEmpty, isList, isPair, isString, isSym } from "../../guard";
 import type { iEnv } from "../../interface/iEnv";
 import { EMPTY } from "../const";
-import { Syntax } from "../data/macro/syntax";
+import { Syntax } from "../callable/macro/syntax";
 import type { Atom, Form } from "../form";
 import { car, cdr } from "../lisp";
 import { toString } from "../print";
 import * as Errors from "./error";
 import { cons, list, Pair } from "./pair";
-import { Closure, NativeFunc } from "./proc";
+import { Callable, Closure } from "../callable/proc";
+import { NativeFunc } from "../callable/func";
 import { Sym } from "./sym";
 
 export class Env implements iEnv {
@@ -133,10 +134,12 @@ export class Env implements iEnv {
   entries(): [string, Form][] {
     return this.map(([key, value]) => [key, value])
   }
-  define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray = true): void {
+  define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray = true): Callable {
     const paramList = isString(params) ? Sym(params) : list(...params.map(Sym));
     const handler = (args: Form, env: iEnv) => cb(parseArgs(toArray, args), env);
-    this.set(name, new NativeFunc(this, paramList, handler, name));
+    const callable = new NativeFunc(this, paramList, handler, name);
+    this.set(name, callable);
+    return callable
   }
   syntax(name: string, cb: (args: Form, env: iEnv) => any): void {
     this.set(name, new Syntax(name, this, cb));

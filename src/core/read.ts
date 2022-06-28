@@ -5,7 +5,7 @@ import { EMPTY, TRUE } from "./const";
 import { Character } from "./data/char";
 import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./data/error";
 import { cons, list } from "./data/pair";
-import { InPort } from "./data/port";
+import { InPort } from "./port";
 import { Sym, SymTable } from "./data/sym";
 import { Vector } from "./data/vec";
 import { Form, List } from "./form";

@@ -1,7 +1,7 @@
-import { InPort, IOPort, OutPort } from "../core/data/port";
-import { SocketClient } from "../core/data/port/Socket/client";
-import { SocketServer } from "../core/data/port/Socket/server";
-import { ServerSourceFile, StdIn, StdOut } from "../core/data/port/File/server";
+import { InPort, IOPort, OutPort } from "../core/port";
+import { SocketClient } from "../core/port/Socket/client";
+import { SocketServer } from "../core/port/Socket/server";
+import { ServerSourceFile, StdIn, StdOut } from "../core/port/File/server";
 import { isSym } from "../guard";
 import { iWorld } from "../interface/iWorld";
 import { loadFile, parseLoadSymbol } from "../core/load";

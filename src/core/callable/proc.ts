@@ -1,23 +1,11 @@
 import type { iEnv } from "../../interface/iEnv";
 import { evaluate } from "../eval";
 import type { Form } from "../form";
-import { Env } from "./env";
-import type { Syntax } from "../data/macro/syntax";
+import { Env } from "../data/env";
+import type { Syntax } from "../callable/macro/syntax";
+import { NativeFunc } from "./func";
 
 export type CallableFunc = (args: Form, env: iEnv) => Promise<Form> | Form;
-
-export class NativeFunc {
-  constructor(
-    public env: iEnv,
-    public params: Form,
-    public expr: any,
-    public name = 'λ',
-  ) {}
-  public async call(args: Form, env?: iEnv): Promise<Form> {
-    const closure = new Env(this.params, args, env ?? this.env)
-    return await this.expr(args, closure);
-  }
-}
 
 export class Procedure {
   constructor(

@@ -1,7 +1,7 @@
 import { isIdentifier, isList, isNil, isPair } from "../../../guard";
 import type { iEnv } from "../../../interface/iEnv";
 import { ellipsis, NIL } from "../../const";
-import { Pair } from "../pair";
+import { Pair } from "../../data/pair";
 import type { Form, List } from "../../form";
 import { cadr } from "../../lisp";
 import { Binding } from "./binding";

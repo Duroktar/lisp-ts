@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import rlSYnc from "readline-sync";
-import { debounce } from "../../../../utils";
+import { debounce } from "../../../utils";
 import { File } from "../index";
 
 rlSYnc.setDefaultOptions({prompt: ''});

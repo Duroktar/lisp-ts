@@ -1,9 +1,10 @@
 import { EMPTY, FALSE, TRUE } from "./core/const";
 import { Character } from "./core/data/char";
-import { isSyntax, Syntax, Binding, Expansion, Macro } from "./core/data/macro";
+import { isSyntax, Syntax, Binding, Expansion, Macro } from "./core/callable/macro";
 import { Pair } from "./core/data/pair";
-import { File, InPort, IOPort, OutPort } from "./core/data/port";
-import { NativeFunc, Procedure } from "./core/data/proc";
+import { File, InPort, IOPort, OutPort } from "./core/port";
+import { Procedure } from "./core/callable/proc";
+import { NativeFunc } from "./core/callable/func";
 import { Sym } from "./core/data/sym";
 import { Vector } from "./core/data/vec";
 import { Atom, Form, List } from "./core/form";

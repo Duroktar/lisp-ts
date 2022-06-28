@@ -1,6 +1,6 @@
 import { isNullOrUndefined, isPair } from "../../../guard"
 import type { iEnv } from "../../../interface/iEnv"
-import type { Pair } from "../pair"
+import type { Pair } from "../../data/pair"
 import { evaluate } from "../../eval"
 import type { Form } from "../../form"
 

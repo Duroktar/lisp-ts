@@ -5,7 +5,7 @@ import { Resume } from "./data/cont";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
 import type { Form } from "./form";
-import { InPort } from "./data/port";
+import { InPort } from "./port";
 import { read } from "./read";
 import { toString, toStringSafe } from "./print";
 

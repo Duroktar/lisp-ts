@@ -1,7 +1,7 @@
 import { expect, test, describe } from 'vitest'
 import * as Lisp from "../core/lisp";
 import { list } from "../core/data/pair";
-import { Procedure } from "../core/data/proc";
+import { Procedure } from "../core/callable/proc";
 import { createServerWorld } from "../world/server";
 
 describe('evaluate works', () => {

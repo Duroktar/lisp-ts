@@ -4,9 +4,9 @@ import { EMPTY, FALSE, NIL, TRUE, UNDEF } from "../core/const";
 import { Character } from "../core/data/char";
 import { Resume } from "../core/data/cont";
 import { InvalidCallableExpression, NotImplementedError, RuntimeWarning, UndefinedVariableError } from "../core/data/error";
-import { Macro, isSyntax, Syntax } from "../core/data/macro";
+import { Macro, isSyntax, Syntax } from "../core/callable/macro";
 import { cons, list, Pair } from "../core/data/pair";
-import { currentInputPort, currentOutputPort, InPort, OutPort } from "../core/data/port";
+import { currentInputPort, currentOutputPort, InPort, OutPort } from "../core/port";
 import { Sym } from "../core/data/sym";
 import { Vector } from "../core/data/vec";
 import { evaluate } from "../core/eval";
@@ -744,13 +744,16 @@ export async function addGlobals(
     // library procedure: force promise
     env.define('call-with-current-continuation', ['throw'], async ([proc]: any, env: iEnv) => {
       const ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.");
-      env.define('throw', ['retval'], ([retval]: any) => {
+
+      const fn = env.define('throw', ['retval'], ([retval]: any) => {
         ball.retval = retval; throw ball;
       });
+
       if (isProc(proc) || isNativeProc(proc)) {
         try {
-          return await proc.call(list(env.get('throw')), env);
+          return await proc.call(list(fn), env);
         } catch (err) {
+          console.log('RuntimeWarning (call/cc)')
           if (err instanceof RuntimeWarning) {
             return ball.retval;
           }
@@ -764,7 +767,19 @@ export async function addGlobals(
 
     // procedure: values obj ...
     // procedure: call-with-values producer consumer
-    // procedure: dynamic-wind before thunk after
+    env.define('dynamic-wind', ['before', 'thunk', 'after'], async ([before, thunk, after]: any, env: iEnv) => {
+      Util.assert(isCallable(before))
+      Util.assert(isCallable(thunk))
+      Util.assert(isCallable(after))
+      await before.call(NIL, env);
+      try {
+        return await thunk.call(NIL, env);
+      } catch (err) {
+        console.log('RuntimeWarning (dynamic-wind)')
+      } finally {
+        await after.call(NIL, env);
+      }
+    });
     // END - 6.4 Control Features
 
     // - 6.5 Eval
@@ -905,8 +920,14 @@ export async function addGlobals(
         }
         return cons(FALSE, 'InvalidCallableExpression')
       } catch (err) {
-        if (err instanceof Error)
+        if (err instanceof RuntimeWarning) {
+          console.log('RuntimeWarning (try)')
+          return err.retval // continuation
+          // throw err
+        }
+        if (err instanceof Error) {
           return cons(FALSE, err.message);
+        }
         if (typeof err === 'string')
           return cons(FALSE, err);
         return cons(FALSE, 'UnknownError');

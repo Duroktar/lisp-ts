@@ -4,7 +4,7 @@ import { assert } from "../utils";
 import { EMPTY, UNDEF } from "./const";
 import { Env } from "./data/env";
 import { list, Pair } from "./data/pair";
-import { Procedure } from "./data/proc";
+import { Procedure } from "./callable/proc";
 import { SymTable } from "./data/sym";
 import type { Form } from "./form";
 import { cadddr, caddr, cadr, car, cdr } from "./lisp";

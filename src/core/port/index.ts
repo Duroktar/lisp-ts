@@ -1,4 +1,4 @@
-import type { iWorld } from "../../../interface/iWorld"
+import type { iWorld } from "../../interface/iWorld"
 
 export abstract class File {
   abstract read(): Promise<string>

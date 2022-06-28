@@ -1,10 +1,11 @@
 import { isBinding, isChar, isExpansion, isNil, isNullOrUndefined, isNum, isString, isSym, isVec } from "../guard";
 import { EMPTY, UNDEF } from "./const";
-import { Syntax } from "./data/macro";
-import { TSchemeModule } from "./data/module/base";
+import { Syntax } from "./callable/macro";
+import { TSchemeModule } from "./module/base";
 import { Pair } from "./data/pair";
-import { Port } from "./data/port";
-import { NativeFunc, Procedure } from "./data/proc";
+import { Port } from "./port";
+import { Procedure } from "./callable/proc";
+import { NativeFunc } from "./callable/func";
 import { quoteMap } from "./data/quote";
 import { Form } from "./form";
 
