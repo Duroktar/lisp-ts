@@ -27,7 +27,7 @@ type TSchemeReplOptions = {
   colors: boolean
 }
 
-export const initializeREPL = async (env: iWorld, options: TSchemeReplOptions) => {
+export const initializeREPL = (env: iWorld, options: TSchemeReplOptions) => {
 
   if (existsSync(HISTORY_FILE_PTH) === false) {
       mkdirSync(path.dirname(HISTORY_FILE_PTH), { recursive: true })
@@ -42,8 +42,8 @@ export const initializeREPL = async (env: iWorld, options: TSchemeReplOptions) =
     console.error(`Welcome to lisp-ts ${('v' + LANGUAGE_VERSION)}`)
 }
 
-export async function start(options: TSchemeReplOptions) {
-  const world = await createServerWorld()
+export function start(options: TSchemeReplOptions) {
+  const world = createServerWorld()
 
   const prettyOpts = options.colors ? { colorize: colorizer } : {}
 
@@ -82,7 +82,7 @@ export async function start(options: TSchemeReplOptions) {
       connected = false
     })
 
-    async function _emit(cmd: string, context: any, filename: string, callback: any) {
+    function _emit(cmd: string, context: any, filename: string, callback: any) {
       try {
         if (!connected) {
           callback(null, '(ERROR "Not connected...")')
@@ -92,7 +92,7 @@ export async function start(options: TSchemeReplOptions) {
           return callback(null)
         }
 
-        await Lisp.tokenize(cmd, world)
+        Lisp.tokenize(cmd, world)
         socket.emit('data', cmd)
 
         socket.once('data', (result, ...rest) => {
@@ -106,11 +106,11 @@ export async function start(options: TSchemeReplOptions) {
     replOptions.eval = _emit
   }
   else {
-    async function _eval(cmd: string, context: any, filename: string, callback: any) {
+    function _eval(cmd: string, context: any, filename: string, callback: any) {
       try {
-        const x = await Lisp.parse(cmd, world)
+        const x = Lisp.parse(cmd, world)
         // console.log('`eval_` Parsed:', toString(x))
-        const val = await evaluate(x, world.env)
+        const val = evaluate(x, world.env)
         // console.log('`eval_` Evaluated:', toStringSafe(val))
         callback(null, toString(val))
       } catch (err) {
@@ -135,7 +135,7 @@ export async function start(options: TSchemeReplOptions) {
     }
   }
 
-  await initializeREPL(world, options)
+  initializeREPL(world, options)
 
   repl
     .start({ ...replOptions })
@@ -197,4 +197,4 @@ const options: TSchemeReplOptions = program
   .opts()
 
 
-start(options).catch(console.error)
+start(options)

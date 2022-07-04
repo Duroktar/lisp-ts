@@ -33,7 +33,7 @@ export class Macro extends NativeFunc {
     super(env, params, expr, name)
   }
 
-  async call(cells: List, scope: iEnv) {
+  call(cells: List, scope: iEnv) {
     const [rule, matches] = this.ruleFor(cells, scope);
     debugLog('creating Expansion..')
     return new Expansion(this.env, scope, (<any>rule.cdr).car, matches);

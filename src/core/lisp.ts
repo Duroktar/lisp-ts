@@ -36,35 +36,35 @@ export const cdddr = (e: any) => cdr(cdr(cdr(e)))
 export const cadddr = (e: any) => car(cdr(cdr(cdr(e))))
 export const caaddr = (e: any) => car(car(cdr(cdr(e))))
 
-export const tokenize = async (code: string, world: iWorld): Promise<Form> => {
-  return await read(InPort.fromString(code), world);
+export function tokenize(code: string, world: iWorld): Form {
+  return read(InPort.fromString(code), world);
 };
 
-export const parse = async (code: string, world: iWorld): Promise<Form> => {
-  const tokens = await read(InPort.fromString(code), world);
-  const result = await expand(tokens, true, world);
+export function parse(code: string, world: iWorld): Form {
+  const tokens = read(InPort.fromString(code), world);
+  const result = expand(tokens, true, world);
   const repr = toString(tokens)
   return result;
 };
 
-export const execute = async (code: string, world: iWorld): Promise<Form> => {
-  const parsed = await parse(code, world);
+export function execute(code: string, world: iWorld): Form {
+  const parsed = parse(code, world);
   // const r = toString(parsed, true);
   // console.log(r)
-  return await evaluate(parsed, world.env);
+  return evaluate(parsed, world.env);
 };
 
-export const debugExecute = async (code: string, world: iWorld): Promise<Form> => {
-  async function innerDebugExecute(level = 1): Promise<any> {
+export function debugExecute(code: string, world: iWorld): Form {
+  function innerDebugExecute(level = 1): any {
     try {
-      const result = await execute(code, world);
+      const result = execute(code, world);
       return result;
     } catch (outerError) {
       if (outerError instanceof Error) {
         // console.error('outerError')
         console.error(outerError.stack)
         try {
-          return await execute(`
+          return execute(`
             (begin (
               (write ${JSON.stringify(outerError.message)})
               (newline)
@@ -75,7 +75,7 @@ export const debugExecute = async (code: string, world: iWorld): Promise<Form> =
           // console.error('innerError')
           // console.error(innerError)
           if (innerError instanceof Resume) {
-            return await innerDebugExecute(level++)
+            return innerDebugExecute(level++)
           }
           // throw innerError
         }
@@ -84,6 +84,6 @@ export const debugExecute = async (code: string, world: iWorld): Promise<Form> =
     }
   }
 
-  await execute(`(load "stdlib/io.scm")`, world)
-  return await innerDebugExecute();
+  execute(`(load "stdlib/io.scm")`, world)
+  return innerDebugExecute();
 };

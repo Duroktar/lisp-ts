@@ -7,7 +7,7 @@ import { iWorld } from "../interface/iWorld";
 import { loadFile, loadFromLibrary, parseLoadSymbol } from "../core/load";
 import { assert } from "../utils";
 
-export async function addServerFeatures(world: iWorld) {
+export function addServerFeatures(world: iWorld) {
   const { env } = world
 
   env.set('#cwd', process.cwd());
@@ -50,22 +50,22 @@ export async function addServerFeatures(world: iWorld) {
     return openOutputFile(filename)
   });
 
-  env.define('load', ['file'], async ([file]: any) => {
+  env.define('load', ['file'], ([file]: any) => {
     if (isSym(file)) {
-      return await loadFile(parseLoadSymbol(file), world)
+      return loadFile(parseLoadSymbol(file), world)
     }
-    return await loadFile(file, world)
+    return loadFile(file, world)
   });
 
-  env.define('load-from-library', ['file'], async ([file]: any) => {
-    return await loadFromLibrary(file, world)
+  env.define('load-from-library', ['file'], ([file]: any) => {
+    return loadFromLibrary(file, world)
   });
 
-  env.define('reload', ['file'], async ([file]: any) => {
+  env.define('reload', ['file'], ([file]: any) => {
     if (isSym(file)) {
-      return await loadFile(parseLoadSymbol(file), world, true)
+      return loadFile(parseLoadSymbol(file), world, true)
     }
-    return await loadFile(file, world, true)
+    return loadFile(file, world, true)
   });
 
 }

@@ -2,14 +2,13 @@ import { Socket } from "socket.io";
 import { io, Socket as Client } from "socket.io-client";
 import { isNewline, isEofString } from "../../../guard";
 import { assert } from "../../../utils";
-import { Queue } from "../../data/queue";
 import { File } from "../index";
 
 
 export class SocketClient extends File {
   private data: string[] = [];
   private socket: Client;
-  private fifo = new Queue();
+  private buffer = new Array();
   private connection?: Socket;
   constructor(address: string) {
     super()
@@ -17,22 +16,22 @@ export class SocketClient extends File {
     this.socket.on('connection', connection => {
       this.connection = connection;
       connection.on('data', (data: string) => {
-        this.fifo.putNowait(data);
-        this.fifo.putNowait('\n');
+        this.buffer.push(data);
+        this.buffer.push('\n');
       });
     });
   }
-  async readline(): Promise<string> {
+  readline(): string {
     this.on('readline')
     let data;
-    do { data = await this.read(); }
+    do { data = this.read(); }
     while (!isNewline(data) && !isEofString(data));
     return data;
   }
-  async read(): Promise<string> {
+  read(): string {
     this.on('read')
     if (this.data.length === 0) {
-      const x = await this.fifo.get();
+      const x = this.buffer.shift();
       assert(typeof x === 'string', 'data must be a string (SocketServer)');
       this.data.push(...x);
     }
@@ -44,5 +43,6 @@ export class SocketClient extends File {
   close() {
     delete this.connection;
     this.socket.close();
+    this.on('close')
   }
 }

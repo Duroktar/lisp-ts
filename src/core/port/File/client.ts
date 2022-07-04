@@ -2,17 +2,18 @@
 import { File } from "../index";
 
 
-export class ClientSourceFile implements File {
+export class ClientSourceFile extends File {
   constructor(filepath: string) {
     throw new Error('UnimplementedError: ClientSourceFile')
+    super()
     // this.data = String(readFileSync(filepath));
   }
-  async readline(): Promise<string> {
+  readline(): string {
     const [line, ...lines] = this.data.split('\n');
     this.data = lines.join('\n');
     return line;
   }
-  async read(): Promise<string> {
+  read(): string {
     const x = this.data[0] ?? File.EOF_STRING;
     this.data = this.data.slice(1);
     return x;

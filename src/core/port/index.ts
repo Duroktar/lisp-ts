@@ -2,8 +2,8 @@ import type { iWorld } from "../../interface/iWorld"
 import { Position } from "../../utils";
 
 export abstract class File {
-  abstract readline(): Promise<string>
-  abstract read(): Promise<string>
+  abstract readline(): string
+  abstract read(): string
   abstract write(text: string): void
   abstract close(): void
 
@@ -41,13 +41,13 @@ export class RawText extends File {
   constructor(private data: string) {
     super()
   }
-  async readline(): Promise<string> {
+  readline(): string {
     const [line, ...lines] = this.data.split('\n')
     this.data = lines.join('\n')
     this.on('readline')
     return line
   }
-  async read(): Promise<string> {
+  read(): string {
     const x = this.data[0] ?? File.EOF_STRING
     this.data = this.data.slice(1)
     this.on('read')
@@ -80,18 +80,18 @@ export class IOPort extends Port {
   static fromString(text: string) {
     return new IOPort(new RawText(text), 'string')
   }
-  public async readChar(): Promise<string> {
+  public readChar(): string {
     if (!this.closed) {
-      if (this.char === '') this.char = await this.file.read()
+      if (this.char === '') this.char = this.file.read()
       if (this.char === '') return File.EOF_STRING
       const char = this.char; this.char = '';
       return char
     }
     throw new Error('attempted to read from closed port')
   }
-  public async peekChar(): Promise<string> {
+  public peekChar(): string {
     if (this.char === '') {
-      const char = await this.readChar()
+      const char = this.readChar()
       this.char = char
     }
     return this.char
@@ -114,18 +114,18 @@ export class InPort extends Port {
   static fromString(text: string) {
     return new InPort(new RawText(text), 'string')
   }
-  public async readChar(): Promise<string> {
+  public readChar(): string {
     if (!this.closed) {
-      if (this.char === '') this.char = await this.file.read()
+      if (this.char === '') this.char = this.file.read()
       if (this.char === '') return File.EOF_STRING
       const char = this.char; this.char = '';
       return char
     }
     throw new Error('attempted to read from closed port')
   }
-  public async peekChar(): Promise<string> {
+  public peekChar(): string {
     if (this.char === '') {
-      const char = await this.readChar()
+      const char = this.readChar()
       this.char = char
     }
     return this.char

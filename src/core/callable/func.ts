@@ -2,7 +2,6 @@ import type { iEnv } from "../../interface/iEnv";
 import type { Form } from "../form";
 import { Env } from "../data/env";
 
-
 export class NativeFunc {
   constructor(
     public env: iEnv,
@@ -10,8 +9,8 @@ export class NativeFunc {
     public expr: any,
     public name = 'λ'
   ) { }
-  public async call(args: Form, env?: iEnv): Promise<Form> {
+  public call(args: Form, env?: iEnv): Form {
     const closure = new Env(this.params, args, env ?? this.env);
-    return await this.expr(args, closure);
+    return this.expr(args, closure);
   }
 }

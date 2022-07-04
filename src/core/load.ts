@@ -23,46 +23,46 @@ export function parseLoadSymbol(sym: symbol, ext = '.scm') {
   return repr + ext
 }
 
-export async function readFile(path: string, world: iWorld): Promise<Form[]> {
+export function readFile(path: string, world: iWorld): Form[] {
   const port = new InPort(new ServerSourceFile(path), 'file');
-  const getNext = async () => await read(port, world);
+  const getNext = () => read(port, world);
   let terms = []
-  for (let next = await getNext(); next !== EOF; next = await getNext()) {
+  for (let next = getNext(); next !== EOF; next = getNext()) {
     terms.push(next);
   }
   return terms;
 };
 
-export async function parseFile(path: string, world: iWorld): Promise<Form[]> {
-  const file = await readFile(path, world);
+export function parseFile(path: string, world: iWorld): Form[] {
+  const file = readFile(path, world);
   const rv: Form[] = []
   for (let f of file) {
-    rv.push(await expand(f, true, world))
+    rv.push(expand(f, true, world))
   }
   return rv;
 };
 
-export async function executeFile(path: string, world: iWorld): Promise<Form[]> {
-  const file = await parseFile(path, world);
+export function executeFile(path: string, world: iWorld): Form[] {
+  const file = parseFile(path, world);
   const rv: Form[] = []
   for (let f of file) {
-    rv.push(await evaluate(f, world.env))
+    rv.push(evaluate(f, world.env))
   }
   return rv;
 };
 
-export async function loadFromLibrary(file: string, world: iWorld, bustCache = true) {
+export function loadFromLibrary(file: string, world: iWorld, bustCache = true) {
   const libPath = join('stdlib', file);
   return loadFile(libPath, world, bustCache)
 }
 
-export async function loadFile(file: string, world: iWorld, bustCache = true) {
+export function loadFile(file: string, world: iWorld, bustCache = true) {
   if (!TSchemeModuleFS.loaderCache.has(file) || bustCache) {
     const cacheData = new TSchemeModuleFS(file)
 
     if (isAbsolute(file)) {
       const absPath = join(world.env.get('#cwd'), file);
-      await executeFile(absPath, world);
+      executeFile(absPath, world);
     } else {
       const fromPath = world.env.get('#cwd');
 
@@ -74,7 +74,7 @@ export async function loadFile(file: string, world: iWorld, bustCache = true) {
       assert(existsSync(relPath),
         `import not found: ${relPath}`)
 
-      await executeFile(relPath, world);
+      executeFile(relPath, world);
     }
     TSchemeModuleFS.loaderCache.set(file, cacheData);
   }

@@ -1,12 +1,11 @@
 import assert from "assert";
 import { Server, Socket } from "socket.io";
-import { Queue } from "../../data/queue";
 import { File } from "../index";
 
 export class SocketServer extends File {
   private data: string[] = [];
   private socket: Server;
-  private fifo = new Queue();
+  private buffer = new Array();
   private connection?: Socket;
   constructor(port: string | number) {
     super()
@@ -14,21 +13,21 @@ export class SocketServer extends File {
     this.socket.on('connection', (connection) => {
       this.connection = connection;
       connection.on('data', data => {
-        this.fifo.putNowait(data);
-        this.fifo.putNowait('\n');
+        this.buffer.push(data);
+        this.buffer.push('\n');
       });
     });
   }
-  async readline(): Promise<string> {
+  readline(): string {
     throw new Error('attempted to readline from socket');
   }
-  async read(): Promise<string> {
+  read(): string {
     if (this.data.length === 0) {
-      const x = await this.fifo.get();
+      const x = this.buffer.shift();
       assert(typeof x === 'string', 'data must be a string (SocketServer)');
       this.data.push(...x);
-      this.on('read')
     }
+    this.on('read')
     return this.data.shift()!;
   }
   write(output: string | number): void {
@@ -41,5 +40,6 @@ export class SocketServer extends File {
   close() {
     delete this.connection;
     this.socket.close();
+    this.on('close')
   }
 }

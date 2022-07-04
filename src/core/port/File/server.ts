@@ -1,16 +1,16 @@
 import { readFileSync } from "fs";
 import rlSYnc from "readline-sync";
-import { debounce, Position } from "../../../utils";
+import { debounce } from "../../../utils";
 import { File } from "../index";
 
 rlSYnc.setDefaultOptions({prompt: ''});
 
 export class StdIn extends File {
-  async readline(): Promise<string> {
+  readline(): string {
     this.on('readline')
     return rlSYnc.prompt({hideEchoBack: false, history: true, prompt: ''})
   }
-  async read(): Promise<string> {
+  read(): string {
     const rv = rlSYnc.prompt({ hideEchoBack: false, history: false, prompt: '' });
     if (this._buffer.length === 0) {
       this._buffer.push(...rv, File.EOF_STRING);
@@ -22,7 +22,9 @@ export class StdIn extends File {
   write(text: string): void {
     throw new Error("Cannot write to stdin");
   }
-  close(): void { }
+  close(): void {
+    this.on('close')
+  }
   private _buffer: string[] = [];
 }
 
@@ -35,13 +37,15 @@ export class StdOut extends File {
       this._write(String(output));
   }
   flush = debounce(() => process.stdout);
-  readline(): Promise<string> {
+  readline(): string {
     throw new Error("Cannot read from stdout (readline)");
   }
-  read(): Promise<string> {
+  read(): string {
     throw new Error("Cannot read from stdout (read)");
   }
-  close(): void { }
+  close(): void {
+    this.on('close')
+  }
   private _write(value: string) {
     process.stdout.write(value, () => []);
   }
@@ -52,13 +56,13 @@ export class ServerSourceFile extends File {
     super()
     this.data = String(readFileSync(filepath));
   }
-  async readline(): Promise<string> {
+  readline(): string {
     const [line, ...lines] = this.data.split('\n');
     this.data = lines.join('\n');
     this.on('readline')
     return line;
   }
-  async read(): Promise<string> {
+  read(): string {
     const x = this.data[0] ?? File.EOF_STRING;
     this.data = this.data.slice(1);
     this.on('read')
@@ -67,6 +71,8 @@ export class ServerSourceFile extends File {
   write(text: string): void {
     this.data = this.data.concat(text);
   }
-  close() { }
+  close(): void {
+    this.on('close')
+  }
   private data: string = '';
 }

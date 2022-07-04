@@ -5,7 +5,7 @@ import { Env } from "../data/env";
 import type { Syntax } from "../callable/macro/syntax";
 import { NativeFunc } from "./func";
 
-export type CallableFunc = (args: Form, env: iEnv) => Promise<Form> | Form;
+export type CallableFunc = (args: Form, env: iEnv) => Form;
 
 export class Procedure {
   constructor(
@@ -14,9 +14,9 @@ export class Procedure {
     public expr: Form,
     public name = 'λ',
   ) {}
-  public async call(args: Form, env?: iEnv): Promise<Form> {
+  public call(args: Form, env?: iEnv): Form {
     const closure = new Env(this.params, args, env ?? this.env)
-    return await evaluate(this.expr, closure);
+    return evaluate(this.expr, closure);
   }
 }
 

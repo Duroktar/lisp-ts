@@ -3,13 +3,13 @@ import { addGlobals } from "../builtins";
 import { addServerFeatures } from "../builtins/server";
 import type { iWorld } from "../interface/iWorld";
 
-export async function createServerWorld(globals = true): Promise<iWorld> {
+export function createServerWorld(globals = true): iWorld {
   const readerEnv = new Env();
   const lexicalEnv = new Env();
   const env = new Env();
 
-  if (globals) await addServerFeatures({env, readerEnv, lexicalEnv})
-  if (globals) await addGlobals({env, readerEnv, lexicalEnv})
+  if (globals) addServerFeatures({env, readerEnv, lexicalEnv})
+  if (globals) addGlobals({env, readerEnv, lexicalEnv})
 
   return {env, readerEnv, lexicalEnv}
 }

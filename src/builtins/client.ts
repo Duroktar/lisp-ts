@@ -4,7 +4,7 @@ import { SocketClient } from "../core/port/Socket/client";
 import { iWorld } from "../interface/iWorld";
 import { assert } from "../utils";
 
-export async function addClientFeatures(world: iWorld) {
+export function addClientFeatures(world: iWorld) {
   const { env } = world
 
   env.set('*default-input-port*', <any>InPort.fromString(''))

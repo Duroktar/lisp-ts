@@ -18,7 +18,7 @@ export class Syntax {
     public params: List = NIL,
   ) {}
 
-  async call(exprs: Form) {
+  call(exprs: Form) {
     return this.expr(exprs, this.scope)
   }
 

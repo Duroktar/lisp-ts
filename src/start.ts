@@ -3,7 +3,7 @@ import { execute } from './core/lisp';
 import { createServerWorld } from './world/server';
 
 (async () => {
-  const env = await createServerWorld();
+  const env = createServerWorld();
 
   // const t = await tokenize(`(if (> 3 2) 'yes 'no)`, env)
   // console.log('tokenized:', toString(t))

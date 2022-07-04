@@ -10,20 +10,20 @@ import type { Form } from "./form";
 import { cadddr, caddr, cadr, car, cdr } from "./lisp";
 import { toString } from "./print";
 
-export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
+export function evaluate(e: Form, a: iEnv): Form {
   while (true) {
     // console.log('[evaluate]: evaluating term:'.dim, toString(e));
     if (isSym(e)) return a.getFrom<Form>(e);
     else if (!isPair(e)) return e ?? NIL;
     else switch (e.car) {
       case SymTable.QUOTE: return cadr(e);
-      case SymTable.CAR: return car(await evaluate(cadr(e), a));
-      case SymTable.CDR: return cdr(await evaluate(cadr(e), a));
+      case SymTable.CAR: return car(evaluate(cadr(e), a));
+      case SymTable.CDR: return cdr(evaluate(cadr(e), a));
       case SymTable.LAMBDA: {
         return new Procedure(a, cadr(e), caddr(e));
       }
       case SymTable.DEFINE: {
-        const value = await evaluate(caddr(e), a);
+        const value = evaluate(caddr(e), a);
         const name = toString(cadr(e))
         if (isProc(value)) { value.name = name; }
         a.set(name, value);
@@ -32,13 +32,13 @@ export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
       case SymTable.BEGIN: {
         const exprs = (<Pair>e.cdr).slice(0, -1);
         for (let expr of (isEmpty(exprs) ? [] : exprs)) {
-          await evaluate(expr, a)
+          evaluate(expr, a)
         }
         e = (<Pair>e.cdr).at(-1)
         break
       }
       case SymTable.IF: {
-        if (isTruthy(await evaluate(cadr(e), a)))
+        if (isTruthy(evaluate(cadr(e), a)))
           e = caddr(e)
         else
           e = cadddr(e)
@@ -47,14 +47,14 @@ export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
       case SymTable.SET: {
         assert(a.hasFrom(cadr(e)), 'Variable must be bound');
         const name = toString(cadr(e));
-        a.find(name)!.set(name, await evaluate(caddr(e), a));
+        a.find(name)!.set(name, evaluate(caddr(e), a));
         return UNDEF
       }
       default: {
-        const proc = await evaluate(car(e), a);
-        const args = await evaluateList(cdr(e), a);
+        const proc = evaluate(car(e), a);
+        const args = evaluateList(cdr(e), a);
         if (isNativeProc(proc)) {
-          let rv = await proc.call(args, a);
+          let rv = proc.call(args, a);
           return rv
         }
         else if (isProc(proc)) {
@@ -70,12 +70,12 @@ export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
   }
 };
 
-const evaluateList = async (e: Form, a: iEnv): Promise<Form> => {
+function evaluateList(e: Form, a: iEnv): Form {
   assert(isList(e), 'evaluateList passed a non list value')
   if (isEmpty(e)) return e
   let rv = []
   for (let expr of e) {
-    rv.push(await evaluate(expr, a))
+    rv.push(evaluate(expr, a))
   }
   return list(...rv)
 }

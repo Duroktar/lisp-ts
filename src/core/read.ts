@@ -13,16 +13,16 @@ import { Form, List } from "./form";
 
 const numberRegex = /^\#?(?:(?<radix>(?:(?:[e|i]?[b|o|d|x]{1})|(?:[b|o|d|x]{1}[e|i]?))?)(?:(?<integer>\d*)|(?<number>(?:\d+(?:\.(?:\d)+))))(?<precision>(?:[s|f|d|l]{1}\d+))?)$/gim
 
-export const read = async (port: InPort, world: iWorld): Promise<Form> => {
-  let cursor = await port.readChar()
+export function read(port: InPort, world: iWorld): Form {
+  let cursor = port.readChar()
 
-  const advance = async () => {
+  const advance = () => {
     const c = cursor;
-    cursor = await port.readChar();
+    cursor = port.readChar();
     return c;
   }
 
-  const peek = async () => await port.peekChar();
+  const peek = () => port.peekChar();
   const current = (c = cursor) => c;
   const isDblQt = (c = cursor) => c === '"';
   const isOpenS = (c = cursor) => c === '(';
@@ -46,17 +46,17 @@ export const read = async (port: InPort, world: iWorld): Promise<Form> => {
   const isValid = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash() || isEscape();
   const isValidAndSameLine = () => isValid(current()) && !isEOF()
 
-  const consumeIgnored = async () => {
+  const consumeIgnored = () => {
     while ((isSemi() || isSpace() || isNewLine()) && !isEOF()) {
-      if (isSemi() === false) await advance();
-      else await advanceAndConsumeToEndOfLine()
+      if (isSemi() === false) advance();
+      else advanceAndConsumeToEndOfLine()
     }
   };
 
-  const advanceAndConsumeToEndOfLine = async () => {
-    await advance();
+  const advanceAndConsumeToEndOfLine = () => {
+    advance();
     while (!isNewLine() && !isEofString(cursor))
-      await advance();
+      advance();
   }
 
   const listDelimiterPredicates = [
@@ -65,16 +65,16 @@ export const read = async (port: InPort, world: iWorld): Promise<Form> => {
     [isOpenP, isCloseP]
   ];
 
-  const parseDelimitedList = async (open: Predicate, close: Predicate): Promise<Form | undefined> => {
+  const parseDelimitedList = (open: Predicate, close: Predicate): Form | undefined => {
     if (open()) {
-      await advance();
+      advance();
 
       const exprs: Form[] = [];
       while (!close() && !isEOF()) {
-        exprs.push(await parse());
+        exprs.push(parse());
       }
 
-      if (close()) { await advance(); }
+      if (close()) { advance(); }
       else
         throw new MissingParenthesisError();
 
@@ -106,58 +106,58 @@ export const read = async (port: InPort, world: iWorld): Promise<Form> => {
     ...toLisp({ isEOF: isEofString, isSpace, isNewLine })
   };
 
-  async function parseWhileValid(): Promise<string> {
+  function parseWhileValid(): string {
     let atom: string = '';
     do {
-      if (isEscape()) { await advance(); }
-      atom += await advance();
+      if (isEscape()) { advance(); }
+      atom += advance();
     } while (isValidAndSameLine());
     assert(atom !== 'undefined', "parseWhileValid parsed 'undefined'")
     return atom;
   }
 
-  async function parseAtom(): Promise<Form> {
-    let atom = await parseWhileValid()
+  function parseAtom(): Form {
+    let atom = parseWhileValid()
     if (Number.isNaN(parseInt(atom)) === false)
       return parseInt(atom)
     return Symbol.for(atom);
   }
 
-  async function parseQuote(): Promise<Form> {
+  function parseQuote(): Form {
     if (current() === "'") {
-      await advance();
-      return list(SymTable.QUOTE, await parse());
+      advance();
+      return list(SymTable.QUOTE, parse());
     }
     if (current() === "`") {
-      await advance();
-      return list(SymTable.QUASIQUOTE, await parse());
+      advance();
+      return list(SymTable.QUASIQUOTE, parse());
     }
     if (current() === ",") {
-      await advance();
+      advance();
       if (current() === "@") {
-        await advance();
-        return list(SymTable.UNQUOTESPLICING, await parse());
+        advance();
+        return list(SymTable.UNQUOTESPLICING, parse());
       }
-      return list(SymTable.UNQUOTE, await parse());
+      return list(SymTable.UNQUOTE, parse());
     }
-    return await parseAtom();
+    return parseAtom();
   }
 
-  async function parseHashPrefix(): Promise<Form> {
+  function parseHashPrefix(): Form {
     if (current() === "#") {
-      await advance();
+      advance();
       const lookahead = current();
 
       if (lookahead === "(") {
-        const items = await parseList()
+        const items = parseList()
         assert(isPair(items), "what is going on?")
         return new Vector(items.toArray())
       }
 
       if (lookahead === "\\") {
-        await advance();
+        advance();
 
-        const val = await parseAtom();
+        const val = parseAtom();
 
         if (typeof val === 'symbol') {
           const char = val.description
@@ -174,16 +174,16 @@ export const read = async (port: InPort, world: iWorld): Promise<Form> => {
       }
 
       if (lookahead === 't' || lookahead === 'f') {
-        const next = await peek();
+        const next = peek();
         const valid = isDelimiter(next) || isSpace(next) || isNewLine(next) || isEOF(next);
         assert(valid, `bad-syntax \`#${lookahead + next}\``)
 
-        await advance()
+        advance()
         return Sym(`#${lookahead}`)
       }
 
       if ('eibodx'.includes(lookahead)) {
-        const value = await parseWhileValid()
+        const value = parseWhileValid()
         const matches = value.match(numberRegex);
         if (matches && matches.groups) {
           const number = matches.groups['number']
@@ -200,51 +200,51 @@ export const read = async (port: InPort, world: iWorld): Promise<Form> => {
       throw new SyntaxError(`bad-syntax \`#${lookahead}\``)
     }
 
-    return await parseQuote()
+    return parseQuote()
   }
 
-  async function parseReadMacro(): Promise<Form> {
+  function parseReadMacro(): Form {
     if (world.readerEnv.has(current())) {
-      const value = await advance();
+      const value = advance();
       const macro = world.readerEnv.get<Function>(value);
-      return await macro(readMacroLocals);
+      return macro(readMacroLocals);
     }
-    return await parseHashPrefix();
+    return parseHashPrefix();
   }
 
-  async function parseString(): Promise<Form> {
+  function parseString(): Form {
     if (isDblQt()) {
-      await advance();
+      advance();
 
       let exprs: string = '';
       while (!isDblQt() && !isNewLine() && !isEOF()) {
-        exprs += await advance();
+        exprs += advance();
       }
 
       if (isDblQt())
-        await advance();
+        advance();
       else
         throw new MalformedStringError(port.file.position());
 
       return exprs;
     }
 
-    return await parseReadMacro();
+    return parseReadMacro();
   }
 
-  async function parseList(): Promise<Form> {
+  function parseList(): Form {
     for (let [open, close] of listDelimiterPredicates) {
-      const result = await parseDelimitedList(open, close)
+      const result = parseDelimitedList(open, close)
       if (result) return result;
     }
-    return await parseString();
+    return parseString();
   }
 
-  async function parse(): Promise<Form> {
-    await consumeIgnored();
-    const expr = await parseList();
+  function parse(): Form {
+    consumeIgnored();
+    const expr = parseList();
     return expr;
   }
 
-  return await parse();
+  return parse();
 };

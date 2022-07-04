@@ -42,7 +42,7 @@ const defaultOptions: AddGlobalsOptions = {
   minimal: true,
 }
 
-export async function addGlobals(
+export function addGlobals(
   world: iWorld,
   opts: AddGlobalsOptions = {}
 ) {
@@ -51,8 +51,8 @@ export async function addGlobals(
 
   const {env, lexicalEnv} = world
 
-  lexicalEnv.syntax('define-syntax', async (args, scope) => {
-    const macro = await expand(Lisp.cadr(args), false, world);
+  lexicalEnv.syntax('define-syntax', (args, scope) => {
+    const macro = expand(Lisp.cadr(args), false, world);
     if (isMacro(macro)) macro.name = toString(Lisp.car(args));
     scope.setFrom(Lisp.car(args), macro);
   })
@@ -119,7 +119,7 @@ export async function addGlobals(
     env.define('describe', ['x'], ([x]: any) => toString(x, true));
     env.define('format', ['x'], ([x]: any) => toString(x, true));
 
-    env.define('colorized', ['x', 'language?'], async ([x, language]: any) => {
+    env.define('colorized', ['x', 'language?'], ([x, language]: any) => {
       language = language ?? 'scheme'
       Util.assert(isString(x), format('wrong type .. `%s` .. expected `string`', typeof x))
       return highlight(x, {language, ignoreIllegals: true})
@@ -171,14 +171,14 @@ export async function addGlobals(
       }
     });
 
-    env.define('break', ['args'], async (args: any, env) => { debugger; return await evaluate(args, env); });
+    env.define('break', ['args'], (args: any, env) => { debugger; return evaluate(args, env); });
     env.define('debug-macro!', ['val'], ([val]: any) => { Syntax.debug = !isF(val) });
 
     env.define('gensym', [], () => Symbol());
 
     env.define('set-macro-character', ['char', 'cb'], ([char, cb]: any, env) => {
-      lexicalEnv.setFrom(char, async (locals: any) => {
-        const proc = await evaluate(cb, env);
+      lexicalEnv.setFrom(char, (locals: any) => {
+        const proc = evaluate(cb, env);
         if (isProc(proc)) {
           proc.env.define('read', ['read'], ([locals]: any) => locals.parse());
           proc.env.define('advance', ['advance'], ([locals]: any) => locals.advance());
@@ -186,7 +186,7 @@ export async function addGlobals(
           proc.env.define('isEOF', ['isEOF'], ([locals]: any) => locals.isEOF());
           proc.env.define('isSpace', ['isSpace'], ([locals]: any) => locals.isSpace());
           proc.env.define('isNewLine', ['isNewLine'], ([locals]: any) => locals.isNewLine());
-          return await evaluate(list(proc, locals, toString(char)), env);
+          return evaluate(list(proc, locals, toString(char)), env);
         }
         throw new Error('Nope @ set-macro-character');
       });
@@ -202,7 +202,7 @@ export async function addGlobals(
   if (options.r5rs) {
 
     //  - 4.2 Derived Expressions
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax cond
         (syntax-rules (else =>)
           ((cond (else result1 result2 ...))
@@ -230,7 +230,7 @@ export async function addGlobals(
               (cond clause1 clause2 ...)))))
     `, world)
 
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax case
         (syntax-rules (else)
           ((case (key ...)
@@ -252,7 +252,7 @@ export async function addGlobals(
               (case key clause clauses ...)))))
     `, world)
 
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax and
         (syntax-rules ()
           ([and] #t)
@@ -261,7 +261,7 @@ export async function addGlobals(
             (if test1 [and test2 ...] #f))))
     `, world)
 
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax or
         (syntax-rules ()
           ([or] #f)
@@ -271,7 +271,7 @@ export async function addGlobals(
               (if x x (or test2 ...))))))
     `, world)
 
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax let
         (syntax-rules ()
           ((let ((variable init) ...) body ...)
@@ -284,7 +284,7 @@ export async function addGlobals(
               (name init ...)))))
     `, world)
 
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax let*
         (syntax-rules ()
           ((let* ((n1 e1) (n2 e2) (n3 e3) ...) body ...)
@@ -294,7 +294,7 @@ export async function addGlobals(
             (let ((name expression) ...) body ...))))
     `, world)
 
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax letrec
         (syntax-rules ()
           ((letrec ((variable init) ...) body ...)
@@ -303,7 +303,7 @@ export async function addGlobals(
               body ...)))))
     `, world)
 
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax do
         (syntax-rules ()
           ((do ((variable init step ...) ...)
@@ -324,7 +324,7 @@ export async function addGlobals(
     world.lexicalEnv.set('let-syntax', world.lexicalEnv.get('let'))
     world.lexicalEnv.set('letrec-syntax', world.lexicalEnv.get('letrec'))
 
-    await Lisp.execute(`
+    Lisp.execute(`
       (define-syntax delay
         (syntax-rules ()
           ((delay expression)
@@ -339,7 +339,7 @@ export async function addGlobals(
                       memo)))))))
     `, world)
 
-    // await Lisp.execute(
+    // Lisp.execute(
     //   "(define-syntax quasiquote (syntax-rules (unquote unquote-splicing) " +
     //   " (`,expr                 expr)" +
     //   " (`(,@first . rest)      (append first `rest))" +
@@ -717,13 +717,13 @@ export async function addGlobals(
     env.define('procedure?', ['obj'], ([obj]: any) => {
       return Util.toL(isProc(obj) || isNativeProc(obj))
     });
-    env.define('apply', 'args', async (args_: any, env) => {
+    env.define('apply', 'args', (args_: any, env) => {
       const [proc, args] = args_
       Util.assert(isCallable(proc), 'called apply with a non procedure')
       Util.assert(isList(args), 'called apply with a non procedure')
-      return await proc.call(args, env)
+      return proc.call(args, env)
     });
-    env.define('map', ['proc', '.', 'args'], async ([proc, ...lists]: any) => {
+    env.define('map', ['proc', '.', 'args'], ([proc, ...lists]: any) => {
       Util.assert(Array.isArray(lists) && lists.length >= 1 && lists.every(isPair), 'error 3823489')
       Util.assert(isCallable(proc), 'error 823746')
       const first = lists[0]
@@ -734,7 +734,7 @@ export async function addGlobals(
         lists.forEach(l => {
           res[i].push(l.at(i))
         })
-        res[i] = await proc.call(list(...res[i]), env)
+        res[i] = proc.call(list(...res[i]), env)
       }
 
       const a = list(...res)
@@ -742,7 +742,7 @@ export async function addGlobals(
     });
     // library procedure: for-each proc list1 list2 ...
     // library procedure: force promise
-    env.define('call-with-current-continuation', ['throw'], async ([proc]: any, env: iEnv) => {
+    env.define('call-with-current-continuation', ['throw'], ([proc]: any, env: iEnv) => {
       const ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.");
 
       const fn = env.define('throw', ['retval'], ([retval]: any) => {
@@ -751,7 +751,7 @@ export async function addGlobals(
 
       if (isProc(proc) || isNativeProc(proc)) {
         try {
-          return await proc.call(list(fn), env);
+          return proc.call(list(fn), env);
         } catch (err) {
           if (err instanceof RuntimeWarning) {
             // console.log('RuntimeWarning (call/cc)')
@@ -767,17 +767,17 @@ export async function addGlobals(
 
     // procedure: values obj ...
     // procedure: call-with-values producer consumer
-    env.define('dynamic-wind', ['before', 'thunk', 'after'], async ([before, thunk, after]: any, env: iEnv) => {
+    env.define('dynamic-wind', ['before', 'thunk', 'after'], ([before, thunk, after]: any, env: iEnv) => {
       Util.assert(isCallable(before))
       Util.assert(isCallable(thunk))
       Util.assert(isCallable(after))
-      await before.call(NIL, env);
+      before.call(NIL, env);
       try {
-        return await thunk.call(NIL, env);
+        return thunk.call(NIL, env);
       } catch (err) {
         // console.log('RuntimeWarning (dynamic-wind)')
       } finally {
-        await after.call(NIL, env);
+        after.call(NIL, env);
       }
     });
     // END - 6.4 Control Features
@@ -807,22 +807,22 @@ export async function addGlobals(
     // END - 6.6.1 Ports
 
     // - 6.6.2 Input
-    env.define('read', ['port'], async ([port]: any) => {
+    env.define('read', ['port'], ([port]: any) => {
       const p: InPort = port ?? currentInputPort(world)
       // console.log('reading port', p.name)
-      const data = await read(p, world);
+      const data = read(p, world);
       // console.log('reading port (data):', data)
       return data
     });
 
-    env.define('read-char', ['port'], async ([port]: any) => {
+    env.define('read-char', ['port'], ([port]: any) => {
       const p: InPort = port ?? currentInputPort(world)
-      return await p.readChar()
+      return p.readChar()
     });
 
-    env.define('peek-char', ['port'], async ([port]: any) => {
+    env.define('peek-char', ['port'], ([port]: any) => {
       const p: InPort = port ?? currentInputPort(world)
-      return await p.peekChar()
+      return p.peekChar()
     });
 
     env.define('eof-object?', ['obj'], ([obj]: any) => Util.toL(isEofString(obj)));
@@ -895,14 +895,14 @@ export async function addGlobals(
 
   if (options.misc) {
 
-    env.define('macroexpand', ['expr'], async ([expr]: any) => {
+    env.define('macroexpand', ['expr'], ([expr]: any) => {
       // console.log(toStringSafe(env.get<Procedure>('equal?').expr))
-      const rv = await expand(expr, true, world);
+      const rv = expand(expr, true, world);
       return rv
     });
 
-    env.define('tokenize', ['expr'], async ([expr]: any) => {
-      return await Lisp.tokenize(expr, world)
+    env.define('tokenize', ['expr'], ([expr]: any) => {
+      return Lisp.tokenize(expr, world)
     });
 
     env.define('putchar2', ['char1', 'char2', 'port?'], ([obj1, obj2, port]: any) => {
@@ -912,10 +912,10 @@ export async function addGlobals(
       return
     });
 
-    env.define('try', ['callable'], async ([callable]: any) => {
+    env.define('try', ['callable'], ([callable]: any) => {
       try {
         if (isProc(callable) || isNativeProc(callable)) {
-          const rv = await callable.call(NIL);
+          const rv = callable.call(NIL);
           return cons(TRUE, rv);
         }
         return cons(FALSE, 'InvalidCallableExpression')
@@ -963,7 +963,7 @@ export async function addGlobals(
       world.env.set('*current-repl-prompt*', world.env.get('*default-repl-prompt*'))
     })
 
-    env.define('repl', [], async () => {
+    env.define('repl', [], () => {
       world.env.set('*in-repl-mode*', Util.toL(true))
 
       let lastInput: any, lastExpand: any, lastOutput: any, greet = true;
@@ -973,9 +973,9 @@ export async function addGlobals(
         const o = currentOutputPort(world)
         try {
           if (greet) o.write(world.env.get('*current-repl-prompt*'))
-          lastInput = await read(p, world);
-          lastExpand = await expand(lastInput, true, world)
-          lastOutput = await evaluate(lastExpand, world.env)
+          lastInput = read(p, world);
+          lastExpand = expand(lastInput, true, world)
+          lastOutput = evaluate(lastExpand, world.env)
           const outputText = toStringSafe(lastOutput);
           o.write(outputText)
           if (!outputText.endsWith('\n'))
@@ -1008,8 +1008,8 @@ export async function addGlobals(
   }
   // #endregion
 
-  env.define('run-tests', [], async () => {
-    await Lisp.execute('(load "tests/runner.scm")', world)
+  env.define('run-tests', [], () => {
+    Lisp.execute('(load "tests/runner.scm")', world)
   });
 
 }
