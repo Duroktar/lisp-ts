@@ -1,6 +1,6 @@
 import { isEmpty, isList, isPair, isString, isSym } from "../../guard";
 import type { iEnv } from "../../interface/iEnv";
-import { EMPTY } from "../const";
+import { NIL } from "../const";
 import { Syntax } from "../callable/macro/syntax";
 import type { Atom, Form } from "../form";
 import { car, cdr } from "../lisp";
@@ -12,7 +12,11 @@ import { NativeFunc } from "../callable/func";
 import { Sym } from "./sym";
 
 export class Env implements iEnv {
-  constructor(params: Form = EMPTY, args: Form = EMPTY, public outer?: iEnv) {
+
+  // TODO
+  public runtime: any;
+
+  constructor(params: Form = NIL, args: Form = NIL, public outer?: iEnv) {
     if (isPair(params) && isPair(args)) {
 
       function getParams(params: Pair, args: Pair): [string, any][] {
@@ -33,7 +37,7 @@ export class Env implements iEnv {
       this.inner = Object.fromEntries(formals);
       return
     }
-    else if (params === EMPTY || args === EMPTY) {
+    else if (params === NIL || args === NIL) {
       this.inner = {}
       return
     }
@@ -46,6 +50,7 @@ export class Env implements iEnv {
     }
 
   }
+
   get<T extends Form | Closure>(name: string): T {
     const result = this.inner[name] ?? this.outer?.get(name);
     if (result === undefined) {

@@ -1,22 +1,56 @@
 import type { iWorld } from "../../interface/iWorld"
+import { Position } from "../../utils";
 
 export abstract class File {
+  abstract readline(): Promise<string>
   abstract read(): Promise<string>
   abstract write(text: string): void
   abstract close(): void
+
+  on(event: 'readline' | 'read' | 'write' | 'close') {
+    switch(event) {
+      case 'readline': {
+        this.col = 0
+        this.line++
+        break
+      }
+      case 'read': {
+        this.col++
+        this.cursor++
+        break
+      }
+      default:
+        break
+    }
+  }
+  position(): Position {
+    return {
+      col: this.col,
+      cursor: this.cursor,
+      line: this.line,
+    }
+  }
+  private cursor: number = 0;
+  private line: number = 0;
+  private col: number = 0;
+
   static EOF_STRING = '#<eof-object>'
 }
 
-export class RawText implements File {
-  constructor(private data: string) {}
+export class RawText extends File {
+  constructor(private data: string) {
+    super()
+  }
   async readline(): Promise<string> {
     const [line, ...lines] = this.data.split('\n')
     this.data = lines.join('\n')
+    this.on('readline')
     return line
   }
   async read(): Promise<string> {
     const x = this.data[0] ?? File.EOF_STRING
     this.data = this.data.slice(1)
+    this.on('read')
     return x
   }
   write(text: string): void {

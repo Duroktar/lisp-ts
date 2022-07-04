@@ -4,7 +4,7 @@ import { SocketServer } from "../core/port/Socket/server";
 import { ServerSourceFile, StdIn, StdOut } from "../core/port/File/server";
 import { isSym } from "../guard";
 import { iWorld } from "../interface/iWorld";
-import { loadFile, parseLoadSymbol } from "../core/load";
+import { loadFile, loadFromLibrary, parseLoadSymbol } from "../core/load";
 import { assert } from "../utils";
 
 export async function addServerFeatures(world: iWorld) {
@@ -57,11 +57,8 @@ export async function addServerFeatures(world: iWorld) {
     return await loadFile(file, world)
   });
 
-  env.define('load', ['file'], async ([file]: any) => {
-    if (isSym(file)) {
-      return await loadFile(parseLoadSymbol(file), world)
-    }
-    return await loadFile(file, world)
+  env.define('load-from-library', ['file'], async ([file]: any) => {
+    return await loadFromLibrary(file, world)
   });
 
   env.define('reload', ['file'], async ([file]: any) => {

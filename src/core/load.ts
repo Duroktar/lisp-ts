@@ -51,6 +51,11 @@ export async function executeFile(path: string, world: iWorld): Promise<Form[]> 
   return rv;
 };
 
+export async function loadFromLibrary(file: string, world: iWorld, bustCache = true) {
+  const libPath = join('stdlib', file);
+  return loadFile(libPath, world, bustCache)
+}
+
 export async function loadFile(file: string, world: iWorld, bustCache = true) {
   if (!TSchemeModuleFS.loaderCache.has(file) || bustCache) {
     const cacheData = new TSchemeModuleFS(file)

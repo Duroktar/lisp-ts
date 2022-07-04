@@ -6,12 +6,13 @@ import { Queue } from "../../data/queue";
 import { File } from "../index";
 
 
-export class SocketClient implements File {
+export class SocketClient extends File {
   private data: string[] = [];
   private socket: Client;
   private fifo = new Queue();
   private connection?: Socket;
   constructor(address: string) {
+    super()
     this.socket = io(address, {});
     this.socket.on('connection', connection => {
       this.connection = connection;
@@ -22,12 +23,14 @@ export class SocketClient implements File {
     });
   }
   async readline(): Promise<string> {
+    this.on('readline')
     let data;
     do { data = await this.read(); }
     while (!isNewline(data) && !isEofString(data));
     return data;
   }
   async read(): Promise<string> {
+    this.on('read')
     if (this.data.length === 0) {
       const x = await this.fifo.get();
       assert(typeof x === 'string', 'data must be a string (SocketServer)');

@@ -1,12 +1,7 @@
 import type { Form } from "../form";
 import type { Syntax } from "../callable/macro/syntax";
 import { toString, toStringSafe } from "../print";
-
-export type Position = {
-  line: number;
-  col: number;
-  cursor: number;
-};
+import { Position } from "../../utils";
 
 export class RuntimeWarning extends Error { public retval?: any; }
 
@@ -39,7 +34,7 @@ export class MissingParenthesisError extends Error {
   }
 }
 export class MalformedStringError extends Error {
-  constructor() {
+  constructor(public pos: Position) {
     super(`Error: Missing '"'`);
   }
 }

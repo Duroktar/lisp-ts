@@ -1,7 +1,7 @@
 import { isEofString, isPair } from "../guard";
 import { iWorld } from "../interface/iWorld";
 import { append, assert, Predicate, push } from "../utils";
-import { EMPTY, TRUE } from "./const";
+import { NIL, TRUE } from "./const";
 import { Character } from "./data/char";
 import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./data/error";
 import { cons, list } from "./data/pair";
@@ -99,7 +99,7 @@ export const read = async (port: InPort, world: iWorld): Promise<Form> => {
       throw new UnexpectedParenthesisError();
   }
 
-  const toLisp = (funcs: Record<string, any>) => Object.entries(funcs).reduce((acc: any, [key, val]: any) => { acc[key] = (...args: any[]) => val(...args) ? TRUE : EMPTY; return acc; }, {} as Record<string, any>);
+  const toLisp = (funcs: Record<string, any>) => Object.entries(funcs).reduce((acc: any, [key, val]: any) => { acc[key] = (...args: any[]) => val(...args) ? TRUE : NIL; return acc; }, {} as Record<string, any>);
 
   const readMacroLocals = {
     parse, advance, current, eatSpace: consumeIgnored,
@@ -224,7 +224,7 @@ export const read = async (port: InPort, world: iWorld): Promise<Form> => {
       if (isDblQt())
         await advance();
       else
-        throw new MalformedStringError();
+        throw new MalformedStringError(port.file.position());
 
       return exprs;
     }

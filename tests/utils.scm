@@ -1,7 +1,7 @@
 (define *tests-passed* 0)
 (define *tests-failed* 0)
 (define *tests-total* 0)
-(define *verbose-test* #t)
+(define *verbose-test* #f)
 
 (define *current-test* "none")
 

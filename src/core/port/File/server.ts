@@ -1,18 +1,21 @@
 import { readFileSync } from "fs";
 import rlSYnc from "readline-sync";
-import { debounce } from "../../../utils";
+import { debounce, Position } from "../../../utils";
 import { File } from "../index";
 
 rlSYnc.setDefaultOptions({prompt: ''});
 
-export class StdIn implements File {
+export class StdIn extends File {
   async readline(): Promise<string> {
+    this.on('readline')
     return rlSYnc.prompt({hideEchoBack: false, history: true, prompt: ''})
   }
   async read(): Promise<string> {
     const rv = rlSYnc.prompt({ hideEchoBack: false, history: false, prompt: '' });
     if (this._buffer.length === 0) {
       this._buffer.push(...rv, File.EOF_STRING);
+    } else {
+      this.on('read')
     }
     return this._buffer.shift()!;
   }
@@ -23,7 +26,7 @@ export class StdIn implements File {
   private _buffer: string[] = [];
 }
 
-export class StdOut implements File {
+export class StdOut extends File {
   write(output: string | number): void {
     if (typeof output !== "number")
       this._write(output);
@@ -32,8 +35,11 @@ export class StdOut implements File {
       this._write(String(output));
   }
   flush = debounce(() => process.stdout);
+  readline(): Promise<string> {
+    throw new Error("Cannot read from stdout (readline)");
+  }
   read(): Promise<string> {
-    throw new Error("Cannot read from stdout");
+    throw new Error("Cannot read from stdout (read)");
   }
   close(): void { }
   private _write(value: string) {
@@ -41,18 +47,21 @@ export class StdOut implements File {
   }
 }
 
-export class ServerSourceFile implements File {
+export class ServerSourceFile extends File {
   constructor(filepath: string) {
+    super()
     this.data = String(readFileSync(filepath));
   }
   async readline(): Promise<string> {
     const [line, ...lines] = this.data.split('\n');
     this.data = lines.join('\n');
+    this.on('readline')
     return line;
   }
   async read(): Promise<string> {
     const x = this.data[0] ?? File.EOF_STRING;
     this.data = this.data.slice(1);
+    this.on('read')
     return x;
   }
   write(text: string): void {

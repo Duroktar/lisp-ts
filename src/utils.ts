@@ -191,3 +191,40 @@ export function sequence<T, R>(...fns: [...((t: T) => R)[], T]) {
 }
 
 export function error(msg?: string): never { throw new Error(msg) }
+
+export function underline(range: Range, leftMargin = 0) {
+  const numArrows = Math.abs(range.end.col - range.start.col)
+  const space = ' '.repeat(clamp(0, Infinity, range.start.col - 1 + leftMargin))
+  const arrows = '^'.repeat(clamp(0, Infinity, numArrows))
+  return space + arrows
+}
+
+export class StringBuilder {
+  addLine(line: string) {
+      this.lines.push(line)
+      return this
+  }
+  addText(text: string) {
+      let line = this.lines.pop() ?? ''
+      this.lines.push(line + text)
+      return this
+  }
+  build() {
+      return this.lines.join('\n')
+  }
+  private lines: string[] = []
+}
+
+export const clamp: (min: number, max: number, num: number) => number
+    = (min, max, num) => Math.max(min, Math.min(max, num))
+
+  export type Position = {
+    line: number;
+    col: number;
+    cursor: number;
+}
+
+export type Range = {
+    start: Position;
+    end: Position;
+};

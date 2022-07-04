@@ -1,4 +1,4 @@
-import { EMPTY, FALSE, TRUE } from "./core/const";
+import { NIL, FALSE, TRUE } from "./core/const";
 import { Character } from "./core/data/char";
 import { isSyntax, Syntax, Binding, Expansion, Macro } from "./core/callable/macro";
 import { Pair } from "./core/data/pair";
@@ -18,7 +18,7 @@ export const isNum = (x: any): x is number => typeof x === 'number';
 export const isVec = (x: any): x is Vector => x instanceof Vector;
 export const isString = (c: any): c is string => typeof c === 'string';
 export const isChar = (x: any): x is Character => x instanceof Character;
-export const isEmpty = (x: any): x is symbol => x === EMPTY;
+export const isEmpty = (x: any): x is symbol => x === NIL;
 export const isExpr = (x: any): x is Form => isPair(x) || isAtom(x);
 export const isConst = (x: any) => isNum(x) || isString(x) || isChar(x);
 export const isIdent = (x: any): x is symbol => isSym(x) && !isEmpty(x);

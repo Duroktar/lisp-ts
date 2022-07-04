@@ -1,7 +1,7 @@
 import { isEmpty, isList, isNativeProc, isPair, isProc, isSym, isTruthy } from "../guard";
 import { iEnv } from "../interface/iEnv";
 import { assert } from "../utils";
-import { EMPTY, UNDEF } from "./const";
+import { NIL, UNDEF } from "./const";
 import { Env } from "./data/env";
 import { list, Pair } from "./data/pair";
 import { Procedure } from "./callable/proc";
@@ -14,7 +14,7 @@ export const evaluate = async (e: Form, a: iEnv): Promise<Form> => {
   while (true) {
     // console.log('[evaluate]: evaluating term:'.dim, toString(e));
     if (isSym(e)) return a.getFrom<Form>(e);
-    else if (!isPair(e)) return e ?? EMPTY;
+    else if (!isPair(e)) return e ?? NIL;
     else switch (e.car) {
       case SymTable.QUOTE: return cadr(e);
       case SymTable.CAR: return car(await evaluate(cadr(e), a));

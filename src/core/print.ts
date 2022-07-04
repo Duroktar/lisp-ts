@@ -1,5 +1,5 @@
 import { isBinding, isChar, isExpansion, isNil, isNullOrUndefined, isNum, isString, isSym, isVec } from "../guard";
-import { EMPTY, UNDEF } from "./const";
+import { NIL, UNDEF } from "./const";
 import { Syntax } from "./callable/macro";
 import { TSchemeModule } from "./module/base";
 import { Pair } from "./data/pair";
@@ -63,7 +63,7 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda'):
       res.push(toString(next.car, inspect_, lambdaSymbol))
       next = next.cdr
     }
-    if (next !== EMPTY) {
+    if (next !== NIL) {
       res.push('.')
       res.push(toString(next, inspect_, lambdaSymbol))
     }

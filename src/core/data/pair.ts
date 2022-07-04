@@ -1,7 +1,6 @@
-import { format } from "util";
 import { isAtom, isBinding, isList, isPair } from "../../guard";
 import { assert } from "../../utils";
-import { EMPTY, NIL } from "../const";
+import { NIL } from "../const";
 import { Form, List } from "../form";
 import { car } from "../lisp";
 
@@ -42,8 +41,8 @@ export class Pair  {
     const first = fn(this.car);
     return new Pair(first,
       Pair.is(this.cdr)  ? this.cdr.map(fn) :
-      this.cdr !== EMPTY ? fn(this.cdr)     :
-      /* otherwise */      EMPTY
+      this.cdr !== NIL ? fn(this.cdr)     :
+      /* otherwise */      NIL
     )
   }
 
@@ -55,7 +54,7 @@ export class Pair  {
   every = (fn: (value: any) => any): boolean => {
     if (!fn(this.car))
       return false
-    if (this.cdr === EMPTY)
+    if (this.cdr === NIL)
       return true
     if (this.isList())
       return this.cdr.every(fn)
@@ -65,7 +64,7 @@ export class Pair  {
   dottedEvery = (fn: (value: any) => any): boolean => {
     if (!fn(this.car))
       return false
-    if (this.cdr === EMPTY)
+    if (this.cdr === NIL)
       return false
     if (Pair.is(this.cdr))
       return this.cdr.dottedEvery(fn)
@@ -76,7 +75,7 @@ export class Pair  {
   some = (fn: (value: any, idx: number) => any, idx = 0): boolean => {
     if (fn(this.car, idx))
       return true
-    if (this.cdr === EMPTY)
+    if (this.cdr === NIL)
       return false
     if (this.isList())
       return this.cdr.some(fn, idx + 1)
@@ -102,14 +101,14 @@ export class Pair  {
   }
 
   isList(): this is Pair & {cdr: Pair} {
-    if (this.cdr === EMPTY) return true
+    if (this.cdr === NIL) return true
     return Pair.is(this.cdr) && this.cdr.isList()
   }
 
   find(fn: (b: any, idx: number) => boolean, idx = 0): any {
     if (fn(this.car, idx))
       return this.car
-    if (this.cdr === EMPTY)
+    if (this.cdr === NIL)
       return null
     if (this.isList())
       return this.cdr.find(fn, idx + 1)
@@ -138,7 +137,7 @@ export class Pair  {
     return list(...rv)
   }
   pairAt(index: number) {
-    if (index >= this.length) return EMPTY
+    if (index >= this.length) return NIL
     index = index < 0 ? this.length + index : index
     let currentIdx = 0
     let next: Pair = this
@@ -153,29 +152,29 @@ export class Pair  {
     const list = this.pairAt(index);
     if (Pair.is(list))
       return car(list)
-    return EMPTY
+    return NIL
   }
   push(val: any) {
     let next: Pair = this
     while (Pair.is(next.cdr)) {
       next = next.cdr
     }
-    assert(next.cdr === EMPTY, 'can only push to a list')
-    next.cdr = cons(val, EMPTY)
+    assert(next.cdr === NIL, 'can only push to a list')
+    next.cdr = cons(val, NIL)
     return this
   }
 
   append(val: Form) {
-    assert(isList(val) || isAtom(val), format('Passed invalid type to append. Got (type: `%s`)', typeof val))
+    assert(isList(val) || isAtom(val), `Passed invalid type to append. Got (type: \`${typeof val}\`)`)
     let next: Pair = this
     while (Pair.is(next.cdr)) {
       next = next.cdr
     }
-    assert(next.cdr === EMPTY, 'can only append to a list')
+    assert(next.cdr === NIL, 'can only append to a list')
     if (Pair.is(val))
       next.cdr = val
     else {
-      next.cdr = cons(val, EMPTY)
+      next.cdr = cons(val, NIL)
     }
     return this
   }
@@ -204,7 +203,7 @@ export class Pair  {
       next = next.cdr
     }
     yield next.car
-    if (next.cdr !== EMPTY)
+    if (next.cdr !== NIL)
       yield this.cdr
   }
 
@@ -228,38 +227,7 @@ export function cons(a: Form, b: Form) {
 
 export function list(...args: Form[]): typeof args extends {length: 0} ? List : Pair {
   if (args.length === 0)
-    return EMPTY as any
+    return NIL as any
   const [head, ...tail] = args
   return cons(head, list(...tail));
 }
-
-// const t = list(1, 2, 3)
-// const l = cons(4, 5);
-// const l2 = list(4, 5);
-// console.log(t.append(l2).isList())
-
-// console.log(t.slice(0, 3).toArray())
-// console.log(l.slice(0, 3))
-
-// const n = cons([1, 2, 3, 4, 5], EMPTY);
-// console.log(n.toArray())
-
-// export function append(...rest: List[]): List
-// export function append(first: List, ...rest: List[]): List {
-//   if (rest.length === 0) return first
-//   if (isEmpty(first)) return append(...rest)
-//   assert(Pair.is(first), 'Can only append lists')
-//   return cons(car(first),
-//               append(cdr(first),
-//                      append(...rest)))
-// }
-
-// console.log(append(list(),  EMPTY));
-// console.log(append(EMPTY,  list()));
-// console.log(append(list(), list()));
-// console.log(append(t, list()).toArray());
-// console.log(append(list(), t).toArray());
-// console.log(append(list(), l).toArray());
-
-// console.log(t.append(l).toArray())
-

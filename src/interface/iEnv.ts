@@ -3,6 +3,7 @@ import { Callable, Closure } from "../core/callable/proc"
 import { NativeFunc } from "../core/callable/func"
 
 export interface iEnv {
+  runtime: any
   define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray?: boolean): Callable
   syntax(name: string, cb: (args: Form, env: iEnv) => any): void
   get<T extends Form | Closure>(name: string): T

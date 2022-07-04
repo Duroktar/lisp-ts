@@ -1,6 +1,6 @@
 import highlight from "cli-highlight";
 import { format, inspect } from "util";
-import { EMPTY, FALSE, NIL, TRUE, UNDEF } from "../core/const";
+import { FALSE, NIL, TRUE, UNDEF } from "../core/const";
 import { Character } from "../core/data/char";
 import { Resume } from "../core/data/cont";
 import { InvalidCallableExpression, NotImplementedError, RuntimeWarning, UndefinedVariableError } from "../core/data/error";
@@ -753,8 +753,8 @@ export async function addGlobals(
         try {
           return await proc.call(list(fn), env);
         } catch (err) {
-          console.log('RuntimeWarning (call/cc)')
           if (err instanceof RuntimeWarning) {
+            // console.log('RuntimeWarning (call/cc)')
             return ball.retval;
           }
           else {
@@ -775,7 +775,7 @@ export async function addGlobals(
       try {
         return await thunk.call(NIL, env);
       } catch (err) {
-        console.log('RuntimeWarning (dynamic-wind)')
+        // console.log('RuntimeWarning (dynamic-wind)')
       } finally {
         await after.call(NIL, env);
       }
@@ -915,7 +915,7 @@ export async function addGlobals(
     env.define('try', ['callable'], async ([callable]: any) => {
       try {
         if (isProc(callable) || isNativeProc(callable)) {
-          const rv = await callable.call(EMPTY);
+          const rv = await callable.call(NIL);
           return cons(TRUE, rv);
         }
         return cons(FALSE, 'InvalidCallableExpression')
