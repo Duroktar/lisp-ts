@@ -9,11 +9,11 @@
   ((cond) #f)
   ((cond (else expr1 expr2 ...))
     (begin expr1 expr2 ...))
-  ((cond (test => function) clause ...)
-    (let ((temp test))
-      (if temp
-          (function temp)
-          (cond clause ...))))
+  ; ((cond (test => function) clause ...)
+  ;   (let ((temp test))
+  ;     (if temp
+  ;         (function temp)
+  ;         (cond clause ...))))
   ((cond (test expression ...) clause ...)
     (if test
         (begin expression ...)
@@ -107,6 +107,7 @@
 ; (and) returns the first falsey value returned by the list of expressions, or
 ; returns the value of the last expression if all values are truthy.
 (define-syntax and (syntax-rules ()
+  ((and) #t)
   ((and test) test)
   ((and test1 test2 ...)
     (let ((temp test1))

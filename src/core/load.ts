@@ -10,6 +10,7 @@ import { InPort } from "./port";
 import { ServerSourceFile } from "./port/File/server";
 import { read } from "./read";
 import { iWorld } from "../interface/iWorld";
+import { isString } from "../guard";
 
 export function parseLoadSymbol(sym: symbol, ext = '.scm') {
   const repr = sym.description
@@ -61,15 +62,15 @@ export function loadFile(file: string, world: iWorld, bustCache = true) {
     const cacheData = new TSchemeModuleFS(file)
 
     if (isAbsolute(file)) {
-      const absPath = join(world.env.get('#cwd'), file);
+      const absPath = join(world.env.get('#cwd').toString(), file);
       executeFile(absPath, world);
     } else {
       const fromPath = world.env.get('#cwd');
 
-      assert(typeof fromPath === 'string',
+      assert(isString(fromPath),
         `can't resolve path to imported file`);
 
-      const relPath = relative(fromPath, file);
+      const relPath = relative(fromPath.toString(), file);
 
       assert(existsSync(relPath),
         `import not found: ${relPath}`)

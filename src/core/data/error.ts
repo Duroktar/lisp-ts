@@ -1,3 +1,4 @@
+import lc from "line-column"
 import type { Form } from "../form";
 import type { Syntax } from "../callable/macro/syntax";
 import { toString, toStringSafe } from "../print";
@@ -34,8 +35,15 @@ export class MissingParenthesisError extends Error {
   }
 }
 export class MalformedStringError extends Error {
-  constructor(public pos: Position) {
-    super(`Error: Missing '"'`);
+  constructor(public cursor: number, public source: string) {
+    const pos = { ...lc(source).fromIndex(cursor - 1)!, cursor }
+    super(formatError(source, {start: pos, end: pos, message: `Error: Missing '"'`}));
+  }
+}
+export class InvalidCharacterError extends Error {
+  constructor(public cursor: number, public source: string, char: string) {
+    const pos = { ...lc(source).fromIndex(cursor - 1)!, cursor }
+    super(formatError(source, {start: pos, end: pos, message: `Error: Invalid Character ${char}`}));
   }
 }
 export class MatchError extends Error {

@@ -19,6 +19,21 @@
 (test "#4.2.2-b" 35
   (let ((x 2) (y 3)) (let ((x 7) (z (+ x y))) (* z x))))
 
+(test "cond edge case 1" '(3)
+  (let ((form '(1 3))
+        (*Input* 0)
+        (*Output* 0))
+    (cond ((pair? form)
+                (set! *Input* (cdr form))
+                (car form))
+              ((null? form)
+                #f)
+              (else
+                (set! *Output* (list #f form *Input*))
+                (set! *Input* '())
+                #f))
+    *Input*))
+
 ; (test "#4.2.2-c" 70
 ;   (let ((x 2) (y 3))
 ;     (let* ((x 7)

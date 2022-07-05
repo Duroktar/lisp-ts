@@ -5,28 +5,28 @@ import { createServerWorld } from './world/server';
 (async () => {
   const env = createServerWorld();
 
-  // const t = await tokenize(`(if (> 3 2) 'yes 'no)`, env)
+  // const t = tokenize(`(if (> 3 2) 'yes 'no)`, env)
   // console.log('tokenized:', toString(t))
-  // const p = await parse(`(if (> 3 2) 'yes 'no)`, env)
+  // const p = parse(`(if (> 3 2) 'yes 'no)`, env)
   // console.log('expanded:', toString(p))
-  // const e = await execute(`(if (> 3 2) 'yes 'no)`, env)
+  // const e = execute(`(if (> 3 2) 'yes 'no)`, env)
   // console.log('evaluated:', toString(e))
 
   // const r = tokenize(`(load "stdlib/r5rs.scm")`, readerEnv);
 
-  // await execute('(debug-macro! #t)', env)
-  // await execute('(load "stdlib/r5rs.scm")', env)
+  // execute('(debug-macro! #t)', env)
+  // execute('(load "stdlib/r5rs.scm")', env)
 
-  // await execute('(repl)', env)
+  // execute('(repl)', env)
 
-  // await execute('(load "tests/runner.scm")', env);
+  // execute('(load "tests/runner.scm")', env);
 
-  // await execute('(load "samples/scratch.scm")', env)
-  // await execute('(load "samples/do.scm")', env)
-  // await execute('(load "samples/let.scm")', env)
+  // execute('(load "samples/scratch.scm")', env)
+  // execute('(load "samples/do.scm")', env)
+  // execute('(load "samples/let.scm")', env)
 
-  // await execute('(load "samples/quotes.scm")', env);
-  // await execute('(load "samples/begin.scm")', env);
+  // execute('(load "samples/quotes.scm")', env);
+  // execute('(load "samples/begin.scm")', env);
   // Lisp.execute('(begin (write-char #\\() (newline))', env)
   // Lisp.execute('(display (read (open-input-string "hello world")))', env)
 
@@ -34,16 +34,16 @@ import { createServerWorld } from './world/server';
   // Lisp.execute('(load "tests/spec.scm")', env)
   // Lisp.execute('(load "tests/r5rs.scm")', env)
   // Lisp.execute('(load "samples/fac.scm")', env)
-  await execute('(load "samples/hygiene.scm")', env)
+  execute('(load "samples/hygiene.scm")', env)
   // Lisp.execute('(load "samples/assoc.scm")', env)
-  // await execute('(load "samples/cond.scm")', env)
+  // execute('(load "samples/cond.scm")', env)
   // Lisp.execute('(load "samples/repl.scm")', env)
-  // await execute('(load "samples/pair.scm")', env)
-  // await execute('(load "samples/letrec.scm")', env)
-  // await execute('(load "samples/macro.scm")', env)
+  // execute('(load "samples/pair.scm")', env)
+  // execute('(load "samples/letrec.scm")', env)
+  // execute('(load "samples/macro.scm")', env)
   // Lisp.execute('(load "samples/syntax.scm")', env)
-  // await execute('(load "samples/map.scm")', env)
-  // await execute('(load "samples/call-cc.scm")', env)
+  // execute('(load "samples/map.scm")', env)
+  // execute('(load "samples/call-cc.scm")', env)
 
   // Lisp.execute(`(test 'yes (if (> 3 2) 'yes 'no))`, env)
   // Lisp.execute(`(cons "a" '(b c))`, env)

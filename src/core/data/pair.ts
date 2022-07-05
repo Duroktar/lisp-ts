@@ -1,5 +1,5 @@
 import { isAtom, isBinding, isList, isPair } from "../../guard";
-import { assert } from "../../utils";
+import { assert, isEqual } from "../../utils";
 import { NIL } from "../const";
 import { Form, List } from "../form";
 import { car } from "../lisp";
@@ -87,13 +87,13 @@ export class Pair  {
       if (!this.car.equal(other.car))
         return false
     }
-    else if (this.car !== other.car)
+    else if (!isEqual(this.car, other.car))
       return false
 
     if (Pair.is(this.cdr))
       return this.cdr.equal(other.cdr)
 
-    return this.cdr === other.cdr
+    return isEqual(this.cdr, other.cdr)
   }
 
   forEach = (fn: (value: any) => any): void => {

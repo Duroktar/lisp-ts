@@ -1,6 +1,6 @@
 import { isEmpty, isList, isNativeProc, isPair, isProc, isSym, isTruthy } from "../guard";
 import { iEnv } from "../interface/iEnv";
-import { assert } from "../utils";
+import { as, assert } from "../utils";
 import { NIL, UNDEF } from "./const";
 import { Env } from "./data/env";
 import { list, Pair } from "./data/pair";
@@ -8,11 +8,17 @@ import { Procedure } from "./callable/proc";
 import { SymTable } from "./data/sym";
 import type { Form } from "./form";
 import { cadddr, caddr, cadr, car, cdr } from "./lisp";
-import { toString } from "./print";
+import { toString, toStringSafe } from "./print";
+
+const debug = false;
+
+function debugLog(...args: any[]): void {
+  if (debug) { console.log('[Eval]:'.cyan, ...args); }
+}
 
 export function evaluate(e: Form, a: iEnv): Form {
   while (true) {
-    // console.log('[evaluate]: evaluating term:'.dim, toString(e));
+    debugLog('[evaluate]: evaluating term:'.dim, toString(e));
     if (isSym(e)) return a.getFrom<Form>(e);
     else if (!isPair(e)) return e ?? NIL;
     else switch (e.car) {
@@ -63,7 +69,7 @@ export function evaluate(e: Form, a: iEnv): Form {
           break
         }
         else {
-          throw new Error('Unexpected: ' + e.constructor.name)
+          throw new Error(`Unexpected: ${e.constructor.name}\n${toStringSafe(e)}`)
         }
       }
     }

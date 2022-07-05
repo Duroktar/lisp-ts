@@ -1,5 +1,4 @@
 import { basename, dirname } from "path";
-import { Atom } from "../form";
 import { TSchemeModule } from "./base";
 
 export class TSchemeModuleFS extends TSchemeModule {
@@ -16,5 +15,5 @@ export class TSchemeModuleFS extends TSchemeModule {
     return this.basename.split('.').shift()!;
   }
 
-  static loaderCache = new Map<Atom, TSchemeModuleFS>();
+  static loaderCache = new Map<string, TSchemeModuleFS>();
 }

@@ -3,6 +3,7 @@ export const Sym = Symbol.for;
 
 export const SymTable = {
   APPEND: Sym('append'),
+  APPLY: Sym('apply'),
   ATOM: Sym('atom?'),
   BEGIN: Sym('begin'),
   CAR: Sym('car'),

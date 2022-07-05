@@ -3,13 +3,20 @@ import { iWorld } from "../interface/iWorld";
 import { append, assert, Predicate, push } from "../utils";
 import { NIL, TRUE } from "./const";
 import { Character } from "./data/char";
-import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError } from "./data/error";
+import { MalformedStringError, MissingParenthesisError, UnexpectedParenthesisError, InvalidCharacterError } from "./data/error";
 import { cons, list } from "./data/pair";
 import { InPort } from "./port";
 import { Sym, SymTable } from "./data/sym";
 import { Vector } from "./data/vec";
 import { Form, List } from "./form";
+import { toStringSafe } from "./print";
+import { Str } from "./data/string";
 
+const DEBUG = false
+
+function debugLog(...args: string[]): void {
+  if (DEBUG) { console.log('[Read]:', ...args) }
+}
 
 const numberRegex = /^\#?(?:(?<radix>(?:(?:[e|i]?[b|o|d|x]{1})|(?:[b|o|d|x]{1}[e|i]?))?)(?:(?<integer>\d*)|(?<number>(?:\d+(?:\.(?:\d)+))))(?<precision>(?:[s|f|d|l]{1}\d+))?)$/gim
 
@@ -23,7 +30,7 @@ export function read(port: InPort, world: iWorld): Form {
   }
 
   const peek = () => port.peekChar();
-  const current = (c = cursor) => c;
+  const current = () => cursor;
   const isDblQt = (c = cursor) => c === '"';
   const isOpenS = (c = cursor) => c === '(';
   const isCloseS = (c = cursor) => c === ')';
@@ -40,8 +47,8 @@ export function read(port: InPort, world: iWorld): Form {
   const isAlpha = (c: string) => (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')));
   const isDigit = (c: string) => ((c >= '0') && (c <= '9'));
   const isDelimiter = (c: string) => '([{}])'.includes(c);
-  const isSpecial = (c: string) => ((c === '.') || (c === '_') || (c === '^') || (c === '=') || (c === '?') || (c === '!'));
-  const isMathOp = (c: string) => ((c === '+') || (c === '-') || (c === '*') || (c === '/') || (c === '<') || (c === '>'));
+  const isSpecial = (c: string) => '!$%&*/:<~._^=?'.includes(c);
+  const isMathOp = (c: string) => '+-*/<>'.includes(c);
   const isAlnum = (c: string) => isAlpha(c) || isDigit(c);
   const isValid = (c: string) => isAlnum(c) || isSpecial(c) || isMathOp(c) || isHash() || isEscape();
   const isValidAndSameLine = () => isValid(current()) && !isEOF()
@@ -117,6 +124,7 @@ export function read(port: InPort, world: iWorld): Form {
   }
 
   function parseAtom(): Form {
+    debugLog('parseAtom')
     let atom = parseWhileValid()
     if (Number.isNaN(parseInt(atom)) === false)
       return parseInt(atom)
@@ -124,6 +132,7 @@ export function read(port: InPort, world: iWorld): Form {
   }
 
   function parseQuote(): Form {
+    debugLog('parseQuote')
     if (current() === "'") {
       advance();
       return list(SymTable.QUOTE, parse());
@@ -144,6 +153,7 @@ export function read(port: InPort, world: iWorld): Form {
   }
 
   function parseHashPrefix(): Form {
+    debugLog('parseHashPrefix')
     if (current() === "#") {
       advance();
       const lookahead = current();
@@ -157,20 +167,15 @@ export function read(port: InPort, world: iWorld): Form {
       if (lookahead === "\\") {
         advance();
 
-        const val = parseAtom();
+        const char = (current() === '\\') // edge case
+          ? advance()
+          : parseWhileValid()
 
-        if (typeof val === 'symbol') {
-          const char = val.description
-          assert(
-            char && (char.length === 1 || char.match(/^(newline|space)$/i)),
-
-            `error parsing character: #\\${char}`
-          )
-
-          return new Character(val) as any
+        if (char && (char.length === 1 || char.match(/^(newline|space)$/i))) {
+          return new Character(char)
         }
 
-        throw new Error('What am i doing here?')
+        throw new InvalidCharacterError(port.file.cursor, port.file.data, lookahead)
       }
 
       if (lookahead === 't' || lookahead === 'f') {
@@ -204,6 +209,7 @@ export function read(port: InPort, world: iWorld): Form {
   }
 
   function parseReadMacro(): Form {
+    debugLog('parseReadMacro')
     if (world.readerEnv.has(current())) {
       const value = advance();
       const macro = world.readerEnv.get<Function>(value);
@@ -213,38 +219,46 @@ export function read(port: InPort, world: iWorld): Form {
   }
 
   function parseString(): Form {
+    debugLog('parseString')
     if (isDblQt()) {
       advance();
 
-      let exprs: string = '';
+      let stringValue: string = '';
       while (!isDblQt() && !isNewLine() && !isEOF()) {
-        exprs += advance();
+        if (current() === '\\')
+          advance();
+        stringValue += advance();
       }
 
       if (isDblQt())
         advance();
       else
-        throw new MalformedStringError(port.file.position());
+        throw new MalformedStringError(port.file.cursor, port.file.data);
 
-      return exprs;
+      return Str(stringValue);
     }
 
     return parseReadMacro();
   }
 
   function parseList(): Form {
+    debugLog('parseList')
     for (let [open, close] of listDelimiterPredicates) {
       const result = parseDelimitedList(open, close)
+      debugLog('parsed list:', toStringSafe(result!));
       if (result) return result;
     }
     return parseString();
   }
 
   function parse(): Form {
+    debugLog('parse')
     consumeIgnored();
     const expr = parseList();
     return expr;
   }
 
-  return parse();
+  const expr = parse();
+  debugLog('parsed expr:', toStringSafe(expr));
+  return expr;
 };

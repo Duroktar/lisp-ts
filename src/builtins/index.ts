@@ -1,18 +1,19 @@
 import highlight from "cli-highlight";
 import { format, inspect } from "util";
+import { isSyntax, Macro, Syntax } from "../core/callable/macro";
 import { FALSE, NIL, TRUE, UNDEF } from "../core/const";
 import { Character } from "../core/data/char";
 import { Resume } from "../core/data/cont";
 import { InvalidCallableExpression, NotImplementedError, RuntimeWarning, UndefinedVariableError } from "../core/data/error";
-import { Macro, isSyntax, Syntax } from "../core/callable/macro";
 import { cons, list, Pair } from "../core/data/pair";
-import { currentInputPort, currentOutputPort, InPort, OutPort } from "../core/port";
+import { MutableString, Str } from "../core/data/string";
 import { Sym } from "../core/data/sym";
 import { Vector } from "../core/data/vec";
 import { evaluate } from "../core/eval";
 import { expand } from "../core/expand";
-import { Form, List } from "../core/form";
+import { List } from "../core/form";
 import * as Lisp from "../core/lisp";
+import { currentInputPort, currentOutputPort, InPort, OutPort } from "../core/port";
 import { print, toString, toStringSafe } from "../core/print";
 import { read } from "../core/read";
 import { isCallable, isChar, isEmpty, isEofString, isF, isInputPort, isIOPort, isList, isMacro, isNativeProc, isNullOrUndefined, isNum, isOutputPort, isPair, isProc, isString, isSym, isT, isVec } from "../guard";
@@ -96,7 +97,7 @@ export function addGlobals(
     // env.set('*default-output-port*', <any>OutPort.fromStdOut())
     env.set('*current-output-port*', env.get('*default-output-port*'))
 
-    env.set('*default-repl-prompt*', '> ')
+    env.set('*default-repl-prompt*', Str('> '))
     env.set('*current-repl-prompt*', env.get('*default-repl-prompt*'))
 
     env.define('locals-js', [], (_, a) => { return console.log(inspect(a.keys().sort(), { maxArrayLength: 10000 })) });
@@ -114,15 +115,15 @@ export function addGlobals(
     env.define('printn', ['name', 'x'], ([name, x]: any) => { console.log(toString(name), toString(x)); });
     env.define('printr', ['x'], ([x]: any) => { print(x); return x});
     env.define('prints', ['...xs'], ([...xs]: any) => { console.log(...xs); });
-    env.define('print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: any) => toString(x))); });
+    env.define('print', ['...xs'], ([...xs]: any) => { console.log(...xs); });
     env.define('show', ['x'], x => { console.log(x); });
-    env.define('describe', ['x'], ([x]: any) => toString(x, true));
-    env.define('format', ['x'], ([x]: any) => toString(x, true));
+    env.define('describe', ['x'], ([x]: any) => Str(toString(x, false)));
+    env.define('format', ['x'], ([x]: any) => Str(toString(x, true)));
 
     env.define('colorized', ['x', 'language?'], ([x, language]: any) => {
       language = language ?? 'scheme'
       Util.assert(isString(x), format('wrong type .. `%s` .. expected `string`', typeof x))
-      return highlight(x, {language, ignoreIllegals: true})
+      return highlight(x.toString(), {language, ignoreIllegals: true})
     });
 
     env.define('inspect', ['x'], ([x]: any) => {
@@ -176,26 +177,48 @@ export function addGlobals(
 
     env.define('gensym', [], () => Symbol());
 
-    env.define('set-macro-character', ['char', 'cb'], ([char, cb]: any, env) => {
-      lexicalEnv.setFrom(char, (locals: any) => {
-        const proc = evaluate(cb, env);
-        if (isProc(proc)) {
-          proc.env.define('read', ['read'], ([locals]: any) => locals.parse());
-          proc.env.define('advance', ['advance'], ([locals]: any) => locals.advance());
-          proc.env.define('current', ['current'], ([locals]: any) => locals.current());
-          proc.env.define('isEOF', ['isEOF'], ([locals]: any) => locals.isEOF());
-          proc.env.define('isSpace', ['isSpace'], ([locals]: any) => locals.isSpace());
-          proc.env.define('isNewLine', ['isNewLine'], ([locals]: any) => locals.isNewLine());
-          return evaluate(list(proc, locals, toString(char)), env);
-        }
-        throw new Error('Nope @ set-macro-character');
-      });
-    });
+    // env.define('set-macro-character', ['char', 'cb'], ([char, cb]: any, env) => {
+    //   lexicalEnv.setFrom(char, (locals: any) => {
+    //     const proc = evaluate(cb, env);
+    //     if (isProc(proc)) {
+    //       proc.env.define('read', ['read'], ([locals]: any) => locals.parse());
+    //       proc.env.define('advance', ['advance'], ([locals]: any) => locals.advance());
+    //       proc.env.define('current', ['current'], ([locals]: any) => locals.current());
+    //       proc.env.define('isEOF', ['isEOF'], ([locals]: any) => locals.isEOF());
+    //       proc.env.define('isSpace', ['isSpace'], ([locals]: any) => locals.isSpace());
+    //       proc.env.define('isNewLine', ['isNewLine'], ([locals]: any) => locals.isNewLine());
+    //       return evaluate(list(proc, locals, toString(char)), env);
+    //     }
+    //     throw new Error('Nope @ set-macro-character');
+    //   });
+    // });
 
     env.define('i/o-port?', ['obj'], ([obj]: any) => Util.toL(isIOPort(obj)));
+    env.define('read-from-string', ['obj'], ([obj]: any) => Lisp.tokenize(obj, world));
+
+    env.define('string-pad-end', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
+      Util.assert(isString(string));
+      Util.assert(isNum(maxLength));
+      return Str(string.toString().padEnd(maxLength, fillString));
+    });
+    env.define('string-pad-start', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
+      Util.assert(isString(string));
+      Util.assert(isNum(maxLength));
+      return Str(string.toString().padStart(maxLength, fillString));
+    });
   }
   //#endregion
 
+  /*
+    "here! (1)" "(let ((a 1) (b 2)) (cons a b))"
+    calling apply on: pp-loop
+    "here! (2)"
+    "here! (2.2)" (let ((a 1) (b 2)) (cons a b))
+    "pair? (2.2)" #t
+    "null? (2.2)" #f
+    "here! (3)"
+    called apply with a non procedure
+  */
   // #region [ rgba(0, 50, 150, 0.5) ] - r5rs
   // - r5rs
 
@@ -203,140 +226,118 @@ export function addGlobals(
 
     //  - 4.2 Derived Expressions
     Lisp.execute(`
-      (define-syntax cond
-        (syntax-rules (else =>)
-          ((cond (else result1 result2 ...))
-          (begin result1 result2 ...))
-          ((cond (test => result))
-          (let ((temp test))
-            (if temp result temp)))
-          ((cond (test => result) clause1 clause2 ...)
-          (let ((temp test))
-            (if temp
-                (result temp)
-                (cond clause1 clause2 ...))))
-          ((cond (test)) test)
-          ((cond (test) clause1 clause2 ...)
-          (let ((temp test))
+      (define-syntax cond (syntax-rules (else =>)
+        ([cond] #f)
+        ([cond (else expr1 expr2 ...)]
+          (begin expr1 expr2 ...))
+        ; ([cond (test => function) clause ...]
+        ;   (let ((temp test))
+        ;     (if temp
+        ;         (function temp)
+        ;         (cond clause ...))))
+        ([cond (test expression ...) clause ...]
+          (if test
+              (begin expression ...)
+              (cond clause ...)))))
+    `, world)
+
+    Lisp.execute(`
+      (define-syntax case (syntax-rules (else)
+        ([case key] #f)
+        ([case key (else expr1 expr2 ...)]
+          (begin expr1 expr2 ...))
+        ([case key
+              ((cell ...) expr1 expr2 ...)
+              clause ...]
+          (let ((temp key))
+            (if (member temp '(cell ...))
+                (begin expr1 expr2 ...)
+                (case temp
+                      clause ...))))))
+    `, world)
+
+    Lisp.execute(`
+      (define-syntax and (syntax-rules ()
+        ([and] #t)
+        ([and test] test)
+        ([and test1 test2 ...]
+          (let ((temp test1))
+            (if (not temp)
+                temp
+                (and test2 ...))))))
+    `, world)
+
+    Lisp.execute(`
+      (define-syntax or (syntax-rules ()
+        ([or test] test)
+        ([or test1 test2 ...]
+          (let ((temp test1))
             (if temp
                 temp
-                (cond clause1 clause2 ...))))
-          ((cond (test result1 result2 ...))
-          (if test (begin result1 result2 ...)))
-          ((cond (test result1 result2 ...)
-                clause1 clause2 ...)
-          (if test
-              (begin result1 result2 ...)
-              (cond clause1 clause2 ...)))))
+                (or test2 ...))))))
     `, world)
 
     Lisp.execute(`
-      (define-syntax case
-        (syntax-rules (else)
-          ((case (key ...)
-            clauses ...)
-          (let ((atom-key (key ...)))
-            (case atom-key clauses ...)))
-          ((case key
-            (else result1 result2 ...))
-          (begin result1 result2 ...))
-          ((case key
-            ((atoms ...) result1 result2 ...))
-          (if (memv key '(atoms ...))
-              (begin result1 result2 ...)))
-          ((case key
-            ((atoms ...) result1 result2 ...)
-            clause clauses ...)
-          (if (memv key '(atoms ...))
-              (begin result1 result2 ...)
-              (case key clause clauses ...)))))
+      (define-syntax let (syntax-rules ()
+        ((let ((variable init) ...) body ...)
+          ((lambda (variable ...)
+              body ...)
+          init ...))
+        ((let name ((variable init) ...) body ...)
+          (letrec ((name (lambda (variable ...)
+                          body ...)))
+            (name init ...)))))
     `, world)
 
     Lisp.execute(`
-      (define-syntax and
-        (syntax-rules ()
-          ([and] #t)
-          ([and test] test)
-          ([and test1 test2 ...]
-            (if test1 [and test2 ...] #f))))
+      (define-syntax let* (syntax-rules ()
+        ((let* ((n1 e1) (n2 e2) (n3 e3) ...) body ...)
+          (let ((n1 e1))
+            (let* ((n2 e2) (n3 e3) ...) body ...)))
+        ((let* ((name expression) ...) body ...)
+          (let ((name expression) ...) body ...))))
     `, world)
 
     Lisp.execute(`
-      (define-syntax or
-        (syntax-rules ()
-          ([or] #f)
-          ([or test] test)
-          ([or test1 test2 ...]
-            (let ([x test1])
-              (if x x (or test2 ...))))))
-    `, world)
-
-    Lisp.execute(`
-      (define-syntax let
-        (syntax-rules ()
-          ((let ((variable init) ...) body ...)
-            ((lambda (variable ...)
-                body ...)
-            init ...))
-          ((let name ((variable init) ...) body ...)
-            (letrec ((name (lambda (variable ...)
-                            body ...)))
-              (name init ...)))))
-    `, world)
-
-    Lisp.execute(`
-      (define-syntax let*
-        (syntax-rules ()
-          ((let* ((n1 e1) (n2 e2) (n3 e3) ...) body ...)
-            (let ((n1 e1))
-              (let* ((n2 e2) (n3 e3) ...) body ...)))
-          ((let* ((name expression) ...) body ...)
-            (let ((name expression) ...) body ...))))
-    `, world)
-
-    Lisp.execute(`
-      (define-syntax letrec
-        (syntax-rules ()
-          ((letrec ((variable init) ...) body ...)
-            ((lambda ()
-              (define variable init) ...
-              body ...)))))
-    `, world)
-
-    Lisp.execute(`
-      (define-syntax do
-        (syntax-rules ()
-          ((do ((variable init step ...) ...)
-              (test expression ...)
-              command ...)
-            (let loop ((variable init) ...)
-              (if test
-                  (begin expression ...)
-                  (begin
-                    command ...
-                    (loop (do "step" variable step ...) ...)))))
-          ((do "step" variable)
-            variable)
-          ((do "step" variable step)
-            step)))
+      (define-syntax letrec (syntax-rules ()
+        ((letrec ((variable init) ...) body ...)
+          ((lambda ()
+            (define variable init) ...
+            body ...)))))
     `, world)
 
     world.lexicalEnv.set('let-syntax', world.lexicalEnv.get('let'))
     world.lexicalEnv.set('letrec-syntax', world.lexicalEnv.get('letrec'))
 
     Lisp.execute(`
-      (define-syntax delay
-        (syntax-rules ()
-          ((delay expression)
-            (let ((forced #f)
-                  (memo #f))
-              (lambda ()
-                (if forced
-                    memo
-                    (begin
-                      (set! memo expression)
-                      (set! forced #t)
-                      memo)))))))
+      (define-syntax do (syntax-rules ()
+        ((do ((variable init step ...) ...)   ; Allow 0 or 1 step
+            (test expression ...)
+            command ...)
+          (let loop ((variable init) ...)
+            (if test
+                (begin expression ...)
+                (begin
+                  command ...
+                  (loop (do "step" variable step ...) ...)))))
+        ((do "step" variable)
+          variable)
+        ((do "step" variable step)
+          step)))
+    `, world)
+
+    Lisp.execute(`
+      (define-syntax delay (syntax-rules ()
+        ((delay expression)
+          (let ((forced #f)
+                (memo #f))
+            (lambda ()
+              (if forced
+                  memo
+                  (begin
+                    (set! memo expression)
+                    (set! forced #t)
+                    memo)))))))
     `, world)
 
     // Lisp.execute(
@@ -437,11 +438,13 @@ export function addGlobals(
     // - 6.2.6 Numerical input and output
     env.define('number->string', ['n', 'radix?'], ([n, radix]: any) => {
       Util.assert(isNum(n), `"number->string" procedure takes a 'number' as an argument`);
-      return n.toString(radix ?? 10);
+      return Str(n.toString(radix ?? 10));
     });
-    env.define('string->number', ['n', 'radix?'], ([n, radix]: any) => {
+    env.define('string->number', ['n', 'radix?'], ([n, radix = 10]: any) => {
       Util.assert(isString(n), `"string->number" procedure takes a 'string' as an argument`);
-      return parseInt(n, radix ?? 10);
+      if (n.toString().includes('e'))
+        return parseInt(new Number(n.toString()).toFixed(0).toString(), radix);
+      return parseInt(n.toString(), radix)
     });
     // END - 6.2.6 Numerical input and output
 
@@ -496,6 +499,14 @@ export function addGlobals(
       return list(...copy.reverse())
     });
 
+    env.define('reverse!', ['list'], ([lst]: any) => {
+      Util.assert(isList(lst))
+      if (isEmpty(lst))
+        return lst
+      const copy = [...lst]
+      return list(...copy.reverse())
+    });
+
     // library procedure: list-tail list k
     // library procedure: list-ref list k
 
@@ -514,11 +525,11 @@ export function addGlobals(
     });
     env.define('symbol->string', ['n'], ([n]: any) => {
       Util.assert(isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
-      return toString(n)
+      return Str(n.description!)
     });
     env.define('string->symbol', ['n'], ([n]: any) => {
       Util.assert(isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
-      return Sym(n)
+      return Sym(n.toString())
     });
     // END - 6.3.3 Symbols
 
@@ -526,7 +537,9 @@ export function addGlobals(
     env.define('char?', ['obj'], ([obj]: any) => {
       return Util.toL(isChar(obj))
     });
-    // procedure: char=? char1 char2
+    env.define('char=?', ['char1', 'char2'], ([char1, char2]: any) => {
+      return Util.toL(isChar(char1) && isChar(char2) && char1.equal(char2))
+    });
     // procedure: char<? char1 char2
     // procedure: char>? char1 char2
     // procedure: char<=? char1 char2
@@ -539,13 +552,45 @@ export function addGlobals(
     // library procedure: char-ci>=? char1 char2
 
     // library procedure: char-alphabetic? char
+    env.define('char-alphabetic?', ['char'], ([char]: any) => {
+      // Note: The alphabetic characters are the 52 upper and lower case letters.
+      Util.assert(isChar(char))
+      return Util.toL(char.displayText.match(/[A-z]/) !== null)
+    });
     // library procedure: char-numeric? char
+    env.define('char-numeric?', ['char'], ([char]: any) => {
+      // Note: The numeric characters are the ten decimal digits.
+      Util.assert(isChar(char))
+      return Util.toL(char.displayText.match(/[0-9]/) !== null)
+    });
     // library procedure: char-whitespace? char
+    env.define('char-whitespace?', ['char'], ([char]: any) => {
+      // Note: The whitespace characters are space, tab, line feed, form feed, and carriage return.
+      Util.assert(isChar(char))
+      return Util.toL(char.displayText.match(/\s/) !== null)
+    });
     // library procedure: char-upper-case? letter
+    env.define('char-upper-case?', ['letter'], ([letter]: any) => {
+      Util.assert(isChar(letter))
+      return Util.toL(letter.displayText.match(/[A-Z]/) !== null)
+    });
     // library procedure: char-lower-case? letter
+    env.define('char-lower-case?', ['letter'], ([letter]: any) => {
+      Util.assert(isChar(letter))
+      return Util.toL(letter.displayText.match(/[a-z]/) !== null)
+    });
 
     // procedure: char->integer char
+    env.define('char->integer', ['char'], ([char]: any) => {
+      Util.assert(isChar(char))
+      Util.assert(char.displayText.match(/[0-9]/) !== null)
+      return Number(char.displayText)
+    });
     // procedure: integer->char n
+    env.define('integer->char', ['n'], ([n]: any) => {
+      Util.assert(isNum(n))
+      return new Character(n.toString(10))
+    });
 
     // library procedure: char-upcase char
     // library procedure: char-downcase char
@@ -555,12 +600,12 @@ export function addGlobals(
     env.define('string?', ['n'], ([n]: any) => Util.toL(isString(n)));
     env.define('string', 'args', args => {
       Util.assert(Array.isArray(args) && args.every(isChar), 'Arguments to `string` must be `char`s')
-      return args.map(arg => toString(arg)).join('')
+      return Str(args.map(arg => toString(arg)).join(''))
     });
     env.define('make-string', ['k', 'char'], ([k, char = ' ']: any) => {
       Util.assert(isChar(char), 'make-string arg(2) expects a char')
       Util.assert(isNum(k), 'make-string arg(1) expects a number')
-      return char.displayText.repeat(k)
+      return Str(char.displayText.repeat(k))
     });
     env.define('string-length', ['n'], ([n]: any) => {
       Util.assert(isString(n))
@@ -569,7 +614,7 @@ export function addGlobals(
     env.define('string-ref', ['string', 'k'], ([string, k]: any) => {
       Util.assert(isString(string) && string.length >= k)
       Util.assert(isNum(k), format('Invalid `k` param passed to `string-ref`, expected number, got `%s`', typeof k))
-      return new Character(string[k])
+      return new Character(string.toString()[k])
     });
     env.define('string-set!', ['string', 'k', 'char'], ([string, k, char]: any) => {
       Util.assert(isString(string) && string.length > k)
@@ -579,90 +624,74 @@ export function addGlobals(
     });
     env.define('string->input-port', ['string'], ([string]: any) => {
       Util.assert(isString(string))
-      return InPort.fromString(string)
+      return InPort.fromString(string.toString())
     });
     env.define('string=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1 === string2)
+      return Util.toL(string1.equal(string2))
     });
     env.define('string-ci=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
       if (string1.length !== string2.length)
         return Util.toL(false)
-      for (let i = 0; i < string1.length; i++) {
-        if ((<string>string1[i]).toLowerCase() === string2[i].toLowerCase())
-          continue
-        return Util.toL(false)
-      }
-      return Util.toL(true)
+      return Util.toL(string1.toLowerCase() === string2.toLowerCase())
     });
     env.define('string<?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1 < string2)
+      return Util.toL(string1.toString() < string2.toString())
     });
     env.define('string>?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1 > string2)
+      return Util.toL(string1.toString() > string2.toString())
     });
     env.define('string<=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1 <= string2)
+      return Util.toL(string1.toString() <= string2.toString())
     });
     env.define('string>=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1 >= string2)
+      return Util.toL(string1.toString() >= string2.toString())
     });
     env.define('string-ci<?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1.toLowerCase() < string2.toLowerCase())
+      return Util.toL(string1.toString().toLowerCase() < string2.toString().toLowerCase())
     });
     env.define('string-ci>?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1.toLowerCase() > string2.toLowerCase())
+      return Util.toL(string1.toString().toLowerCase() > string2.toString().toLowerCase())
     });
     env.define('string-ci<=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1.toLowerCase() <= string2.toLowerCase())
+      return Util.toL(string1.toString().toLowerCase() <= string2.toString().toLowerCase())
     });
     env.define('string-ci>=?', ['string1', 'string2'], ([string1, string2]: any) => {
       Util.assert(isString(string1) && isString(string2))
-      return Util.toL(string1.toLowerCase() >= string2.toLowerCase())
+      return Util.toL(string1.toString().toLowerCase() >= string2.toString().toLowerCase())
     });
     env.define('substring', ['string', 'start', 'end'], ([string, start, end]: any) => {
       Util.assert(isString(string))
-      return (<string>string).slice(start, end)
+      return Str(string.toString().slice(start, end))
     });
     env.define('string-append', ['string', '...xs'], ([string, ...xs]: any) => {
       Util.assert(isString(string))
-      return (<string>string).concat(...xs)
+      return Str(string.toString().concat(...xs.map((s: MutableString) => s.toString())))
     });
-    env.define('string->list', ['string', '...'], ([string]: any) => {
+    env.define('string->list', ['string'], ([string]: any) => {
       Util.assert(isString(string))
-      return (<string>string).split('')
+      return list(...string.toString().split('').map(c => new Character(c)))
     });
     env.define('list->string', ['list', '...'], ([list]: any) => {
       Util.assert(isPair(list) && list.every(isString))
-      return list.toArray().join('')
+      return Str(list.toArray().join(''))
     });
     env.define('string-copy', ['string'], ([string]: any) => {
       Util.assert(isString(string))
-      return String(string)
+      return Str(string.toString())
     });
-    env.define('string-fill', ['string', 'char'], ([string, char]: any) => {
+    env.define('string-fill!', ['string', 'char'], ([string, char]: any) => {
       Util.assert(isString(string))
       Util.assert(isChar(char))
-      string.replaceAll(/.*/, char.displayText)
-      return string
-    });
-    env.define('string-pad-end', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
-      Util.assert(isString(string));
-      Util.assert(isNum(maxLength));
-      return (string as string).padEnd(maxLength, fillString);
-    });
-    env.define('string-pad-start', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
-      Util.assert(isString(string));
-      Util.assert(isNum(maxLength));
-      return (string as string).padStart(maxLength, fillString);
+      return string.replaceAll(/.*/, char.displayText)
     });
     // END - 6.3.5 Strings
 
@@ -717,11 +746,13 @@ export function addGlobals(
     env.define('procedure?', ['obj'], ([obj]: any) => {
       return Util.toL(isProc(obj) || isNativeProc(obj))
     });
-    env.define('apply', 'args', (args_: any, env) => {
-      const [proc, args] = args_
+    env.define('apply', ['proc', '.', 'args'], ([proc, ...args]: any, env) => {
       Util.assert(isCallable(proc), 'called apply with a non procedure')
-      Util.assert(isList(args), 'called apply with a non procedure')
-      return proc.call(args, env)
+      // Note: `Apply` calls `proc` with the elements of the list
+      // `(append (list arg1 ...) args)` as the actual arguments.
+      return proc.call(
+        Util.append(list(...args.slice(0, -1)), args[args.length - 1])
+      , env)
     });
     env.define('map', ['proc', '.', 'args'], ([proc, ...lists]: any) => {
       Util.assert(Array.isArray(lists) && lists.length >= 1 && lists.every(isPair), 'error 3823489')
@@ -839,20 +870,16 @@ export function addGlobals(
       p.write(obj)
       return
     });
+
+    // NOTE: `Write' is intended for producing machine-readable output and `display' is for producing human-readable output.
     env.define('write', ['obj', 'port?'], ([obj, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(world)
       p.write(toString(obj))
       return
     });
-    env.define('writeln', ['obj', 'port?'], ([obj, port]: any) => {
-      const p: OutPort = port ?? currentOutputPort(world)
-      p.write(toString(obj))
-      p.write('\n')
-      return
-    });
     env.define('display', ['obj', 'port?'], ([obj, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(world)
-      p.write(obj)
+      p.write(toString(obj, undefined, undefined, false))
       return
     });
     env.define('newline', ['port?'], ([port]: any) => {
@@ -863,6 +890,18 @@ export function addGlobals(
       Util.assert(isChar(char), `not a character: ${char}`)
       const p: OutPort = port ?? currentOutputPort(world)
       p.write(char.displayText)
+      return
+    });
+    env.define('displayln', ['obj', 'port?'], ([obj, port]: any) => {
+      const p: OutPort = port ?? currentOutputPort(world)
+      p.write(toString(obj, undefined, undefined, false))
+      p.write('\n')
+      return
+    });
+    env.define('writeln', ['obj', 'port?'], ([obj, port]: any) => {
+      const p: OutPort = port ?? currentOutputPort(world)
+      p.write(toString(obj))
+      p.write('\n')
       return
     });
     // END - 6.6.3 Output
@@ -918,7 +957,7 @@ export function addGlobals(
           const rv = callable.call(NIL);
           return cons(TRUE, rv);
         }
-        return cons(FALSE, 'InvalidCallableExpression')
+        return cons(FALSE, Str('InvalidCallableExpression'))
       } catch (err) {
         if (err instanceof RuntimeWarning) {
           console.log('RuntimeWarning (try)')
@@ -926,11 +965,11 @@ export function addGlobals(
           // throw err
         }
         if (err instanceof Error) {
-          return cons(FALSE, err.message);
+          return cons(FALSE, Str(err.message));
         }
         if (typeof err === 'string')
-          return cons(FALSE, err);
-        return cons(FALSE, 'UnknownError');
+          return cons(FALSE, Str(err));
+        return cons(FALSE, Str('UnknownError'));
       }
     });
 
@@ -972,7 +1011,7 @@ export function addGlobals(
         const p = currentInputPort(world)
         const o = currentOutputPort(world)
         try {
-          if (greet) o.write(world.env.get('*current-repl-prompt*'))
+          if (greet) o.write(world.env.get<MutableString>('*current-repl-prompt*'))
           lastInput = read(p, world);
           lastExpand = expand(lastInput, true, world)
           lastOutput = evaluate(lastExpand, world.env)

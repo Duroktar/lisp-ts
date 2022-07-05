@@ -34,7 +34,7 @@ export const initializeREPL = (env: iWorld, options: TSchemeReplOptions) => {
       writeFileSync(HISTORY_FILE_PTH, '')
   }
 
-  // await Lisp.execute(`(load "stdlib/r5rs.scm")`, env)
+  Lisp.execute(`(load-from-library "r5rs.scm")`, env)
 
   if (options.colors)
     console.error(`Welcome to ${'lisp-ts'.blue} ${('v' + LANGUAGE_VERSION).yellow}`)
@@ -163,6 +163,9 @@ function errorHandler(err: unknown, callback: any): any {
       return callback(null, err.message)
     }
     if (err instanceof Errors.MalformedStringError) {
+      return callback(null, err.message)
+    }
+    if (err instanceof Errors.InvalidCharacterError) {
       return callback(null, err.message)
     }
     if (err instanceof Errors.RuntimeWarning) {

@@ -1,6 +1,5 @@
 import { Form } from "../core/form"
 import { Callable, Closure } from "../core/callable/proc"
-import { NativeFunc } from "../core/callable/func"
 
 export interface iEnv {
   runtime: any

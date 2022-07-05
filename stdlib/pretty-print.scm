@@ -55,7 +55,7 @@
 
 (load-from-library "programp.scm")
 (load-from-library "for-all.scm")
-(load-from-library "read-from-string.scm")
+; (load-from-library "read-from-string.scm")
 (load-from-library "write-to-string.scm")
 (load-from-library "string-unsplit.scm")
 
@@ -71,10 +71,14 @@
 (define *Convert-unreadable* #f)
 
 (define (read-form)
+  (writeln "here! (2)")
   (if *Input*
       (let ((form (if (null? *Input*)
                       '()
                       (read-from-string *Input*))))
+        (print "here! (2.2)" form)
+        (print "pair? (2.2)" (pair? form))
+        (print "null? (2.2)" (null? form))
         (cond ((pair? form)
                 (set! *Input* (cdr form))
                 (car form))
@@ -96,6 +100,8 @@
         (end-of-input? end-of-input?))
     (lambda (form . options)
 
+      (writeln "pretty-print (1)")
+
       (define *Margin* 72)
       (define *Offset* 0)
       (define *Column* 0)
@@ -112,6 +118,8 @@
       (define LP "(")
       (define RP ")")
       (define SP " ")
+
+      (writeln "pretty-print (2)")
 
       (define (pr-char c)
         (if *Output*
@@ -164,12 +172,14 @@
             (set! *Max-Column* *Column*)))
 
       (define (really-simple? x)
+        (writeln "really-simple?")
         (or (not (list? x))
             (not (pair? x))
             (not (memq (car x) '(lambda cond case do if and or let
                                  let* letrec fluid-let begin)))))
 
       (define (pp-simple-form x)
+        (writeln "pp-simple-form")
         (if (or (not (list? x))
                 *Simple*
                 (for-all really-simple? x))
@@ -182,6 +192,7 @@
             (pp-inline-app x)))
 
       (define (pp-datum x)
+        (writeln "pp-datum")
         (cond ((or (null? x)
                    (symbol? x)
                    (boolean? x)
@@ -202,6 +213,7 @@
                 (error "pretty-print: unknown type" x))))
 
       (define (pp-pair x)
+        (writeln "pp-pair")
         (pr LP)
         (fluid-let ((*Offset* (+ 1 *Offset*)))
           (let pp-members ((x x)
@@ -220,6 +232,7 @@
           (pr RP))
 
       (define (pp-quote x q)
+        (writeln "pp-quote")
         (pr q)
         (fluid-let ((*Offset* (+ *Offset* (string-length q))))
           (if (program? (cadr x))
@@ -256,6 +269,7 @@
           (< *Max-Column* *Margin*)))
 
       (define (pp-inline-app x)
+        (writeln "pp-inline-app")
         (pr LP)
         (pp-simple-form (car x))
         (if (not (null? (cdr x)))
@@ -407,6 +421,7 @@
         (pr RP))
 
       (define (pp-let x)
+        (writeln "pp-let")
         (pr LP)
         (pr "let ")
         (let* ((named?   (symbol? (cadr x)))
@@ -495,6 +510,7 @@
             (pr RP))))
 
       (define (pp-form x)
+        (writeln "pp-form")
         (if (not (pair? x))
             (pp-datum x)
             (case (car x)
@@ -519,72 +535,74 @@
               ((syntax-rules)     (pp-syntax-rules x))
               (else               (pp-application x)))))
 
-        (set! *Column* 0)
-        (set! *Offset* 0)
-        (set! *Margin* 72)
-        (set! *Print-as-code* #f)
-        (set! *Print-as-data* #f)
-        (set! *Print-newline* #f)
-        (set! *Simple* #f)
-        (set! *Convert-unreadable* #f)
-        (let loop ((options options))
-          (cond ((null? options)
-                  (cond ((and *Print-as-code*
-                              *Print-as-data*)
-                          (error (string-append
-                                   "pretty-print: please specify either the"
-                                   " CODE or DATA option, but not both")))
-                        (*Print-newline*)
-                        (*Print-as-code*
-                          (pp-form form))
-                        (*Print-as-data*
-                          (pp-datum form))
-                        ((program? form)
-                          (pp-form form))
-                        (else
-                          (pp-datum form))))
-                ((eq? 'code (car options))
-                  (set! *Print-as-code* #t)
-                  (loop (cdr options)))
-                ((eq? 'data (car options))
-                  (set! *Print-as-data* #t)
-                  (loop (cdr options)))
-                ((eq? 'linefeed (car options))
-                  (set! *Print-newline* #t)
-                  (loop (cdr options)))
-                ((eq? 'simple (car options))
-                  (set! *Simple* #t)
-                  (loop (cdr options)))
-                ((eq? 'indent: (car options))
-                  (if (null? (cdr options))
-                      (error "pretty-print: missing argument to INDENT:"))
-                  (if (not (number? (cadr options)))
-                      (error "pretty-print: non-numeric argument to INDENT:"))
-                  (set! *Offset* (cadr options))
-                  (loop (cddr options)))
-                ((eq? 'margin: (car options))
-                  (if (null? (cdr options))
-                      (error "pretty-print: missing argument to MARGIN:"))
-                  (if (not (number? (cadr options)))
-                      (error "pretty-print: non-numeric argument to MARGIN:"))
-                  (set! *Margin* (cadr options))
-                  (loop (cddr options)))
-                ((eq? 'output-port: (car options))
-                  (if (null? (cdr options))
-                      (error "pretty-print: missing argument to OUTPUT-PORT:"))
-                  (if (not (output-port? (cadr options)))
-                      (error "pretty-print: expected port in OUTPUT-PORT:"))
-                  (set! *Output-port* (cadr options))
-                  (loop (cddr options)))
-                (else
-                  (error "pretty-print: unknown option"
-                         (car options)))))
-        (linefeed))))
+      (set! *Column* 0)
+      (set! *Offset* 0)
+      (set! *Margin* 72)
+      (set! *Print-as-code* #f)
+      (set! *Print-as-data* #f)
+      (set! *Print-newline* #f)
+      (set! *Simple* #f)
+      (set! *Convert-unreadable* #f)
+      (let loop ((options options))
+        (writeln "loop (1)")
+        (cond ((null? options)
+                (cond ((and *Print-as-code*
+                            *Print-as-data*)
+                        (error (string-append
+                                  "pretty-print: please specify either the"
+                                  " CODE or DATA option, but not both")))
+                      (*Print-newline*)
+                      (*Print-as-code*
+                        (pp-form form))
+                      (*Print-as-data*
+                        (pp-datum form))
+                      ((program? form)
+                        (pp-form form))
+                      (else
+                        (pp-datum form))))
+              ((eq? 'code (car options))
+                (set! *Print-as-code* #t)
+                (loop (cdr options)))
+              ((eq? 'data (car options))
+                (set! *Print-as-data* #t)
+                (loop (cdr options)))
+              ((eq? 'linefeed (car options))
+                (set! *Print-newline* #t)
+                (loop (cdr options)))
+              ((eq? 'simple (car options))
+                (set! *Simple* #t)
+                (loop (cdr options)))
+              ((eq? 'indent: (car options))
+                (if (null? (cdr options))
+                    (error "pretty-print: missing argument to INDENT:"))
+                (if (not (number? (cadr options)))
+                    (error "pretty-print: non-numeric argument to INDENT:"))
+                (set! *Offset* (cadr options))
+                (loop (cddr options)))
+              ((eq? 'margin: (car options))
+                (if (null? (cdr options))
+                    (error "pretty-print: missing argument to MARGIN:"))
+                (if (not (number? (cadr options)))
+                    (error "pretty-print: non-numeric argument to MARGIN:"))
+                (set! *Margin* (cadr options))
+                (loop (cddr options)))
+              ((eq? 'output-port: (car options))
+                (if (null? (cdr options))
+                    (error "pretty-print: missing argument to OUTPUT-PORT:"))
+                (if (not (output-port? (cadr options)))
+                    (error "pretty-print: expected port in OUTPUT-PORT:"))
+                (set! *Output-port* (cadr options))
+                (loop (cddr options)))
+              (else
+                (error "pretty-print: unknown option"
+                        (car options)))))
+      (linefeed))))
 
 (define pp pretty-print)
 
 (define (pp-loop . options)
   (let pp* ((x (read-form)))
+    (writeln "here! (3)")
     (cond ((not (end-of-input? x))
             (apply pp x options)
             (let ((next (read-form)))
@@ -599,9 +617,12 @@
       (apply pp-loop options))))
 
 (define (pp-string str* . options)
+      (print "pp-string")
       (set! *Input* (if (string? str*)
                       str*
                       (string-unsplit #\newline str*)))
       (set! *Output* (list '()))
+      (print "here! (1)" str*)
       (apply pp-loop options)
+      (writeln "here! (-1)")
       (reverse! (cdr *Output*)))

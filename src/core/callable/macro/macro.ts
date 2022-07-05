@@ -1,4 +1,4 @@
-import { isIdentifier, isList, isNil, isPair } from "../../../guard";
+import { isIdentifier, isList, isNil, isPair, isString } from "../../../guard";
 import type { iEnv } from "../../../interface/iEnv";
 import { error } from "../../../utils";
 import { ellipsis } from "../../const";
@@ -9,6 +9,7 @@ import { NativeFunc } from "../func";
 import { Expansion } from "./expansion";
 import { Matches } from "./matches";
 import { Syntax } from "./syntax";
+import { Str, MutableString } from "../../data/string";
 
 const debug = false;
 
@@ -156,10 +157,16 @@ export class Macro extends NativeFunc {
     // If all above type checks on the pattern fail, assume the pattern is
     // literal data and make sure the input matches.
     else {
-      return pattern === input ? matches : false
+      return this.patternEqual(pattern, input) ? matches : false
     }
 
     return matches
+  }
+
+  patternEqual(input: Form, pattern: Form) {
+    if (isString(input))
+      return input.equal(pattern)
+    return pattern === input
   }
 
   toString() {

@@ -1,4 +1,4 @@
-import { isCallable, isEmpty, isExpansion, isPair, isSym } from "../guard";
+import { isCallable, isEmpty, isExpansion, isNil, isPair, isSym } from "../guard";
 import { iWorld } from "../interface/iWorld";
 import { assert, sequence } from "../utils";
 import { UNDEF } from "./const";
@@ -16,7 +16,6 @@ function debugLog(...args: string[]): void {
 }
 
 export function expand(e: Form, topLevel = false, world: iWorld): Form {
-  // console.log('EXPANDING')
   if (!isPair(e)) { return e }
   if (isEmpty(e)) { return e }
   else if (SymTable.QUOTE === car(e)) {
@@ -31,11 +30,6 @@ export function expand(e: Form, topLevel = false, world: iWorld): Form {
   else if (SymTable.SET === car(e)) {
     assert(isSym(cadr(e)), 'First arg to set! must be a symbol');
     return e
-  }
-  else if (SymTable.BEGIN === car(e)) {
-    const { car: _begin, cdr: exprs } = e;
-    assert(isPair(exprs) && exprs.length >= 1, 'expand begin');
-    return cons(_begin, expand(exprs, topLevel, world));
   }
   else if (SymTable.DEFINE === car(e)) {
     const [_def, v, body] = sequence(car, cadr, cddr, e);

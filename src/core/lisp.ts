@@ -15,10 +15,10 @@ export const quote = (expr: Form): Form => {
   return cdr(expr);
 }
 
-export const eq = (x: Form, y: Form): Form => {
-  return toL(isPair(x) ? x.equal(y) : x === y);
-}
 export const car = (expr: Form): Form => {
+  if (!isPair(expr)) {
+    debugger
+  }
   assert(isPair(expr), `Argument to car must be a pair. got: ${toStringSafe(expr)}`)
   return expr.car;
 }

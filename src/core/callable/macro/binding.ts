@@ -1,6 +1,7 @@
 import { isNullOrUndefined, isPair } from "../../../guard"
 import type { iEnv } from "../../../interface/iEnv"
 import type { Pair } from "../../data/pair"
+import { MutableString } from "../../data/string"
 import { evaluate } from "../../eval"
 import type { Form } from "../../form"
 
@@ -41,8 +42,9 @@ export class Binding {
   // We provide an equality method so that a bound +Identifier+ produced by
   // expanding a macro can be matched against literal identifiers in another
   // macro pattern.
-  equal(identifier: string) {
-    this.expression === identifier
+  equal(identifier: string | MutableString) {
+    // WARNING: this might f*ck up..
+    this.expression.toString() === identifier.toString()
   }
 
   innermost_binding(identifier: string) {

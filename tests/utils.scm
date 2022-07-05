@@ -27,30 +27,30 @@
         (incr-total)
         (if (equal? *expected* (cdr *result*))
           (begin
-            (if *verbose-test* (prints "Passed..."))
+            (if *verbose-test* (displayln "Passed..."))
             (incr-passed))
           (begin
             (incr-failed)
             (if *verbose-test* (begin
               (newline)
-              (prints "!!! Failure !!!")
+              (displayln "!!! Failure !!!")
               (if (not (eq? 'name 'expected))
-                (prints (string-pad-end " - Test Name:" 16) *test-id*))
-              (prints (string-pad-end " - Expression:" 16) (describe 'expression))
-              (prints (string-pad-end " - Expected:" 16)   (describe *expected*))
-              (prints (string-pad-end " - Actual:"   16)   (describe (cdr *result*)))))))))))
+                (displayln (string-append (string-pad-end " - Test Name: " 16) *test-id*)))
+              (displayln (string-append (string-pad-end " - Expression: " 16) (describe 'expression)))
+              (displayln (string-append (string-pad-end " - Expected: " 16)   (describe *expected*)))
+              (displayln (string-append (string-pad-end " - Actual: "   16)   (describe (cdr *result*))))))))))))
 
 (define (test-begin name) (begin
-  (prints "*** Running Tests:" name "***")
+  (displayln (string-append "*** Running Tests: " name " ***"))
   (set-current-test name)))
 
 (define (test-end)
   (begin
     (newline)
-    (prints "--- Finished Tests:" *current-test* "---")
-    (prints (string-pad-end " - Passed:" 14) *tests-passed*)
-    (prints (string-pad-end " - Failed:" 14) *tests-failed*)
-    (prints (string-pad-end " - Total:" 14)  *tests-total*)
+    (displayln (string-append "--- Finished Tests: " *current-test* " ---"))
+    (displayln (string-append (string-pad-end " - Passed: " 14) *tests-passed*))
+    (displayln (string-append (string-pad-end " - Failed: " 14) *tests-failed*))
+    (displayln (string-append (string-pad-end " - Total: " 14)  *tests-total*))
     (newline)
     (set-current-test "none")
     (reset-passed)

@@ -1,14 +1,13 @@
-import { isEmpty, isList, isPair, isString, isSym } from "../../guard";
+import { isIdent, isNil, isPair, isSym } from "../../guard";
 import type { iEnv } from "../../interface/iEnv";
-import { NIL } from "../const";
+import { NativeFunc } from "../callable/func";
 import { Syntax } from "../callable/macro/syntax";
-import type { Atom, Form } from "../form";
-import { car, cdr } from "../lisp";
-import { toString } from "../print";
+import { Callable, Closure } from "../callable/proc";
+import { NIL } from "../const";
+import type { Form } from "../form";
+import { toString, toStringSafe } from "../print";
 import * as Errors from "./error";
 import { cons, list, Pair } from "./pair";
-import { Callable, Closure } from "../callable/proc";
-import { NativeFunc } from "../callable/func";
 import { Sym } from "./sym";
 
 export class Env implements iEnv {
@@ -18,37 +17,57 @@ export class Env implements iEnv {
 
   constructor(params: Form = NIL, args: Form = NIL, public outer?: iEnv) {
     if (isPair(params) && isPair(args)) {
-
-      function getParams(params: Pair, args: Pair): [string, any][] {
-        const x0 = car(params)
-        const x1 = car(args)
-        const xs0 = cdr(params)
-        const xs1 = cdr(args)
-        if (!params.isList() && isSym(xs0)) {
-          return [[toString(x0), x1], [toString(xs0), xs1]]
-        }
-        if (isPair(xs0) && isPair(xs1)) {
-          return [[toString(x0), x1], ...getParams(xs0, xs1)]
-        }
-        return [[toString(x0), x1]]
-      }
-
-      const formals = getParams(params, args);
+      const formals = this.getParams(params, args);
       this.inner = Object.fromEntries(formals);
       return
     }
-    else if (params === NIL || args === NIL) {
-      this.inner = {}
-      return
-    }
-    else if (isSym(params)) {
+    // If the list of formals is not a list but a single identifier,
+    // that identifier will be assigned a list of all the parameters
+    else if (!isNil(params) && isSym(params)) {
       this.inner = { [params.description!]: args };
       return
     }
+    else if (isNil(params) || isNil(args)) {
+      this.inner = {}
+    }
     else {
+      console.log(toStringSafe(params))
+      console.log(args)
       throw new Errors.InvalidEnvArgumentsError(params, args);
     }
 
+  }
+
+  private getParams(params: Pair, args: Pair): [string, Form][] {
+    // If the list of formals is an improper list, the tail name
+    // will be assigned a list of any parameters remaining after
+    // all the preceeding formals have been assigned values.
+
+    // (form . options)
+    // ('(1 3) 'a 'b 'c)
+    // => {form: '(1 3), options: ('a 'b 'c)}
+    const result: [string, Form][] = []
+    const tail = params.tail.cdr
+    let idx = 0
+    params.forEach((p: symbol) => {
+      result.push([p.description!, args.at(idx)])
+      idx++
+    })
+    if (isIdent(tail)) {
+      result.push([tail.description!, args.slice(idx-1)])
+    }
+    return result
+    // const x0 = car(params)
+    // const x1 = car(args)
+    // const xs0 = cdr(params)
+    // const xs1 = cdr(args)
+    // if (!params.isList() && isSym(xs0)) {
+    //   return [[toString(x0), x1], [toString(xs0), xs1]]
+    // }
+    // if (isPair(xs0) && isPair(xs1)) {
+    //   return [[toString(x0), x1], ...this.getParams(xs0, xs1)]
+    // }
+    // return [[toString(x0), x1]]
   }
 
   get<T extends Form | Closure>(name: string): T {
@@ -140,8 +159,8 @@ export class Env implements iEnv {
     return this.map(([key, value]) => [key, value])
   }
   define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray = true): Callable {
-    const paramList = isString(params) ? Sym(params) : list(...params.map(Sym));
-    const handler = (args: Form, env: iEnv) => cb(parseArgs(toArray, args), env);
+    const paramList = typeof params === 'string' ? Sym(params) : list(...params.map(Sym));
+    const handler = (args: Form, env: iEnv) => cb(parseArgs(args, toArray), env);
     const callable = new NativeFunc(this, paramList, handler, name);
     this.set(name, callable);
     return callable
@@ -150,9 +169,16 @@ export class Env implements iEnv {
     this.set(name, new Syntax(name, this, cb));
   }
 
-  private inner: Record<Atom, Form | Closure>;
+  private inner: Record<string, Form | Closure>;
 }
 
-function parseArgs(toArray: boolean, args: Form): Form | Form[] {
-  return toArray ? (isList(args) ? (isEmpty(args) ? [] : args.toArray()) : args) : args;
+function parseArgs(args: Form, toArray: boolean): Form | Form[] {
+  if (toArray === false)
+    return args
+  if (isNil(args))
+    return []
+  if (isPair(args))
+    return args.toArray()
+  throw new Error('Inavlid args in parseArgs')
 }
+'cond'

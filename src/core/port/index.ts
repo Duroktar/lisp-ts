@@ -1,62 +1,30 @@
 import type { iWorld } from "../../interface/iWorld"
-import { Position } from "../../utils";
+import { MutableString, Str } from "../data/string"
 
 export abstract class File {
-  abstract readline(): string
-  abstract read(): string
-  abstract write(text: string): void
-  abstract close(): void
+  public cursor = 0
+  public data = ''
+  public closed = false
 
-  on(event: 'readline' | 'read' | 'write' | 'close') {
-    switch(event) {
-      case 'readline': {
-        this.col = 0
-        this.line++
-        break
-      }
-      case 'read': {
-        this.col++
-        this.cursor++
-        break
-      }
-      default:
-        break
-    }
+  read(): string {
+    const x = this.data[this.cursor]
+    if (x !== undefined) this.cursor++
+    return x ?? File.EOF_STRING
   }
-  position(): Position {
-    return {
-      col: this.col,
-      cursor: this.cursor,
-      line: this.line,
-    }
+  write(text: string): void {
+    this.data = this.data.concat(text)
   }
-  private cursor: number = 0;
-  private line: number = 0;
-  private col: number = 0;
+  close(): void {
+    this.closed = true
+  }
 
   static EOF_STRING = '#<eof-object>'
 }
 
 export class RawText extends File {
-  constructor(private data: string) {
+  constructor(public data: string) {
     super()
   }
-  readline(): string {
-    const [line, ...lines] = this.data.split('\n')
-    this.data = lines.join('\n')
-    this.on('readline')
-    return line
-  }
-  read(): string {
-    const x = this.data[0] ?? File.EOF_STRING
-    this.data = this.data.slice(1)
-    this.on('read')
-    return x
-  }
-  write(text: string): void {
-    this.data = this.data.concat(text)
-  }
-  close(): void { }
 }
 
 export abstract class Port {
@@ -143,10 +111,10 @@ export class OutPort extends Port {
   static fromString(text: string) {
     return new OutPort(new RawText(text), 'string')
   }
-  public write(text: string): void {
+  public write(text: string | MutableString): void {
     if (this.closed)
       throw new Error('attempted to write to closed port')
-    this.file.write(text)
+    this.file.write(text.toString())
   }
 }
 
@@ -160,9 +128,9 @@ export const callWithOutputFile = (file: string, proc: Function) => {
 }
 
 // procedure
-export const currentInputPort = (ctx: iWorld): InPort => ctx.env.get<any>('*current-input-port*')
+export const currentInputPort = (ctx: iWorld): InPort => ctx.env.get('*current-input-port*') as any
 // procedure
-export const currentOutputPort = (ctx: iWorld): OutPort => ctx.env.get<any>('*current-output-port*')
+export const currentOutputPort = (ctx: iWorld): OutPort => ctx.env.get('*current-output-port*') as any
 
 class UnimplementedOptionalProcedureError extends Error {}
 

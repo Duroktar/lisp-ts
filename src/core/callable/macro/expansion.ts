@@ -55,10 +55,6 @@ export class Expansion {
           template_pair : any = template;
 
       const push = (value: Form) => {
-        // if (value === undefined) {
-        //   debugLog('SKIPPED AN UNDEFINED VALUE'.red)
-        //   return
-        // }
         let pair = new Pair(value)
         pair.hosts(value)
         result = result ?? pair
