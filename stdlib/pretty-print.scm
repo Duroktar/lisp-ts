@@ -54,9 +54,9 @@
 ;                                                  "  (cons a b))")
 
 (load-from-library "programp.scm")
-(load-from-library "for-all.scm")
+; (load-from-library "for-all.scm")
 ; (load-from-library "read-from-string.scm")
-(load-from-library "write-to-string.scm")
+; (load-from-library "write-to-string.scm")
 (load-from-library "string-unsplit.scm")
 
 ; If your Scheme does not support FLUID-LET or DEFINE-MACRO,
@@ -71,14 +71,11 @@
 (define *Convert-unreadable* #f)
 
 (define (read-form)
-  (writeln "here! (2)")
+  (print "read-form")
   (if *Input*
       (let ((form (if (null? *Input*)
                       '()
                       (read-from-string *Input*))))
-        (print "here! (2.2)" form)
-        (print "pair? (2.2)" (pair? form))
-        (print "null? (2.2)" (null? form))
         (cond ((pair? form)
                 (set! *Input* (cdr form))
                 (car form))
@@ -91,6 +88,7 @@
       (read)))
 
 (define (end-of-input? x)
+  (print "end-of-input?" x)
   (if *Input*
       (not x)
       (eof-object? x)))
@@ -100,7 +98,9 @@
         (end-of-input? end-of-input?))
     (lambda (form . options)
 
-      (writeln "pretty-print (1)")
+      (print "pretty-print")
+      (print "pretty-print:form" form)
+      (print "pretty-print:options" options)
 
       (define *Margin* 72)
       (define *Offset* 0)
@@ -119,9 +119,8 @@
       (define RP ")")
       (define SP " ")
 
-      (writeln "pretty-print (2)")
-
       (define (pr-char c)
+        (print "pr-char" c)
         (if *Output*
             (if (char=? #\newline c)
                 (begin (set-car! *Output*
@@ -131,6 +130,7 @@
             (write-char c *Output-port*)))
 
       (define (pr-form x)
+        (print "pr-form" x)
         (if *Output*
             (for-each pr-char
                       (string->list (display-to-string x)))
@@ -165,6 +165,7 @@
         (set! *Column* *Offset*))
 
       (define (pr s)
+        (print "pr" s)
         (if *Really-print*
             (pr-form s))
         (set! *Column* (+ *Column* (string-length s)))
@@ -172,14 +173,14 @@
             (set! *Max-Column* *Column*)))
 
       (define (really-simple? x)
-        (writeln "really-simple?")
+        (print "really-simple?")
         (or (not (list? x))
             (not (pair? x))
             (not (memq (car x) '(lambda cond case do if and or let
                                  let* letrec fluid-let begin)))))
 
       (define (pp-simple-form x)
-        (writeln "pp-simple-form")
+        (print "pp-simple-form")
         (if (or (not (list? x))
                 *Simple*
                 (for-all really-simple? x))
@@ -192,7 +193,7 @@
             (pp-inline-app x)))
 
       (define (pp-datum x)
-        (writeln "pp-datum")
+        (print "pp-datum")
         (cond ((or (null? x)
                    (symbol? x)
                    (boolean? x)
@@ -213,7 +214,7 @@
                 (error "pretty-print: unknown type" x))))
 
       (define (pp-pair x)
-        (writeln "pp-pair")
+        (print "pp-pair")
         (pr LP)
         (fluid-let ((*Offset* (+ 1 *Offset*)))
           (let pp-members ((x x)
@@ -232,7 +233,7 @@
           (pr RP))
 
       (define (pp-quote x q)
-        (writeln "pp-quote")
+        (print "pp-quote")
         (pr q)
         (fluid-let ((*Offset* (+ *Offset* (string-length q))))
           (if (program? (cadr x))
@@ -269,7 +270,7 @@
           (< *Max-Column* *Margin*)))
 
       (define (pp-inline-app x)
-        (writeln "pp-inline-app")
+        (print "pp-inline-app")
         (pr LP)
         (pp-simple-form (car x))
         (if (not (null? (cdr x)))
@@ -421,7 +422,7 @@
         (pr RP))
 
       (define (pp-let x)
-        (writeln "pp-let")
+        (print "pp-let")
         (pr LP)
         (pr "let ")
         (let* ((named?   (symbol? (cadr x)))
@@ -510,7 +511,7 @@
             (pr RP))))
 
       (define (pp-form x)
-        (writeln "pp-form")
+        (print "pp-form" x)
         (if (not (pair? x))
             (pp-datum x)
             (case (car x)
@@ -534,6 +535,7 @@
               ((define-syntax)    (pp-define-etc "define-syntax" x))
               ((syntax-rules)     (pp-syntax-rules x))
               (else               (pp-application x)))))
+      ;; ----------------------------------------------------------------
 
       (set! *Column* 0)
       (set! *Offset* 0)
@@ -544,7 +546,7 @@
       (set! *Simple* #f)
       (set! *Convert-unreadable* #f)
       (let loop ((options options))
-        (writeln "loop (1)")
+        (print "pretty-print:loop")
         (cond ((null? options)
                 (cond ((and *Print-as-code*
                             *Print-as-data*)
@@ -601,8 +603,10 @@
 (define pp pretty-print)
 
 (define (pp-loop . options)
+  (print "pp-loop")
   (let pp* ((x (read-form)))
-    (writeln "here! (3)")
+    (print "pp-loop:x" x)
+    (print "pp-loop:(not (end-of-input? x)" (not (end-of-input? x)))
     (cond ((not (end-of-input? x))
             (apply pp x options)
             (let ((next (read-form)))
@@ -617,12 +621,12 @@
       (apply pp-loop options))))
 
 (define (pp-string str* . options)
-      (print "pp-string")
+      (print "pp-string" str*)
       (set! *Input* (if (string? str*)
                       str*
                       (string-unsplit #\newline str*)))
       (set! *Output* (list '()))
-      (print "here! (1)" str*)
+      (print "pp-string:*Input*" *Input*)
+      (print "pp-string:*Output*" *Output*)
       (apply pp-loop options)
-      (writeln "here! (-1)")
       (reverse! (cdr *Output*)))

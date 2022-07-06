@@ -11,10 +11,10 @@ import { Sym } from "../core/data/sym";
 import { Vector } from "../core/data/vec";
 import { evaluate } from "../core/eval";
 import { expand } from "../core/expand";
-import { List } from "../core/form";
+import { Form, List } from "../core/form";
 import * as Lisp from "../core/lisp";
 import { currentInputPort, currentOutputPort, InPort, OutPort } from "../core/port";
-import { print, toString, toStringSafe } from "../core/print";
+import { print, toDisplayString, toString, toStringSafe } from "../core/print";
 import { read } from "../core/read";
 import { isCallable, isChar, isEmpty, isEofString, isF, isInputPort, isIOPort, isList, isMacro, isNativeProc, isNullOrUndefined, isNum, isOutputPort, isPair, isProc, isString, isSym, isT, isVec } from "../guard";
 import { iEnv } from "../interface/iEnv";
@@ -115,7 +115,7 @@ export function addGlobals(
     env.define('printn', ['name', 'x'], ([name, x]: any) => { console.log(toString(name), toString(x)); });
     env.define('printr', ['x'], ([x]: any) => { print(x); return x});
     env.define('prints', ['...xs'], ([...xs]: any) => { console.log(...xs); });
-    env.define('print', ['...xs'], ([...xs]: any) => { console.log(...xs); });
+    env.define('print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: Form) => toDisplayString(x))); });
     env.define('show', ['x'], x => { console.log(x); });
     env.define('describe', ['x'], ([x]: any) => Str(toString(x, false)));
     env.define('format', ['x'], ([x]: any) => Str(toString(x, true)));
@@ -230,11 +230,11 @@ export function addGlobals(
         ([cond] #f)
         ([cond (else expr1 expr2 ...)]
           (begin expr1 expr2 ...))
-        ; ([cond (test => function) clause ...]
-        ;   (let ((temp test))
-        ;     (if temp
-        ;         (function temp)
-        ;         (cond clause ...))))
+        ([cond (test => function) clause ...]
+          (let ((temp test))
+            (if temp
+                (function temp)
+                (cond clause ...))))
         ([cond (test expression ...) clause ...]
           (if test
               (begin expression ...)
@@ -672,7 +672,7 @@ export function addGlobals(
       Util.assert(isString(string))
       return Str(string.toString().slice(start, end))
     });
-    env.define('string-append', ['string', '...xs'], ([string, ...xs]: any) => {
+    env.define('string-append', ['string', '.', 'xs'], ([string, ...xs]: any) => {
       Util.assert(isString(string))
       return Str(string.toString().concat(...xs.map((s: MutableString) => s.toString())))
     });
@@ -868,41 +868,53 @@ export function addGlobals(
     env.define('putchar', ['char', 'port?'], ([obj, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(world)
       p.write(obj)
-      return
+      return NIL
     });
 
     // NOTE: `Write' is intended for producing machine-readable output and `display' is for producing human-readable output.
     env.define('write', ['obj', 'port?'], ([obj, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(world)
       p.write(toString(obj))
-      return
+      return NIL
     });
     env.define('display', ['obj', 'port?'], ([obj, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(world)
-      p.write(toString(obj, undefined, undefined, false))
-      return
+      const s = toString(obj, undefined, undefined, false);
+      console.log('displaying to port:', p.name, s)
+      p.write(s)
+      return NIL
     });
     env.define('newline', ['port?'], ([port]: any) => {
       const p: OutPort = port ?? currentOutputPort(world)
       p.write('\n')
+      return NIL
     });
     env.define('write-char', ['char', 'port?'], ([char, port]: any) => {
       Util.assert(isChar(char), `not a character: ${char}`)
       const p: OutPort = port ?? currentOutputPort(world)
       p.write(char.displayText)
-      return
+      console.log('write-char', char.sym.description!)
+      return NIL
     });
     env.define('displayln', ['obj', 'port?'], ([obj, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(world)
       p.write(toString(obj, undefined, undefined, false))
       p.write('\n')
-      return
+      return NIL
     });
     env.define('writeln', ['obj', 'port?'], ([obj, port]: any) => {
       const p: OutPort = port ?? currentOutputPort(world)
       p.write(toString(obj))
       p.write('\n')
-      return
+      return NIL
+    });
+    env.define('display-to-string', ['obj'], ([obj]: any) => {
+      console.log('displaying to string i guess, lol', {obj})
+      return Str(toString(obj, undefined, undefined, false))
+    });
+    env.define('write-to-string', ['obj'], ([obj]: any) => {
+      console.log('writing to string i guess, lol', {obj})
+      return Str(toString(obj))
     });
     // END - 6.6.3 Output
 

@@ -42,9 +42,9 @@ export class Binding {
   // We provide an equality method so that a bound +Identifier+ produced by
   // expanding a macro can be matched against literal identifiers in another
   // macro pattern.
-  equal(identifier: string | MutableString) {
+  equal(identifier: string | symbol | MutableString) {
     // WARNING: this might f*ck up..
-    this.expression.toString() === identifier.toString()
+    return this.expression.toString() === (typeof identifier === 'symbol' ? identifier.description! : identifier.toString())
   }
 
   innermost_binding(identifier: string) {

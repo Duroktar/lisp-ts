@@ -1,4 +1,4 @@
-import { isIdentifier, isNil, isPair } from "../../../guard"
+import { isIdent, isNil, isPair } from "../../../guard"
 import type { iEnv } from "../../../interface/iEnv"
 import { NIL } from "../../const"
 import type { Form, List } from "../../form"
@@ -35,16 +35,15 @@ export class Syntax {
     results: string[] = [],
   ): string[] {
 
-    if (isNil(pattern)) {
-      return results
-    }
+    if (isNil(pattern)) { return results }
 
-    if (isIdentifier(pattern)) {
+    if (isIdent(pattern)) {
       const name = pattern.description!
 
-      if ((isPair(excluded) && excluded.includes(name)) || Syntax.RESERVED.includes(name)) {
+      if ((isPair(excluded) && excluded.includes(pattern)) || Syntax.RESERVED.includes(name)) {
         // return
-      } else if (!results.includes(name))
+      }
+      else if (!results.includes(name))
         results.push(name)
     }
 

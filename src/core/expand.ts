@@ -1,4 +1,4 @@
-import { isCallable, isEmpty, isExpansion, isNil, isPair, isSym } from "../guard";
+import { isBinding, isCallable, isEmpty, isExpansion, isNil, isPair, isSym } from "../guard";
 import { iWorld } from "../interface/iWorld";
 import { assert, sequence } from "../utils";
 import { UNDEF } from "./const";
@@ -9,7 +9,7 @@ import type { Form } from "./form";
 import { caar, caddr, cadr, car, cddr, cdr } from "./lisp";
 import { toString, toStringSafe } from "./print";
 
-const DEBUG = false
+const DEBUG = true
 
 function debugLog(...args: string[]): void {
   if (DEBUG) { console.log('[Expand]:', ...args) }

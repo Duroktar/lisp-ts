@@ -1,4 +1,4 @@
-import { isIdentifier, isList, isNil, isPair } from "../../../guard";
+import { isIdent, isList, isNil, isPair } from "../../../guard";
 import type { iEnv } from "../../../interface/iEnv";
 import { ellipsis, NIL } from "../../const";
 import { Pair } from "../../data/pair";
@@ -8,7 +8,7 @@ import { Binding } from "./binding";
 import type { Matches } from "./matches";
 import { toString } from "../../print";
 
-const debug = false;
+const debug = true;
 
 function debugLog(...args: any[]): void {
   if (debug) { console.log('[Expansion]:'.green, ...args); }
@@ -104,7 +104,7 @@ export class Expansion {
       debugLog('returning result:', toString(result))
       return result
     }
-    else if (isIdentifier(template)) {
+    else if (isIdent(template)) {
       // If the template is a pattern variable, return the current match
       // for that variable. See +Matches+ to see how repeated patterns
       // are handled.
@@ -156,5 +156,16 @@ export class Expansion {
 
   private hygienic: boolean;
 
-  static runtime = { hygienic: false }
+  static runtime = { hygienic: true }
 }
+
+// .> (print (macroexpand '(let ((=> #f)) (cond (#t => 'ok)))))
+
+// actual:
+// ((lambda (=>) ((lambda (temp) (if temp ('ok temp) #f)) #t)) #f)
+
+// actual (hygienic):
+// ((lambda (=>) (<Binding:let> ((temp #t)) (if temp ('ok temp) (<Binding:cond>)))) #f)
+
+// target:
+// ((lambda (=>) ((lambda (temp) (if temp 'ok #f)) #t)) #f)

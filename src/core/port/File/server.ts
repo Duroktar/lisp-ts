@@ -23,7 +23,7 @@ export class StdOut extends File {
       this._write(output);
 
     else
-      this._write(String(output));
+      this._write(output.toString());
   }
   read(): string {
     throw new Error("Cannot read from stdout (read)");

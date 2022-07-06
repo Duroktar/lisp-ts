@@ -1,5 +1,6 @@
-
 // @ts-nocheck
+import { isBinding } from "../../guard";
+
 export class MutableString implements String {
 
   constructor(private __value: string) {
@@ -14,8 +15,8 @@ export class MutableString implements String {
     return this.__value.charCodeAt(...arguments);
   }
 
-  concat(): MutableString {
-    this.__value = this.__value.concat(...arguments);
+  concat(...args: MutableString[]): MutableString {
+    this.__value = this.__value.concat(...args);
     return this;
   }
 
@@ -24,6 +25,9 @@ export class MutableString implements String {
   }
 
   equal(other: any) {
+    if (isBinding(other)) {
+      return other.equal(this)
+    }
     if (other instanceof MutableString || typeof other !== 'string')
       return this.toString() === other.toString()
     return false

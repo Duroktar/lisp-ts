@@ -1,7 +1,7 @@
-import { isEmpty, isList, isNativeProc, isPair, isProc, isSym, isTruthy } from "../guard";
+import { isEmpty, isList, isNativeProc, isPair, isProc, isSym } from "../guard";
 import { iEnv } from "../interface/iEnv";
 import { as, assert } from "../utils";
-import { NIL, UNDEF } from "./const";
+import { FALSE, NIL, UNDEF } from "./const";
 import { Env } from "./data/env";
 import { list, Pair } from "./data/pair";
 import { Procedure } from "./callable/proc";
@@ -44,7 +44,7 @@ export function evaluate(e: Form, a: iEnv): Form {
         break
       }
       case SymTable.IF: {
-        if (isTruthy(evaluate(cadr(e), a)))
+        if (evaluate(cadr(e), a) !== FALSE)
           e = caddr(e)
         else
           e = cadddr(e)

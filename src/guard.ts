@@ -23,7 +23,7 @@ export const isEmpty = (x: any): x is symbol => x === NIL;
 export const isExpr = (x: any): x is Form => isPair(x) || isAtom(x);
 export const isConst = (x: any) => isNum(x) || isString(x) || isChar(x);
 export const isIdent = (x: any): x is symbol => isSym(x) && !isEmpty(x);
-export const isIdentifier = (obj: any): obj is symbol => isSym(obj);
+// export const isIdentifier = (obj: any): obj is symbol => isSym(obj);
 export const isMacro = (obj: any): obj is Macro => obj instanceof Macro;
 export const isBinding = (obj: any): obj is Binding => obj instanceof Binding;
 export const isExpansion = (obj: any): obj is Expansion => obj instanceof Expansion;
@@ -41,7 +41,6 @@ export const isInputPort = (obj: any) => obj instanceof InPort
 export const isOutputPort = (obj: any) => obj instanceof OutPort
 export const isIOPort = (obj: any) => obj instanceof IOPort
 
-export const isTruthy = (e: Form): boolean => !isF(e) && !isNil(e);
 export const isNil = (e: Form): e is symbol => e === Sym('()');
 export const isF = (e: Form): boolean => e === FALSE;
 export const isT = (e: Form): boolean => e === TRUE;

@@ -28,6 +28,15 @@ test("(macro) testing 2", () => {
   expect(expected.equal(actual)).toBe(true)
 })
 
+test.only("(macro) testing 2.2", () => {
+  const env = createServerWorld()
+  const actual = execute(`
+    (let ((=> #f)) (cond (#t => 'ok)))
+  `, env);
+  const expected = list(Sym('+'), 1);
+  expect(expected.equal(actual)).toBe(true)
+})
+
 test("(macro) testing 3", () => {
   const env = createServerWorld()
   const actual = execute(`
@@ -67,7 +76,7 @@ test("(macro) testing do (broken 1)", () => {
   expect(expected.equal(actual)).toBe(true)
 })
 
-test.only("(macro) testing do (broken 2)", () => {
+test("(macro) testing do (broken 2)", () => {
   const env = createServerWorld()
   const actual = execute(`
   (do ([x 6 (- x 1)]

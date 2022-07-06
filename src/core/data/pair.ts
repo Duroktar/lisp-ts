@@ -1,5 +1,5 @@
 import { isAtom, isBinding, isList, isPair } from "../../guard";
-import { assert, isEqual } from "../../utils";
+import { assert, isEqual, isEqv } from "../../utils";
 import { NIL } from "../const";
 import { Form, List } from "../form";
 import { car } from "../lisp";
@@ -115,8 +115,8 @@ export class Pair  {
     return fn(this.cdr, idx + 1)
   }
 
-  includes(pattern: any): boolean {
-    return !!this.find(p => p === pattern)
+  includes(pattern: Form): boolean {
+    return !!this.find(p => isEqv(p, pattern))
   }
 
   slice(start?: number, end?: number) {

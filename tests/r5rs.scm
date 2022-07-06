@@ -12,6 +12,10 @@
 
 (test 1 (if (> 3 2) (- 3 2) (+ 3 2)))
 
+(test #f (cond (#f 'pass)))
+
+(test 'pass (cond (#t 'pass)))
+
 (test 'greater (cond ((> 3 2) 'greater) ((< 3 2) 'less)))
 
 (test 'equal (cond ((> 3 3) 'greater) ((< 3 3) 'less) (else 'equal)))
@@ -367,6 +371,8 @@
 (test "abc" (string-append "" "abc"))
 
 (test "abc" (string-append "a" "bc"))
+
+(test "abcdef" (string-append "a" "bc" "d" "ef"))
 
 (test '#(0 ("Sue" "Sue") "Anna")
  (let ((vec (vector 0 '(2 2 2 2) "Anna")))

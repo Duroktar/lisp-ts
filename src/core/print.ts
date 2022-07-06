@@ -9,6 +9,10 @@ import { NativeFunc } from "./callable/func";
 import { quoteMap } from "./data/quote";
 import { Form } from "./form";
 
+export const toDisplayString = (expr: Form): string => {
+  return toString(expr, undefined, undefined, false)
+}
+
 export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', repr = true): string => {
   if (expr === undefined)
     return expr
@@ -25,9 +29,11 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
   if (isNil(expr))
     return '()';
   if (isExpansion(expr))
-    return `<Expansion:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
+    return toString(expr.expression, inspect_, lambdaSymbol, repr)
+    // return `<Expansion:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
   if (isBinding(expr))
-    return `<Binding:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
+    return toString(expr.expression, inspect_, lambdaSymbol, repr)
+    // return `<Binding:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
   if (expr instanceof TSchemeModule) {
     return `(module "${expr.displayName}")`;
   }
