@@ -1,21 +1,23 @@
-import { isBinding, isCallable, isEmpty, isExpansion, isNil, isPair, isSym } from "../guard";
-import { iWorld } from "../interface/iWorld";
-import { assert, sequence } from "../utils";
-import { UNDEF } from "./const";
-import { cons, list, type Pair } from "./data/pair";
+import { isEmpty, isExpansion, isMacro, isPair, isSym } from "../guard";
+import type { iWorld } from "../interface/iWorld";
+import { assert, clamp, sequence } from "../utils";
+import { isSyntax } from "./callable/macro";
 import type { Closure } from "./callable/proc";
+import { NIL, UNDEF } from "./const";
+import { Env } from "./data/env";
+import { cons, list, type Pair } from "./data/pair";
 import { SymTable } from "./data/sym";
-import type { Form } from "./form";
+import type { Form, List } from "./form";
 import { caar, caddr, cadr, car, cddr, cdr } from "./lisp";
 import { toString, toStringSafe } from "./print";
 
-const DEBUG = true
+const DEBUG = false;
 
 function debugLog(...args: string[]): void {
-  if (DEBUG) { console.log('[Expand]:', ...args) }
+  if (DEBUG) { console.log('[Expand]:'.yellow, ...args) }
 }
 
-export function expand(e: Form, topLevel = false, world: iWorld): Form {
+export function expand(e: Form, world: iWorld, topLevel = false): Form {
   if (!isPair(e)) { return e }
   if (isEmpty(e)) { return e }
   else if (SymTable.QUOTE === car(e)) {
@@ -25,7 +27,7 @@ export function expand(e: Form, topLevel = false, world: iWorld): Form {
   else if (SymTable.IF === car(e)) {
     if (e.length === 3) e.push(UNDEF)
     assert(e.length === 4, `Invalid if form: ${toStringSafe(e)}`);
-    return list(car(e)).append(expand(cdr(e), false, world));
+    return list(car(e)).append(expand(cdr(e), world));
   }
   else if (SymTable.SET === car(e)) {
     assert(isSym(cadr(e)), 'First arg to set! must be a symbol');
@@ -35,11 +37,11 @@ export function expand(e: Form, topLevel = false, world: iWorld): Form {
     const [_def, v, body] = sequence(car, cadr, cddr, e);
     if (isPair(v)) {
       const l = list(SymTable.LAMBDA, cdr(v)).append(body);
-      return expand(list(_def, car(v), l), false, world);
+      return expand(list(_def, car(v), l), world);
     } else {
       assert(e.length === 3, '(define non-var/list exp) => Error');
       assert(isSym(v), 'can define only a symbol');
-      return list(_def, v, expand(caddr(e), false, world));
+      return list(_def, v, expand(caddr(e), world));
     }
   }
   else if (SymTable.LAMBDA === car(e)) {
@@ -51,25 +53,22 @@ export function expand(e: Form, topLevel = false, world: iWorld): Form {
     return expandQuasiquote(cadr(e));
   }
   else if (world.lexicalEnv.hasFrom(car(e))) {
-   debugLog('found macro: ', toString(car(e)));
     const proc = world.lexicalEnv.getFrom<Closure>(car(e));
-    if (isCallable(proc)) {
-     debugLog('calling macro: ', proc.name);
-      const result = proc.call(cdr(e), world.env);
-     debugLog('result of calling macro: ', toString(result));
+    if (isSyntax(proc) || isMacro(proc)) {
+      debugLog('calling macro: ', proc.name);
+      const result = proc.call(cdr(e) as List);
+      debugLog('result of calling macro: ', toString(result));
       if (isExpansion(result)) {
-        const rv = expand(result.expression, false, world);
-       debugLog('macro expansion: ', toString(rv));
+        const rv = expand(result.expression, world);
+        debugLog('macro expansion: ', toString(rv));
         return rv;
       }
-      return expand(result, false, world);
+      return expand(result, world);
     }
-    // allow functions as well
-    return expand(proc(cdr(e)), topLevel, world);
   }
 
-  const head = expand(car(e), false, world);
-  return cons(head, expand(cdr(e), false, world));
+  const head = expand(car(e), world);
+  return cons(head, expand(cdr(e), world));
 };
 
 function expandQuasiquote(x: Form, level = 0): Form {
@@ -96,10 +95,10 @@ function expandQuasiquote(x: Form, level = 0): Form {
       // console.log('expandQuasiquote .>'.dim, toString(x), 'pair with `unquote` at the head..'.dim, 'UNQUOTING'.red);
       assert(x.length === 2, 'Bad unquote length');
       if (innerLevel-1 === outerLevel) {
-        innerLevel = clamp(innerLevel-1, 0, Infinity)
+        innerLevel = clamp(0, Infinity, innerLevel-1)
         debugPrint('expandQuasiquote .>'.dim, toString(x), 'pair with `unquote` at the head..'.dim, 'NOT UNQUOTING'.magenta, 'WRONG LEVEL ..'.red.bgWhite);
         // const rv = list(SymTable.CONS, expandQuasiquoteInner(cdr(x)));
-        // innerLevel = clamp(innerLevel-1, 0, Infinity)
+        // innerLevel = clamp(0, Infinity, innerLevel-1)
         const rv = list(SymTable.CONS, list(SymTable.QUOTE, SymTable.UNQUOTE), expandQuasiquote(cdr(x)));
         innerLevel += 1
         return rv
@@ -136,12 +135,32 @@ function expandLambda(e: Pair, world: iWorld): Pair {
   const [_lambda, params, expression] = sequence(car, cadr, cddr, e)
   const allAtoms = isPair(params) && params.every(isSym);
   const improper = (isPair(params) && !params.isList()) && params.dottedEvery(isSym)
-  assert(allAtoms || improper || isSym(params), `Invalid lambda args. Expected a list of atoms, an improper list of atoms, or a single atom but instead got: ${toString(params)}, ${toString(e)}`);
-  assert(isPair(expression) && expression.length >= 1, `lambda expression empty`);
-  const body = (expression.length > 1) && cons(SymTable.BEGIN, expression)
-  return list(_lambda, params, expand(body || car(expression), false, world));
-}
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
+  assert(allAtoms || improper || isSym(params),
+    `Invalid lambda args: ${toString(params)}, ${toString(e)}`);
+
+  assert(isPair(expression) && expression.length >= 1,
+    `lambda expression empty`);
+
+  const body = (expression.length > 1)
+    ? cons(SymTable.BEGIN, expression)
+    : car(expression)
+
+  const scope = new Env(NIL, NIL, world.env);
+
+  if (isSym(params)) {
+    scope.setFrom(params, NIL)
+  }
+  else if (allAtoms) {
+    params.forEach(param => {
+      scope.setFrom(param, NIL)
+    })
+  }
+
+  const lambdaScope = {
+    ...world,
+    env: scope
+  }
+
+  return list(_lambda, params, expand(body, lambdaScope));
 }

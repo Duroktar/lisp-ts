@@ -8,7 +8,7 @@ import { Binding } from "./binding";
 import type { Matches } from "./matches";
 import { toString } from "../../print";
 
-const debug = true;
+const debug = false;
 
 function debugLog(...args: any[]): void {
   if (debug) { console.log('[Expansion]:'.green, ...args); }
@@ -114,7 +114,6 @@ export class Expansion {
         return rv
       }
 
-
       // Otherwise, if using unhygienic macros, return the template
       // verbatim.
       if (!this.hygienic) {
@@ -131,13 +130,14 @@ export class Expansion {
         return rv
       }
       else {
-        const rv = this.rename(template)
-        debugLog('returning renamed', toString(rv))
-        return rv
+        return template
+        // const rv = this.rename(template)
+        // debugLog('returning renamed', toString(rv))
+        // return rv
       }
     }
     else {
-      debugLog('returned datum:', toString(template))
+      debugLog('returning datum:', toString(template))
       return template
     }
   }
@@ -149,8 +149,12 @@ export class Expansion {
       while (this.callingScope.has(`#${id}#${i}`)) {
         i += 1
       }
-      return Symbol.for(`#${id}#${i}`)
+      const raw = `#${id}#${i}`;
+      debugLog('returning renamed', raw)
+      console.log('returning renamed', raw)
+      return Symbol.for(raw)
     }
+    debugLog('returning unchanged', id)
     return sym
   }
 

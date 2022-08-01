@@ -9,8 +9,8 @@ export class NativeFunc {
     public expr: any,
     public name = 'λ'
   ) { }
-  public call(args: Form, env?: iEnv): Form {
-    const closure = new Env(this.formals, args, env ?? this.env);
+  public call(args: Form): Form {
+    const closure = new Env(this.formals, args, this.env);
     return this.expr(args, closure);
   }
 }

@@ -9,7 +9,7 @@ import { Sym } from "./core/data/sym";
 import { Vector } from "./core/data/vec";
 import { Atom, Form, List } from "./core/form";
 import { whitespace } from "./interface/syntax";
-import { Str, MutableString } from "./core/data/string";
+import { MutableString } from "./core/data/string";
 
 export const isList = (x: any): x is List => (isPair(x) && x.isList()) || isEmpty(x);
 export const isAtom = (x: any): x is Atom => isSym(x) || isString(x) || isNum(x);
@@ -22,8 +22,7 @@ export const isChar = (x: any): x is Character => x instanceof Character;
 export const isEmpty = (x: any): x is symbol => x === NIL;
 export const isExpr = (x: any): x is Form => isPair(x) || isAtom(x);
 export const isConst = (x: any) => isNum(x) || isString(x) || isChar(x);
-export const isIdent = (x: any): x is symbol => isSym(x) && !isEmpty(x);
-// export const isIdentifier = (obj: any): obj is symbol => isSym(obj);
+export const isIdent = (x: any): x is symbol => isSym(x) && !isEmpty(x) && !isBool(x);
 export const isMacro = (obj: any): obj is Macro => obj instanceof Macro;
 export const isBinding = (obj: any): obj is Binding => obj instanceof Binding;
 export const isExpansion = (obj: any): obj is Expansion => obj instanceof Expansion;
@@ -44,6 +43,7 @@ export const isIOPort = (obj: any) => obj instanceof IOPort
 export const isNil = (e: Form): e is symbol => e === Sym('()');
 export const isF = (e: Form): boolean => e === FALSE;
 export const isT = (e: Form): boolean => e === TRUE;
+export const isBool = (e: Form): boolean => e === TRUE || e === FALSE;
 
 export const isEofString = (obj: any) => obj === File.EOF_STRING
 

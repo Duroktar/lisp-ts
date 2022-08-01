@@ -10,7 +10,7 @@ import { Expansion } from "./expansion";
 import { Matches } from "./matches";
 import { Syntax } from "./syntax";
 
-const debug = true;
+const debug = false;
 
 function debugLog(...args: any[]): void {
   if (debug) { console.log('[Macro]:'.cyan, ...args); }
@@ -33,20 +33,21 @@ export class Macro extends NativeFunc {
     super(env, formals, expr, name)
   }
 
-  call(cells: List, scope: iEnv) {
-    const [rule, matches] = this.ruleFor(cells, scope);
+  call(cells: List) {
+    const [rule, matches] = this.ruleFor(cells, this.env);
     debugLog('creating Expansion..')
-    return new Expansion(this.env, scope, (<any>rule.cdr).car, matches);
+    return new Expansion(this.env, this.env, (<any>rule.cdr).car, matches);
   }
 
   private ruleFor(cells: List, scope: iEnv): [Pair, Matches] {
     for (let rule of this.expr.each()) {
       const matches = this.ruleMatches(scope, rule.car.cdr, cells)
       if (matches instanceof Matches) {
-        debugLog('found match..', '\n\trule:', toString(rule.car.cdr), '\n\tform:', toString(cells))
+        debugLog('found match..'.green, '\n\trule:'.dim, toString(rule.car.cdr), '\n\tform:'.dim, toString(cells))
         debugLog('params:', toString(this.formals))
         return [rule, matches]
       }
+      debugLog('no match.. trying next rule'.red)
     }
     debugLog('no match.. form:', toString(cells))
 
@@ -62,6 +63,9 @@ export class Macro extends NativeFunc {
   ): boolean | Matches {
 
     matches = matches ?? new Matches(pattern, this.formals)
+
+    if (!isNil(pattern) && !isNil(input))
+      debugLog(`comparing`, `\n\tpattern:`.dim, toString(pattern), `\n\tinput:\t`.dim, toString(input))
 
     if (isList(pattern)) {
 
@@ -144,13 +148,13 @@ export class Macro extends NativeFunc {
     // the current input, whatever it is, in the +matches+.
     else if (isIdent(pattern)) {
       if (isPair(this.formals) && this.formals.includes(pattern)) {
-        debugLog('pattern === input', {pattern, input})
         if (pattern === input) {
-          // const p = this.env.getOrDefault(toString(pattern));
-          // const i = scope.getOrDefault(toString(input));
-          // return p === i
-          // TODO
-          return (this.env.innermostBinding(pattern) === scope.innermostBinding(input))
+          debugLog('pattern === input', {pattern: toString(pattern), input: toString(input)})
+          const ibP = this.env.innermostBinding(pattern);
+          const ibS = scope.innermostBinding(input);
+          const rv = ibP === ibS;
+          debugLog('ibP === ibS ?', rv)
+          return rv
         }
         return false
       } else {
@@ -161,7 +165,9 @@ export class Macro extends NativeFunc {
     // If all above type checks on the pattern fail, assume the pattern is
     // literal data and make sure the input matches.
     else {
-      return this.eqLiteral(pattern, input) ? matches : false
+      const rv = this.eqLiteral(pattern, input) ? matches : false;
+      debugLog('eqLiteral:', !!rv)
+      return rv
     }
 
     return matches

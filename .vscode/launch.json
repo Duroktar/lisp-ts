@@ -16,6 +16,9 @@
                 "-r",
                 "ts-node/register"
             ],
+            "env": {
+              "TS_NODE_PROJECT": "${workspaceRoot}/tsconfig.json"
+            },
             "cwd": "${workspaceRoot}",
             "protocol": "inspector",
             "internalConsoleOptions": "openOnSessionStart"

@@ -29,11 +29,11 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
   if (isNil(expr))
     return '()';
   if (isExpansion(expr))
-    return toString(expr.expression, inspect_, lambdaSymbol, repr)
-    // return `<Expansion:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
+    // return toString(expr.expression, inspect_, lambdaSymbol, repr)
+    return `<Expansion:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
   if (isBinding(expr))
-    return toString(expr.expression, inspect_, lambdaSymbol, repr)
-    // return `<Binding:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
+    // return toString(expr.expression, inspect_, lambdaSymbol, repr)
+    return `<Binding:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
   if (expr instanceof TSchemeModule) {
     return `(module "${expr.displayName}")`;
   }
@@ -63,9 +63,6 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
     const res: any[] = []
     let next: Form = expr
     while (Pair.is(next)) {
-      if (Array.isArray(next.car)) {
-        throw new Error("FUUUUK")
-      }
       res.push(toString(next.car, inspect_, lambdaSymbol, repr))
       next = next.cdr
     }

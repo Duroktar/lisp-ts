@@ -53,7 +53,7 @@ export function addGlobals(
   const {env, lexicalEnv} = world
 
   lexicalEnv.syntax('define-syntax', (args, scope) => {
-    const macro = expand(Lisp.cadr(args), false, world);
+    const macro = expand(Lisp.cadr(args), world);
     if (isMacro(macro)) macro.name = toString(Lisp.car(args));
     scope.setFrom(Lisp.car(args), macro);
   })
@@ -718,8 +718,6 @@ export function addGlobals(
       return vec.data[k]
     });
     env.define('vector-set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any, a) => {
-      if (!isVec(vec))
-        debugger
       Util.assert(isVec(vec), `vector-set! arg(1) expected a 'Vector' but got '${typeof vec}'`)
       Util.assert(isNum(k), `vector-set! arg(2) expected a Number. Got: ${typeof k}`)
       Util.assert(obj !== undefined, `vector-set! arg(3) is undefined`)
@@ -948,7 +946,7 @@ export function addGlobals(
 
     env.define('macroexpand', ['expr'], ([expr]: any) => {
       // console.log(toStringSafe(env.get<Procedure>('equal?').expr))
-      const rv = expand(expr, true, world);
+      const rv = expand(expr, world, true);
       return rv
     });
 
@@ -1025,7 +1023,7 @@ export function addGlobals(
         try {
           if (greet) o.write(world.env.get<MutableString>('*current-repl-prompt*'))
           lastInput = read(p, world);
-          lastExpand = expand(lastInput, true, world)
+          lastExpand = expand(lastInput, world, true)
           lastOutput = evaluate(lastExpand, world.env)
           const outputText = toStringSafe(lastOutput);
           o.write(outputText)
