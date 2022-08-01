@@ -22,5 +22,5 @@ export interface iEnv {
   keys(): string[]
   values(): Form[]
   entries(): [string, Form][]
-  innermostBinding(expr: Form): iEnv | null
+  innermostBinding(expr: Form): iEnv | undefined
 }

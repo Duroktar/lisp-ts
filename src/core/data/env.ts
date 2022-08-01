@@ -5,7 +5,6 @@ import { Syntax } from "../callable/macro/syntax";
 import { Callable, Closure } from "../callable/proc";
 import { NIL } from "../const";
 import type { Form } from "../form";
-import { toString, toStringSafe } from "../print";
 import * as Errors from "./error";
 import { cons, list, Pair } from "./pair";
 import { Sym } from "./sym";
@@ -31,11 +30,8 @@ export class Env implements iEnv {
       this.inner = {}
     }
     else {
-      console.log(toStringSafe(params))
-      console.log(args)
       throw new Errors.InvalidEnvArgumentsError(params, args);
     }
-
   }
 
   private getParams(params: Pair, args: Pair): [string, Form][] {
@@ -143,20 +139,18 @@ export class Env implements iEnv {
   entries(): [string, Form][] {
     return this.map(([key, value]) => [key, value])
   }
-  innermostBinding(expr: Form): iEnv | null {
+  innermostBinding(expr: Form): iEnv | undefined {
     if (this.hasFrom(expr))
       return this
     if (this.outer)
       return this.outer.innermostBinding(expr)
-    return null
-
   }
   define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray = true): Callable {
     const paramList = typeof params === 'string' ? Sym(params) : list(...params.map(Sym));
     const handler = (args: Form, env: iEnv) => cb(parseArgs(args, toArray), env);
     const callable = new NativeFunc(this, paramList, handler, name);
     this.set(name, callable);
-    return callable
+    return callable;
   }
   syntax(name: string, cb: (args: Form, env: iEnv) => any): void {
     this.set(name, new Syntax(name, this, cb));
