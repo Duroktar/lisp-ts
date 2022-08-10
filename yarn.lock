@@ -1072,6 +1072,11 @@ argparse@^1.0.7:
   dependencies:
     sprintf-js "~1.0.2"
 
+ariadne-ts@^0.1.5-alpha.2:
+  version "0.1.5-alpha.2"
+  resolved "https://registry.yarnpkg.com/ariadne-ts/-/ariadne-ts-0.1.5-alpha.2.tgz#07072b184594d435e774a086a4c70317cce17c2b"
+  integrity sha512-CpCRy/u02qZKpvm1RAA/E8JkZm+xlKtLh3eA2z/OmOaUn+nRSx9NYACymFUlgs4tMspvhT1v9HNmmUiF07Nmtg==
+
 assertion-error@^1.1.0:
   version "1.1.0"
   resolved "https://registry.npmjs.org/assertion-error/-/assertion-error-1.1.0.tgz"

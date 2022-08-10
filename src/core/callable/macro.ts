@@ -1,19 +1,21 @@
-import { isIdent, isList, isNil, isPair, isString } from "../../../guard";
-import type { iEnv } from "../../../interface/iEnv";
-import { error } from "../../../utils";
-import { ellipsis } from "../../const";
-import type { Form, List } from "../../form";
-import { toString } from "../../print";
-import { Pair } from "../../data/pair";
-import { NativeFunc } from "../func";
-import { Expansion } from "./expansion";
-import { Matches } from "./matches";
+import { isChar, isIdent, isList, isNil, isNum, isPair, isString, isSym } from "../../guard";
+import type { iEnv } from "../../interface/iEnv";
+import { error } from "../../utils";
+import { ellipsis } from "../const";
+import type { Form, List } from "../form";
+import { toString } from "../print";
+import { Pair } from "../data/pair";
+import { NativeFunc } from "./func";
+import { Expansion } from "./macro/expansion";
+import { Matches } from "./macro/matches";
 import { Syntax } from "./syntax";
+import { Env } from "../env";
+import { LogConfig } from "../../logging";
 
-const debug = false;
+const DEBUG = LogConfig.macro;
 
 function debugLog(...args: any[]): void {
-  if (debug) { console.log('[Macro]:'.cyan, ...args); }
+  if (DEBUG) { console.log('[Macro]:'.cyan, ...args); }
 }
 
 /**
@@ -33,10 +35,10 @@ export class Macro extends NativeFunc {
     super(env, formals, expr, name)
   }
 
-  call(cells: List) {
-    const [rule, matches] = this.ruleFor(cells, this.env);
+  call(cells: List, callingScope: iEnv) {
+    const [rule, matches] = this.ruleFor(cells, callingScope);
     debugLog('creating Expansion..')
-    return new Expansion(this.env, this.env, (<any>rule.cdr).car, matches);
+    return new Expansion(this.env, callingScope, (<any>rule.cdr).car, matches);
   }
 
   private ruleFor(cells: List, scope: iEnv): [Pair, Matches] {
@@ -51,7 +53,7 @@ export class Macro extends NativeFunc {
     }
     debugLog('no match.. form:', toString(cells))
 
-    return error('No match.. form: ' + toString(cells))
+    error('No match.. form: ' + toString(cells))
   }
 
   private ruleMatches(
@@ -86,7 +88,7 @@ export class Macro extends NativeFunc {
         let token = pattern_pair.car
 
         // Skip the current pattern token if it's an ellipsis
-        if (token === ellipsis) {
+        if (ellipsis.equal(token)) {
           skip()
           continue
         }
@@ -96,7 +98,7 @@ export class Macro extends NativeFunc {
         // in the current pattern have hit a repetition boundary. Note we
         // do not increment +depth+ itself since this would persist for the
         // remaining tokens in the pattern after we get past the ellipsis.
-        let followed_by_ellipsis = ((<any>pattern_pair)?.cdr?.car == ellipsis ?? false)
+        let followed_by_ellipsis = (ellipsis.equal((<any>pattern_pair)?.cdr?.car) ?? false)
         let dx = followed_by_ellipsis ? 1 : 0
 
         if (followed_by_ellipsis)
@@ -148,7 +150,7 @@ export class Macro extends NativeFunc {
     // the current input, whatever it is, in the +matches+.
     else if (isIdent(pattern)) {
       if (isPair(this.formals) && this.formals.includes(pattern)) {
-        if (pattern === input) {
+        if (pattern.equal(input)) {
           debugLog('pattern === input', {pattern: toString(pattern), input: toString(input)})
           const ibP = this.env.innermostBinding(pattern);
           const ibS = scope.innermostBinding(input);
@@ -174,10 +176,15 @@ export class Macro extends NativeFunc {
   }
 
   eqLiteral(input: Form, pattern: Form) {
-    // console.log('patternEqual:', {pattern, input})
     if (isString(input))
       return input.equal(pattern)
-    return pattern === input
+    if (isSym(input))
+      return input.equal(pattern)
+    if (isNum(input))
+      return input.equal(pattern)
+    if (isChar(input))
+      return input.equal(pattern)
+    return false
   }
 
   toString() {

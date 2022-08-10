@@ -1,7 +1,9 @@
-import type { iWorld } from "../../interface/iWorld"
-import { MutableString, Str } from "../data/string"
+import { iEnv } from "../../interface/iEnv"
+import { MutableString } from "../data/string"
+import { Token } from "../read"
 
 export abstract class File {
+  public name = 'file'
   public cursor = 0
   public data = ''
   public closed = false
@@ -38,6 +40,7 @@ export abstract class Port {
     this.closed = true
   }
 
+  public token?: Token
   public closed = false
 }
 
@@ -128,9 +131,9 @@ export const callWithOutputFile = (file: string, proc: Function) => {
 }
 
 // procedure
-export const currentInputPort = (ctx: iWorld): InPort => ctx.env.get('*current-input-port*') as any
+export const currentInputPort = (env: iEnv): InPort => env.get('*current-input-port*') as any
 // procedure
-export const currentOutputPort = (ctx: iWorld): OutPort => ctx.env.get('*current-output-port*') as any
+export const currentOutputPort = (env: iEnv): OutPort => env.get('*current-output-port*') as any
 
 class UnimplementedOptionalProcedureError extends Error {}
 

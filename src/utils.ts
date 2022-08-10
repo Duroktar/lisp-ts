@@ -1,11 +1,12 @@
+import { Range } from 'ariadne-ts'
 import { FALSE, TRUE } from "./core/const";
-import { AssertionError } from "./core/data/error";
+import { AssertionError, SwitchFallthroughError } from "./core/error";
 import { cons, list } from "./core/data/pair";
 import { Sym, SymTable } from "./core/data/sym";
 import type { Form, List } from "./core/form";
 import { car, cdr } from "./core/lisp";
 import { toString } from "./core/print";
-import { isChar, isEmpty, isList, isNum, isPair, isString, isVec } from "./guard";
+import { isChar, isEmpty, isIdent, isNum, isPair, isString, isVec } from "./guard";
 
 export type Predicate = (...args: any[]) => boolean
 
@@ -14,12 +15,12 @@ export function as<T>(value: unknown, klass: new (...args: any[]) => T, message?
   return value
 }
 
-export function assert(value: unknown, message?: string | Error): asserts value {
+export function assert(value: unknown, message?: string | Error, form?: Form): asserts value {
   if (value === false || value === null || value === undefined) {
     if (message instanceof Error)
       throw message
     else
-      throw new AssertionError(message)
+      throw new AssertionError(message ?? '', form)
   }
 }
 
@@ -43,8 +44,10 @@ export const isEqv = (x: Form, y: Form): boolean => {
   if (isChar(x))
     return x.equal(y)
   if (isNum(x))
-    return x === y
+    return x.equal(y)
   if (isString(x))
+    return x.equal(y)
+  if (isIdent(x))
     return x.equal(y)
   return (x === y);
 }
@@ -116,7 +119,7 @@ export const getSafe = <T>(a: T[] | any, i: number) => {
 }
 
 export const mkLambda = (params: string[] | string, body: Form): Form => {
-  return list(SymTable.LAMBDA, Array.isArray(params) ? list(...params.map(Sym)) : Sym(params), body);
+  return list(SymTable.LAMBDA, Array.isArray(params) ? list(...params.map(s => Sym(s))) : Sym(params), body);
 };
 
 export const eqC = (a: any) => (b: any) => a === b;
@@ -196,7 +199,7 @@ export function sequence<T, R>(...fns: [...((t: T) => R)[], T]) {
 
 export function error(msg?: string): never { throw new Error(msg) }
 
-export function underline(range: Range, leftMargin = 0) {
+export function underline(range: SourceRange, leftMargin = 0) {
   const numArrows = Math.abs(range.end.col - range.start.col)
   const space = ' '.repeat(clamp(0, Infinity, range.start.col - 1 + leftMargin))
   const arrows = '^'.repeat(clamp(0, Infinity, numArrows))
@@ -228,7 +231,7 @@ export const clamp: (min: number, max: number, num: number) => number
     cursor: number;
 }
 
-export type Range = {
+export type SourceRange = {
     start: Position;
     end: Position;
 };
@@ -246,3 +249,34 @@ export type ExpandRecursively<T> = T extends (...args: infer A) => infer R
     ? { [K in keyof O]: ExpandRecursively<O[K]> }
     : never
   : T;
+
+export function rangeBuilder() {
+  type InferType<T> = T extends ({ withStart(value: number): any } | { withEnd(value: number): any })
+    ? T
+    : { build(): Range }
+  return new class RangeBuilder {
+    private start?: number;
+    private end?: number;
+    withStart<T>(this: T, value: number): InferType<Omit<T, 'withStart'>> {
+      (this as any).start = value;
+      return this as any
+    }
+    withEnd<T>(this: T, value: number): InferType<Omit<T, 'withEnd'>> {
+      (this as any).end = value;
+      return this as any
+    }
+    private build(): Range {
+      assert(typeof this.start === 'number' && typeof this.end === 'number')
+      return Range.new(this.start, this.end);
+    }
+  }
+}
+
+export function assertNever(token: never): never {
+  throw new SwitchFallthroughError(`Unexpected fallthrough: ${token}`);
+}
+
+export function updateTokenFrom(source: Form, to: Form) {
+  if (source.token)
+    to.token = source.token;
+}

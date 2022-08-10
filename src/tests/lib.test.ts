@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest'
 import { execute } from "../core/lisp";
-import { createServerWorld } from "../world/server";
+import { createServerEnvironment } from "../env/server";
 import { toString } from '../core/print';
 
 test("(lib) testing apply (0)", () => {
-  const env = createServerWorld()
+  const env = createServerEnvironment()
   const actual = execute("(apply cons 1 2 '())", env);
   const expected = '(1 . 2)'
 
@@ -12,7 +12,7 @@ test("(lib) testing apply (0)", () => {
 })
 
 test("(lib) testing apply (1)", () => {
-  const env = createServerWorld()
+  const env = createServerEnvironment()
   const actual = execute("(apply + (list 3 4))", env);
   const expected = 7
 
@@ -20,7 +20,7 @@ test("(lib) testing apply (1)", () => {
 })
 
 test("(lib) testing apply (2)", () => {
-  const env = createServerWorld()
+  const env = createServerEnvironment()
 
   execute(`
     (define compose
@@ -39,7 +39,7 @@ test("(lib) testing apply (2)", () => {
 })
 
 test("(lib) testing apply (3)", () => {
-  const env = createServerWorld()
+  const env = createServerEnvironment()
   const actual = execute("(apply (lambda (z) z) 1 '())", env);
   const expected = 1
 
@@ -47,7 +47,7 @@ test("(lib) testing apply (3)", () => {
 })
 
 test.only("(lib) testing apply (4)", () => {
-  const env = createServerWorld()
+  const env = createServerEnvironment()
   const actual = execute('(begin (load-from-library "pretty-print.scm") (pp-string "(let ((a 1) (b 2)) (cons a b))"))', env);
   const expected = 1
 

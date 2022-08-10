@@ -1,11 +1,12 @@
+import { LogConfig } from "../../../logging";
 import { range } from "../../../utils";
 import { Form } from "../../form";
 import { toString } from "../../print";
 
-const debug = false;
+const DEBUG = LogConfig.tree;
 
 function debugLog(...args: any[]): void {
-  if (debug) { console.log('[Tree]:'.yellow, ...args); }
+  if (DEBUG) { console.log('[Tree]:'.yellow, ...args); }
 }
 
 export class Tree {

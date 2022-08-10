@@ -1,8 +1,10 @@
+import { Range } from "ariadne-ts";
 import { isAtom, isBinding, isList, isPair } from "../../guard";
 import { assert, isEqual, isEqv } from "../../utils";
 import { NIL } from "../const";
 import { Form, List } from "../form";
 import { car } from "../lisp";
+import { Token } from "../read";
 
 export class Pair  {
   constructor(
@@ -11,6 +13,9 @@ export class Pair  {
   ) {}
 
   public parent?: Pair;
+  public range?: Range;
+
+  public token?: Token;
 
   replace(expression: Form) {
     if (this.parent) {
@@ -222,7 +227,8 @@ export class Pair  {
 }
 
 export function cons(a: Form, b: Form) {
-  return new Pair(a, b)
+  const rv = new Pair(a, b)
+  return rv
 }
 
 export function list(...args: Form[]): typeof args extends {length: 0} ? List : Pair {

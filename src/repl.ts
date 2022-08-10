@@ -7,13 +7,17 @@ import getPath from 'platform-folders';
 import repl from 'pretty-repl';
 import { Recoverable, ReplOptions } from 'repl';
 import io from 'socket.io-client';
-import * as Errors from "./core/data/error";
+import * as Errors from "./core/error";
 import { evaluate } from './core/eval';
 import * as Lisp from "./core/lisp";
 import { toString, toStringSafe } from "./core/print";
-import { createServerWorld } from './world/server';
-import { iWorld } from "./interface/iWorld";
+import { createServerEnvironment } from './env/server';
 import * as Utils from "./utils";
+import { isNil } from './guard';
+import { Form } from './core/form';
+import { iEnv } from './interface/iEnv';
+import { Str } from './core/data/string';
+import { UNDEF } from './core/const';
 
 const APPDATA = Utils.exists(getPath('appdata'), 'Error looking up appdata directory!');
 const HISTORY_FILE_PTH = join(APPDATA, 'lisp-ts', 'repl', 'history', '0.log');
@@ -27,7 +31,7 @@ type TSchemeReplOptions = {
   colors: boolean
 }
 
-export const initializeREPL = (env: iWorld, options: TSchemeReplOptions) => {
+export const initializeREPL = (env: iEnv, options: TSchemeReplOptions) => {
 
   if (existsSync(HISTORY_FILE_PTH) === false) {
       mkdirSync(path.dirname(HISTORY_FILE_PTH), { recursive: true })
@@ -43,7 +47,7 @@ export const initializeREPL = (env: iWorld, options: TSchemeReplOptions) => {
 }
 
 export function start(options: TSchemeReplOptions) {
-  const world = createServerWorld()
+  const env = createServerEnvironment()
 
   const prettyOpts = options.colors ? { colorize: colorizer } : {}
 
@@ -92,7 +96,7 @@ export function start(options: TSchemeReplOptions) {
           return callback(null)
         }
 
-        Lisp.tokenize(cmd, world)
+        Lisp.tokenize(cmd, env)
         socket.emit('data', cmd)
 
         socket.once('data', (result, ...rest) => {
@@ -108,11 +112,11 @@ export function start(options: TSchemeReplOptions) {
   else {
     function _eval(cmd: string, context: any, filename: string, callback: any) {
       try {
-        const x = Lisp.parse(cmd, world)
+        const x = Lisp.parse(cmd, env)
         // console.log('`eval_` Parsed:', toString(x))
-        const val = evaluate(x, world.env)
+        const val = evaluate(x, env)
         // console.log('`eval_` Evaluated:', toStringSafe(val))
-        callback(null, toString(val))
+        callback(null, val)
       } catch (err) {
         errorHandler(err, callback)
       }
@@ -121,21 +125,22 @@ export function start(options: TSchemeReplOptions) {
     replOptions.eval = _eval
   }
 
-  function writer(output: string) {
-    if (typeof output !== 'string') {
-      return String(output)
-    }
-    switch (output) {
-      case undefined:
-        return options.colors ? colors.dim('undefined') : 'undefined'
-      default:
-        return output.startsWith('Error: ')
-          ? output
-          : options.colors ? colorizer(output) : output
-    }
+  function writer(output: Form) {
+    if (isNil(output))
+      return ''
+
+    const outputString = toStringSafe(output)
+
+    if (outputString.startsWith('Error: '))
+      return outputString
+
+    if (options.colors)
+      return colorizer(outputString)
+
+    return outputString
   }
 
-  initializeREPL(world, options)
+  initializeREPL(env, options)
 
   repl
     .start({ ...replOptions })
@@ -149,12 +154,10 @@ function colorizer(output: string) {
 
 function errorHandler(err: unknown, callback: any): any {
   if (err instanceof Error) {
-    if (err instanceof Errors.UndefinedVariableError) {
-      if (err.message.endsWith('undefined variable: undefined'))
-        return callback(null)
-      if (err.message.endsWith('undefined variable: #<eof-object>'))
-        return callback(null)
-      return callback(null, err.message)
+    console.log(err.stack)
+    if (err instanceof Errors.RuntimeWarning) {
+      console.error('runtime warning (repl)')
+      return callback(null, err.retval)
     }
     if (err instanceof Errors.MissingParenthesisError) {
       return callback(new Recoverable(err))
@@ -168,14 +171,25 @@ function errorHandler(err: unknown, callback: any): any {
     if (err instanceof Errors.InvalidCharacterError) {
       return callback(null, err.message)
     }
-    if (err instanceof Errors.RuntimeWarning) {
-      console.log('runtime warning (repl)')
-      return callback(null, err.retval)
+    if (err instanceof Errors.AssertionError) {
+      return callback(null, err.message)
+    }
+    if (err instanceof Errors.SwitchFallthroughError) {
+      return callback(null, err.message)
+    }
+    if (err instanceof Errors.UndefinedVariableError) {
+      if (err.message.endsWith('undefined variable: undefined'))
+        return callback(null)
+      if (err.message.endsWith('undefined variable: #<eof-object>'))
+        return callback(null)
+      return callback(null, err.message)
     }
     return callback(null, err.message)
   }
+
   return callback(null, err)
 }
+
 
 function parseAttachOption(value: string) {
   // parseInt takes a string and a radix

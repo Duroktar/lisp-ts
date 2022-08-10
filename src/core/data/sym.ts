@@ -1,5 +1,28 @@
+import { Form } from "../form";
+import { type SymbolToken } from "../read";
 
-export const Sym = Symbol.for;
+export class Symbol {
+  constructor(
+    public name: string,
+    public token?: SymbolToken,
+  ) {
+    this.value = global.Symbol.for(name)
+  }
+
+  public value: symbol;
+
+  public equal(other: Form): boolean {
+    return other instanceof Symbol && other.eq(this)
+  }
+
+  public eq(other: Symbol): boolean {
+    return other.value === this.value
+  }
+}
+
+export const Sym = (name: string, token?: SymbolToken) => {
+  return new Symbol(name, token)
+};
 
 export const SymTable = {
   APPEND: Sym('append'),
@@ -23,3 +46,9 @@ export const SymTable = {
   UNQUOTE: Sym('unquote'),
   UNQUOTESPLICING: Sym('unquote-splicing'),
 };
+
+export const Symbols =
+  Object.fromEntries(
+    Object
+      .entries(SymTable)
+      .map(([k, v]) => [k, v.value]))

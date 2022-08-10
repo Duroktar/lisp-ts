@@ -1,7 +1,7 @@
 #lang racket/base
 ; #lang r5rs
 
-(require racket/pretty)
+; (require racket/pretty)
 (require macro-debugger/stepper)
 
 ; (define-syntax macro-or
@@ -13,7 +13,7 @@
 
 ; (expand/step #'(let ((v (list 1 2 3))) (display "first") (display "done")))
 
-(expand/step #'(let ((unquote-splicing 1)) `(,@foo)))
+(expand/step #'(let ((=> #f)) (cond (#t => 'ok))))
 ; (expand/step #'`(,@foo))
 
 ; (display `((`foo' ,(- 10 3)) ,@(cdr '(c)) . ,(car '(cons))))

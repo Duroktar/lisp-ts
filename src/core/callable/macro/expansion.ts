@@ -4,19 +4,24 @@ import { ellipsis, NIL } from "../../const";
 import { Pair } from "../../data/pair";
 import type { Form, List } from "../../form";
 import { cadr } from "../../lisp";
-import { Binding } from "./binding";
+import { Binding } from "../../binding";
 import type { Matches } from "./matches";
 import { toString } from "../../print";
+import { Token } from "../../read";
+import { Sym, Symbol } from "../../data/sym";
+import { LogConfig } from "../../../logging";
 
-const debug = false;
+const DEBUG = LogConfig.expansion;
 
 function debugLog(...args: any[]): void {
-  if (debug) { console.log('[Expansion]:'.green, ...args); }
+  if (DEBUG) { console.log('[Expansion]:'.green, ...args); }
 }
 
 export class Expansion {
 
   public expression: Form;
+
+  public token?: Token
 
   constructor(
     private lexicalScope: iEnv,
@@ -44,7 +49,7 @@ export class Expansion {
         return template
       }
 
-      if (template.car === ellipsis) {
+      if (ellipsis.equal(template.car)) {
         debugLog('template car is an ellipsis.. expanding cadr(template)')
         return this.expand(cadr(template), matches, depth, true)
       }
@@ -71,7 +76,7 @@ export class Expansion {
         // followed by an ellipsis and we are not treating ellipses as
         // literals
         let followed_by_ellipsis = (isPair(template_pair.cdr) &&
-                                    cadr(template_pair) === ellipsis) &&
+                                    ellipsis.equal(cadr(template_pair))) &&
                                     !ignoringEllipses
 
         const dx = followed_by_ellipsis ? 1 : 0
@@ -80,7 +85,7 @@ export class Expansion {
 
         // Once we reach an ellipsis, expand the preceeding form the
         // correct number of times depending on the +matches+
-        if (cell === ellipsis && !ignoringEllipses) {
+        if (ellipsis.equal(cell) && !ignoringEllipses) {
           matches.expand(repeater, depth + 1, () => {
             push(this.expand(repeater, matches, depth + 1))
           })
@@ -110,7 +115,7 @@ export class Expansion {
       // are handled.
       if (matches.has(template)) {
         const rv = matches.get(template);
-        debugLog('pattern variable:', template, 'returned:', toString(rv))
+        debugLog('pattern variable:', toString(template), 'returned:', toString(rv))
         return rv
       }
 
@@ -124,16 +129,16 @@ export class Expansion {
       // If using hygienic macros: bind the identifier to the macro's
       // lexical scope if it is defined there, otherwise rename it as
       // appropriate to avoid clashes with variables in the calling scope.
-      if (this.lexicalScope.has(template.description!)) {
+      if (this.lexicalScope.hasFrom(template)) {
         const rv = new Binding(template, this.lexicalScope, false)
         debugLog('returning binding', toString(rv))
         return rv
       }
+
       else {
-        return template
-        // const rv = this.rename(template)
-        // debugLog('returning renamed', toString(rv))
-        // return rv
+        const rv = this.rename(template)
+        debugLog('returning renamed', toString(rv))
+        return rv
       }
     }
     else {
@@ -142,8 +147,8 @@ export class Expansion {
     }
   }
 
-  private rename(sym: symbol) {
-    const id = sym.description!
+  private rename(sym: Symbol) {
+    const id = sym.name
     if (this.callingScope.has(id)) {
       let i = 1
       while (this.callingScope.has(`#${id}#${i}`)) {
@@ -151,8 +156,7 @@ export class Expansion {
       }
       const raw = `#${id}#${i}`;
       debugLog('returning renamed', raw)
-      console.log('returning renamed', raw)
-      return Symbol.for(raw)
+      return Sym(raw)
     }
     debugLog('returning unchanged', id)
     return sym

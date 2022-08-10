@@ -1,13 +1,14 @@
 import { isPair } from "../guard";
-import { iWorld } from "../interface/iWorld";
-import { assert, toL } from "../utils";
-import { Resume } from "./data/cont";
+import { assert } from "../utils";
+import { Resume } from "./callable/cont";
 import { evaluate } from "./eval";
 import { expand } from "./expand";
 import type { Form } from "./form";
-import { InPort } from "./port";
+import { InPort, Port } from "./port";
 import { read } from "./read";
-import { toString, toStringSafe } from "./print";
+import { toStringSafe } from "./print";
+import { decorateErrorWithSourceInfo } from "./error";
+import { iEnv } from "../interface/iEnv";
 
 // primitives (7)
 export const quote = (expr: Form): Form => {
@@ -16,9 +17,6 @@ export const quote = (expr: Form): Form => {
 }
 
 export const car = (expr: Form): Form => {
-  if (!isPair(expr)) {
-    debugger
-  }
   assert(isPair(expr), `Argument to car must be a pair. got: ${toStringSafe(expr)}`)
   return expr.car;
 }
@@ -36,28 +34,41 @@ export const cdddr = (e: any) => cdr(cdr(cdr(e)))
 export const cadddr = (e: any) => car(cdr(cdr(cdr(e))))
 export const caaddr = (e: any) => car(car(cdr(cdr(e))))
 
-export function tokenize(code: string, world: iWorld): Form {
-  return read(InPort.fromString(code), world);
+export function tokenizeWithPort(code: string, env: iEnv): [Form, Port] {
+  const port = InPort.fromString(code);
+  return decorateErrorWithSourceInfo(() => {
+    return [read(port, env), port];
+  }, port)
 };
 
-export function parse(code: string, world: iWorld): Form {
-  const tokens = read(InPort.fromString(code), world);
-  const result = expand(tokens, true, world);
-  const repr = toString(tokens)
-  return result;
+export function tokenize(code: string, env: iEnv): Form {
+  return tokenizeWithPort(code, env)[0]
 };
 
-export function execute(code: string, world: iWorld): Form {
-  const parsed = parse(code, world);
-  // const r = toString(parsed, true);
-  // console.log(r)
-  return evaluate(parsed, world.env);
+export function parseWithPort(code: string, env: iEnv): [Form, Port] {
+  const port = InPort.fromString(code);
+  const tokens = read(port, env);
+  return decorateErrorWithSourceInfo(() => {
+    return [expand(tokens, env, true), port];
+  }, port)
 };
 
-export function debugExecute(code: string, world: iWorld): Form {
+export function parse(code: string, env: iEnv): Form {
+  return parseWithPort(code, env)[0]
+};
+
+export function execute(code: string, env: iEnv): Form {
+  const [parsed, port] = parseWithPort(code, env);
+  return decorateErrorWithSourceInfo(() => {
+    const result = evaluate(parsed, env);
+    return result;
+  }, port)
+};
+
+export function debugExecute(code: string, env: iEnv): Form {
   function innerDebugExecute(level = 1): any {
     try {
-      const result = execute(code, world);
+      const result = execute(code, env);
       return result;
     } catch (outerError) {
       if (outerError instanceof Error) {
@@ -70,7 +81,7 @@ export function debugExecute(code: string, world: iWorld): Form {
               (newline)
               (write "Entering REPL...")
               (newline)
-              (repl)))`, world)
+              (repl)))`, env)
         } catch (innerError) {
           // console.error('innerError')
           // console.error(innerError)
@@ -84,6 +95,6 @@ export function debugExecute(code: string, world: iWorld): Form {
     }
   }
 
-  execute(`(load "stdlib/io.scm")`, world)
+  execute(`(load "stdlib/io.scm")`, env)
   return innerDebugExecute();
 };

@@ -1,13 +1,14 @@
 // @ts-nocheck
 import { isBinding } from "../../guard";
+import { StringToken } from "../read";
 
 export class MutableString implements String {
 
-  constructor(private __value: string) {
+  constructor(private __value: string, public token?: StringToken) {
     this.__value = __value;
   }
 
-   charAt() {
+  charAt() {
     return this.__value.charAt(...arguments);
   }
 
@@ -160,6 +161,6 @@ export class MutableString implements String {
   }
 }
 
-export function Str(string: string): MutableString {
-  return new MutableString(string)
+export function Str(string: string, token?: StringToken): MutableString {
+  return new MutableString(string, token)
 }

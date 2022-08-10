@@ -1,15 +1,12 @@
-import { isSym } from "../../guard";
 import { assert } from "../../utils";
 import type { Form } from "../form";
-import { Sym } from "./sym";
+import { CharToken } from "../read";
 
 export class Character {
-  public sym: symbol
   constructor(
-    sym: symbol | string,
+    public sym: symbol,
+    public token?: CharToken,
   ) {
-    this.sym = isSym(sym) ? sym : Sym(sym)
-    assert(isSym(this.sym), 'Characters require a symbol');
     assert(this.sym.description, 'Invalid Character Symbol description')
 
     this.displayText = this.sym.description.toLowerCase() === 'newline' ? '\n' :
@@ -23,4 +20,8 @@ export class Character {
   }
 
   public displayText: string
+}
+
+export const Char = (c: string, token?: CharToken) => {
+  return new Character(Symbol.for(c), token)
 }

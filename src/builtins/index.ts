@@ -1,24 +1,26 @@
+import { Source } from "ariadne-ts";
 import highlight from "cli-highlight";
 import { format, inspect } from "util";
-import { isSyntax, Macro, Syntax } from "../core/callable/macro";
+import { Resume } from "../core/callable/cont";
+import { Macro } from "../core/callable/macro";
+import { isSyntax, Syntax } from "../core/callable/syntax";
 import { FALSE, NIL, TRUE, UNDEF } from "../core/const";
-import { Character } from "../core/data/char";
-import { Resume } from "../core/data/cont";
-import { InvalidCallableExpression, NotImplementedError, RuntimeWarning, UndefinedVariableError } from "../core/data/error";
+import { Char } from "../core/data/char";
+import { Num, Number } from "../core/data/num";
 import { cons, list, Pair } from "../core/data/pair";
 import { MutableString, Str } from "../core/data/string";
 import { Sym } from "../core/data/sym";
 import { Vector } from "../core/data/vec";
+import { InvalidCallableExpression, NotImplementedError, RuntimeWarning, UndefinedVariableError } from "../core/error";
 import { evaluate } from "../core/eval";
 import { expand } from "../core/expand";
-import { Form, List } from "../core/form";
+import { Form } from "../core/form";
 import * as Lisp from "../core/lisp";
 import { currentInputPort, currentOutputPort, InPort, OutPort } from "../core/port";
 import { print, toDisplayString, toString, toStringSafe } from "../core/print";
-import { read } from "../core/read";
-import { isCallable, isChar, isEmpty, isEofString, isF, isInputPort, isIOPort, isList, isMacro, isNativeProc, isNullOrUndefined, isNum, isOutputPort, isPair, isProc, isString, isSym, isT, isVec } from "../guard";
+import { read, readNumber, Token } from "../core/read";
+import { isCallable, isChar, isEmpty, isEofString, isF, isIdent, isInputPort, isIOPort, isList, isMacro, isNativeProc, isNullOrUndefined, isNum, isOutputPort, isPair, isProc, isString, isSym, isT, isVec } from "../guard";
 import { iEnv } from "../interface/iEnv";
-import { iWorld } from "../interface/iWorld";
 import * as Util from "../utils";
 
 // TODO: I hate this. Fix it
@@ -44,22 +46,22 @@ const defaultOptions: AddGlobalsOptions = {
 }
 
 export function addGlobals(
-  world: iWorld,
+  env: iEnv,
   opts: AddGlobalsOptions = {}
 ) {
 
   const options = {...defaultOptions, ...opts }
 
-  const {env, lexicalEnv} = world
-
-  lexicalEnv.syntax('define-syntax', (args, scope) => {
-    const macro = expand(Lisp.cadr(args), world);
+  env.syntax('define-syntax', (args, scope) => {
+    Util.assert(isPair(args) && isPair(args.cdr), 'Invalid `define-syntax` form', args)
+    const macro = expand(Lisp.cadr(args), env);
     if (isMacro(macro)) macro.name = toString(Lisp.car(args));
     scope.setFrom(Lisp.car(args), macro);
   })
 
-  lexicalEnv.syntax('syntax-rules', (args, scope) => {
-    const rv = new Macro(scope, <List>Lisp.car(args), <Pair>Lisp.cdr(args));
+  env.syntax('syntax-rules', (args, scope) => {
+    Util.assert(isPair(args) && isPair(args.cdr), 'Invalid `syntax-rules` form', args)
+    const rv = new Macro(scope, <Pair>Lisp.car(args), <Pair>Lisp.cdr(args));
     return rv
   })
 
@@ -67,7 +69,7 @@ export function addGlobals(
     env.set('#t', TRUE);
     env.set('#f', FALSE);
 
-    env.define('boolean?', ['obj'], ([obj]: any) => Util.toL(obj === TRUE || obj === FALSE));
+    env.define('boolean?', ['obj'], ([obj]: any) => Util.toL(TRUE.equal(obj) || FALSE.equal(obj)));
     env.define('char?', ['obj'], ([obj]: any) => Util.toL(isChar(obj)));
     env.define('vector?', ['obj'], ([obj]: any) => Util.toL(isVec(obj)));
     env.define('procedure?', ['obj'], ([obj]: any) => Util.toL(isProc(obj) || isNativeProc(obj)));
@@ -100,37 +102,69 @@ export function addGlobals(
     env.set('*default-repl-prompt*', Str('> '))
     env.set('*current-repl-prompt*', env.get('*default-repl-prompt*'))
 
-    env.define('locals-js', [], (_, a) => { return console.log(inspect(a.keys().sort(), { maxArrayLength: 10000 })) });
-    env.define('locals', [], (_, a) => { return a.keys().sort().map(Sym); });
-    env.define('env', [], () => { return env; });
-    env.define('env->size', [], () => { return env.size(); });
-    env.define('env->keys', [], () => { return env.keys().map(Sym); });
-    env.define('env->values', [], () => { return env.values(); });
-    env.define('env->entries', [], () => { return env.entries(); });
+    env.define('locals-js', [], (_) => {
+      console.log(inspect(env.keys().sort(), { maxArrayLength: 10000 }))
+      return NIL;
+    });
+    env.define('locals', [], (_) => { return list(...env.keys().sort().map(s => Sym(s))); });
+    // env.define('env', [], () => { return env; });
+    env.define('env->size', [], () => { return Num(env.size()); });
+    env.define('env->keys', [], () => { return list(...env.keys().map(s => Sym(s))); });
+    // env.define('env->values', [], () => { return env.values(); });
+    // env.define('env->entries', [], () => { return env.entries(); });
 
-    env.define('debugnf', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-NF]:', toString(name)); console.log(x); });
-    env.define('debugn', ['name', 'x'], ([name, x]: any) => { console.log('[DEBUG-N]:', toString(name)); console.log(x); return x; });
-    env.define('debugf', ['x'], x => { console.log('[DEBUG-F]'); console.log(x); });
-    env.define('debug', ['x'], x => { console.log('[DEBUG]'); console.log(x); return x; });
-    env.define('printn', ['name', 'x'], ([name, x]: any) => { console.log(toString(name), toString(x)); });
+    env.define('debugnf', ['name', 'x'], ([name, x]: any) => {
+      console.log('[DEBUG-NF]:', toString(name)); console.log(x);
+      return NIL;
+    });
+    env.define('debugn', ['name', 'x'], ([name, x]: any) => {
+      console.log('[DEBUG-N]:', toString(name));
+      console.log(x);
+      return x;
+    });
+    env.define('debug', ['x'], x => {
+      console.log(x);
+      return NIL;
+    });
+    env.define('printn', ['name', 'x'], ([name, x]: any) => {
+      console.log(toString(name), toString(x));
+      return NIL;
+    });
     env.define('printr', ['x'], ([x]: any) => { print(x); return x});
-    env.define('prints', ['...xs'], ([...xs]: any) => { console.log(...xs); });
-    env.define('print', ['...xs'], ([...xs]: any) => { console.log(...xs.map((x: Form) => toDisplayString(x))); });
-    env.define('show', ['x'], x => { console.log(x); });
-    env.define('describe', ['x'], ([x]: any) => Str(toString(x, false)));
+    env.define('prints', ['...xs'], ([...xs]: any) => {
+      console.log(...xs);
+      return NIL;
+    });
+    env.define('print', ['...xs'], ([...xs]: any) => {
+      console.log(...xs.map((x: Form) => toDisplayString(x)));
+      return NIL;
+    });
+    env.define('show', ['x'], x => {
+      console.log(x);
+      return NIL;
+    });
+    env.define('describe', ['x'], ([x]: any) => {
+      const value = toString(x, false);
+      const token = getToken(x)
+      if (token) {
+        return Str(`${value} ${`line: ${getLineInfo(token)[0]}`.dim}`)
+      }
+      return Str(value)
+    });
     env.define('format', ['x'], ([x]: any) => Str(toString(x, true)));
 
     env.define('colorized', ['x', 'language?'], ([x, language]: any) => {
       language = language ?? 'scheme'
       Util.assert(isString(x), format('wrong type .. `%s` .. expected `string`', typeof x))
-      return highlight(x.toString(), {language, ignoreIllegals: true})
+      return Str(highlight(x.toString(), {language, ignoreIllegals: true}))
     });
 
     env.define('inspect', ['x'], ([x]: any) => {
       const result = inspectObject(x);
       const lines = result.split('\n').map(line => '  ' + line.trimStart()).join('\n');
       console.log(`Inspecting: ${toStringSafe(x)}\n${lines}`);
-      // return result
+      return NIL;
+
       function inspectObject (x: any) {
         if (isProc(x)) {
           const template = `
@@ -159,7 +193,7 @@ export function addGlobals(
 
             Bound?: %s
           `
-          return format(template, 'symbol', x.description, env.hasFrom(x))
+          return format(template, 'symbol', x.name, env.hasFrom(x))
         }
         const template = `
           Type: %s
@@ -172,13 +206,16 @@ export function addGlobals(
       }
     });
 
-    env.define('break', ['args'], (args: any, env) => { debugger; return evaluate(args, env); });
-    env.define('debug-macro!', ['val'], ([val]: any) => { Syntax.debug = !isF(val) });
+    env.define('break', ['args'], (args: any) => { debugger; return evaluate(args, env); });
+    env.define('debug-macro!', ['val'], ([val]: any) => {
+      Syntax.DEBUG = !isF(val)
+      return NIL;
+    });
 
-    env.define('gensym', [], () => Symbol());
+    // env.define('gensym', [], () => Symbol());
 
     // env.define('set-macro-character', ['char', 'cb'], ([char, cb]: any, env) => {
-    //   lexicalEnv.setFrom(char, (locals: any) => {
+    //   env.setFrom(char, (locals: any) => {
     //     const proc = evaluate(cb, env);
     //     if (isProc(proc)) {
     //       proc.env.define('read', ['read'], ([locals]: any) => locals.parse());
@@ -194,17 +231,17 @@ export function addGlobals(
     // });
 
     env.define('i/o-port?', ['obj'], ([obj]: any) => Util.toL(isIOPort(obj)));
-    env.define('read-from-string', ['obj'], ([obj]: any) => Lisp.tokenize(obj, world));
+    env.define('read-from-string', ['obj'], ([obj]: any) => Lisp.tokenize(obj, env));
 
     env.define('string-pad-end', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
       Util.assert(isString(string));
       Util.assert(isNum(maxLength));
-      return Str(string.toString().padEnd(maxLength, fillString));
+      return Str(string.toString().padEnd(maxLength.toJS(), fillString));
     });
     env.define('string-pad-start', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
       Util.assert(isString(string));
       Util.assert(isNum(maxLength));
-      return Str(string.toString().padStart(maxLength, fillString));
+      return Str(string.toString().padStart(maxLength.toJS(), fillString));
     });
   }
   //#endregion
@@ -227,19 +264,30 @@ export function addGlobals(
     //  - 4.2 Derived Expressions
     Lisp.execute(`
       (define-syntax cond (syntax-rules (else =>)
-        ([cond] #f)
-        ([cond (else expr1 expr2 ...)]
-          (begin expr1 expr2 ...))
-        ([cond (test => function) clause ...]
+        ((cond (else result1 result2 ...))
+          (begin result1 result2 ...))
+        ((cond (test => result))
+          (let ((temp test))
+            (if temp (result temp))))
+        ((cond (test => result) clause1 clause2 ...)
           (let ((temp test))
             (if temp
-                (function temp)
-                (cond clause ...))))
-        ([cond (test expression ...) clause ...]
+                (result temp)
+                (cond clause1 clause2 ...))))
+        ((cond (test)) test)
+        ((cond (test) clause1 clause2 ...)
+          (let ((temp test))
+            (if temp
+                temp
+                (cond clause1 clause2 ...))))
+        ((cond (test result1 result2 ...))
+          (if test (begin result1 result2 ...)))
+        ((cond (test result1 result2 ...)
+                clause1 clause2 ...)
           (if test
-              (begin expression ...)
-              (cond clause ...)))))
-    `, world)
+              (begin result1 result2 ...)
+              (cond clause1 clause2 ...)))))
+    `, env)
 
     Lisp.execute(`
       (define-syntax case (syntax-rules (else)
@@ -254,7 +302,7 @@ export function addGlobals(
                 (begin expr1 expr2 ...)
                 (case temp
                       clause ...))))))
-    `, world)
+    `, env)
 
     Lisp.execute(`
       (define-syntax and (syntax-rules ()
@@ -265,7 +313,7 @@ export function addGlobals(
             (if (not temp)
                 temp
                 (and test2 ...))))))
-    `, world)
+    `, env)
 
     Lisp.execute(`
       (define-syntax or (syntax-rules ()
@@ -275,7 +323,7 @@ export function addGlobals(
             (if temp
                 temp
                 (or test2 ...))))))
-    `, world)
+    `, env)
 
     Lisp.execute(`
       (define-syntax let (syntax-rules ()
@@ -287,7 +335,7 @@ export function addGlobals(
           (letrec ((name (lambda (variable ...)
                           body ...)))
             (name init ...)))))
-    `, world)
+    `, env)
 
     Lisp.execute(`
       (define-syntax let* (syntax-rules ()
@@ -296,7 +344,7 @@ export function addGlobals(
             (let* ((n2 e2) (n3 e3) ...) body ...)))
         ((let* ((name expression) ...) body ...)
           (let ((name expression) ...) body ...))))
-    `, world)
+    `, env)
 
     Lisp.execute(`
       (define-syntax letrec (syntax-rules ()
@@ -304,10 +352,10 @@ export function addGlobals(
           ((lambda ()
             (define variable init) ...
             body ...)))))
-    `, world)
+    `, env)
 
-    world.lexicalEnv.set('let-syntax', world.lexicalEnv.get('let'))
-    world.lexicalEnv.set('letrec-syntax', world.lexicalEnv.get('letrec'))
+    env.set('let-syntax', env.get('let'))
+    env.set('letrec-syntax', env.get('letrec'))
 
     Lisp.execute(`
       (define-syntax do (syntax-rules ()
@@ -324,7 +372,7 @@ export function addGlobals(
           variable)
         ((do "step" variable step)
           step)))
-    `, world)
+    `, env)
 
     Lisp.execute(`
       (define-syntax delay (syntax-rules ()
@@ -338,7 +386,7 @@ export function addGlobals(
                     (set! memo expression)
                     (set! forced #t)
                     memo)))))))
-    `, world)
+    `, env)
 
     // Lisp.execute(
     //   "(define-syntax quasiquote (syntax-rules (unquote unquote-splicing) " +
@@ -367,63 +415,162 @@ export function addGlobals(
     // procedure: integer? obj
     // procedure: exact? z
     // procedure: inexact? z
-    env.define('=', ['args'], ([l, r]: any) => Util.toL(l === r));
-    env.define('>', ['args'], ([l, r]: any) => Util.toL(l > r));
-    env.define('<', ['args'], ([l, r]: any) => Util.toL(l < r));
-    env.define('>=', ['args'], ([l, r]: any) => Util.toL(l >= r));
-    env.define('<=', ['args'], ([l, r]: any) => Util.toL(l <= r));
-    env.define('zero?', ['n'], ([n]: any) => Util.toL(n === 0));
-    env.define('positive?', ['n'], ([n]: any) => Util.toL(isNum(n) && n > 0));
-    env.define('negative?', ['n'], ([n]: any) => Util.toL(isNum(n) && n < 0));
-    env.define('odd?', ['n'], ([n]: any) => Util.toL(isNum(n) && n % 2 !== 0));
-    env.define('even?', ['n'], ([n]: any) => Util.toL(isNum(n) && n % 2 === 0));
-    env.define('max', 'args', (args: any) => args.reduce((acc: any, val: any) => Math.max(acc, val)));
-    env.define('min', 'args', (args: any) => args.reduce((acc: any, val: any) => Math.min(acc, val)));
-    env.define('+', 'args', (args: any) => {
+    env.define('=', ['args'], ([l, r]: any) => {
+      Util.assert(isNum(l), `Arguments to '=' should be numbers`, l)
+      Util.assert(isNum(r), `Arguments to '=' should be numbers`, r)
+      return Util.toL(l.eq(r))
+    });
+    env.define('>', ['args'], ([l, r]: any) => {
+      Util.assert(isNum(l), `Arguments to '>' should be numbers`, l)
+      Util.assert(isNum(r), `Arguments to '>' should be numbers`, r)
+      return Util.toL(l.gt(r))
+    });
+    env.define('<', ['args'], ([l, r]: any) => {
+      Util.assert(isNum(l), `Arguments to '<' should be numbers`, l)
+      Util.assert(isNum(r), `Arguments to '<' should be numbers`, r)
+      return Util.toL(l.lt(r))
+    });
+    env.define('>=', ['args'], ([l, r]: any) => {
+      Util.assert(isNum(l), `Arguments to '>=' should be numbers`, l)
+      Util.assert(isNum(r), `Arguments to '>=' should be numbers`, r)
+      return Util.toL(l.gte(r))
+    });
+    env.define('<=', ['args'], ([l, r]: any) => {
+      Util.assert(isNum(l), `Arguments to '<=' should be numbers`, l)
+      Util.assert(isNum(r), `Arguments to '<=' should be numbers`, r)
+      return Util.toL(l.lte(r))
+    });
+    env.define('zero?', ['n'], ([n]: any) => {
+      Util.assert(isNum(n), `Arguments to 'zero?' should be numbers`, n)
+      return Util.toL(n.isZero())
+    });
+    env.define('positive?', ['n'], ([n]: any) => {
+      return Util.toL(isNum(n) && n.gt(Num(0)))
+    });
+    env.define('negative?', ['n'], ([n]: any) => {
+      return Util.toL(isNum(n) && n.lt(Num(0)))
+    });
+    env.define('odd?', ['n'], ([n]: any) => {
+      return Util.toL(isNum(n) && n.mod(Num(2)).notEq(Num(0)))
+    });
+    env.define('even?', ['n'], ([n]: any) => {
+      return Util.toL(isNum(n) && n.mod(Num(2)).eq(Num(0)))
+    });
+    env.define('max', 'args', (args: any): Number => {
+      return args.reduce((acc: any, val: any) => {
+        Util.assert(isNum(val))
+        Util.assert(isNum(acc))
+        return Num(Math.max(acc.value, val.value))
+      })
+    });
+    env.define('min', 'args', (args: any): Number => {
+      return args.reduce((acc: any, val: any) => {
+        Util.assert(isNum(val))
+        Util.assert(isNum(acc))
+        return Num(Math.min(acc.value, val.value))
+      })
+    });
+    env.define('+', 'args', (args: any): Number => {
       Util.assert(Array.isArray(args) && args.every(isNum), 'Passed a non-number to (+)')
-      return args.reduce((acc: number, val: number) => acc + val, 0)
+      return args.reduce((acc: Number, val: Number) => acc.add(val), Num(0))
     });
-    env.define('*', 'args', (args: any) => {
+    env.define('*', 'args', (args: any): Number => {
       Util.assert(Array.isArray(args) && args.every(isNum), 'Passed a non-number to (*)')
-      return args.reduce((acc: number, val: number) => acc * val, 1)
+      return args.reduce((acc: Number, val: Number) => acc.mul(val), Num(1))
     });
-    env.define('-', 'args', (args: any) => {
+    env.define('-', 'args', (args: any): Number => {
       Util.assert(args.length > 0, "procedure requires at least one argument: (-)")
       Util.assert(Array.isArray(args) && args.every(isNum), 'Passed a non-number to (-)')
-      if (args.length === 1) return -args[0]
-      else return args.reduce((acc: number, val: number) => acc - val)
+      if (args.length === 1) return Num(-args[0].value)
+      else return args.reduce((acc: Number, val: Number) => acc.sub(val))
     });
-    env.define('/', 'args', (args: any) => {
+    env.define('/', 'args', (args: any): Number => {
       Util.assert(args.length > 0, "procedure requires at least one argument: (/)")
       Util.assert(Array.isArray(args) && args.every(isNum), 'Passed a non-number to (/)')
-      return args.reduce((acc: number, val: number) => acc / val)
+      return args.reduce((acc: Number, val: Number) => acc.div(val))
     });
-    env.define('abs', ['n'], ([n]: any) => Math.abs(n));
-    env.define('quotient', ['x', 'y'], ([x, y]: any) => {
+    env.define('abs', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n), 'Arguments to abs should be numbers', n)
+      return Num(Math.abs(n.value))
+    });
+    env.define('quotient', ['x', 'y'], ([x, y]: any): Number => {
       Util.assert(isNum(x), 'Arguments to quotient should be numbers')
       Util.assert(isNum(y), 'Arguments to quotient should be numbers')
-      return (x/y)|0
+      return Num(x.div(y).value|0)
     });
     // procedure: remainder n1 n2
     // procedure: modulo n1 n2
-    env.define('gcd', ['a', 'b'], ([a, b]: any) => { return Util.gcd(a, b) });
-    env.define('lcm', ['a', 'b'], ([a, b]: any) => { return Util.lcm(a, b) });
+    env.define('gcd', ['a', 'b'], ([a, b]: any): Number => {
+      Util.assert(isNum(a), `Arguments to 'gcd' should be of type number`)
+      Util.assert(isNum(b), `Arguments to 'gcd' should be of type number`)
+      return Num(Util.gcd(a.value, b.value))
+    });
+    env.define('lcm', ['a', 'b'], ([a, b]: any): Number => {
+      Util.assert(isNum(a), `Arguments to 'lcm' should be of type number`)
+      Util.assert(isNum(b), `Arguments to 'lcm' should be of type number`)
+      return Num(Util.lcm(a.value, b.value))
+    });
     // procedure: numerator q
     // procedure: denominator q
-    env.define('floor', ['n'], ([n]: any) => Math.floor(n));
-    env.define('ceiling', ['n'], ([n]: any) => Math.ceil(n));
-    env.define('truncate', ['n'], ([n]: any) => Math.trunc(n));
-    env.define('round', ['n'], ([n]: any) => Math.round(n));
+    env.define('floor', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.floor(n.value))
+    });
+    env.define('ceiling', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.ceil(n.value))
+    });
+    env.define('truncate', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.trunc(n.value))
+    });
+    env.define('round', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.round(n.value))
+    });
     // library procedure: rationalize x y
-    env.define('exp', ['n'], ([n]: any) => Math.exp(n));
-    env.define('log', ['n'], ([n]: any) => Math.log(n));
-    env.define('sin', ['n'], ([n]: any) => Math.sin(n));
-    env.define('cos', ['n'], ([n]: any) => Math.cos(n));
-    env.define('tan', ['n'], ([n]: any) => Math.tan(n));
-    env.define('asin', ['n'], ([n]: any) => Math.asin(n));
-    env.define('acos', ['n'], ([n]: any) => Math.acos(n));
-    env.define('atan', ['y', 'x'], ([y, x]: any) => isNullOrUndefined(x) ? Math.atan(y) : Math.atan2(y, x));
-    env.define('sqrt', ['n'], ([n]: any) => Math.sqrt(n));
+    env.define('exp', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.exp(n.value))
+    });
+    env.define('log', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.log(n.value))
+    });
+    env.define('sin', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.sin(n.value))
+    });
+    env.define('cos', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.cos(n.value))
+    });
+    env.define('tan', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.tan(n.value))
+    });
+    env.define('asin', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.asin(n.value))
+    });
+    env.define('acos', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.acos(n.value))
+    });
+    env.define('atan', ['y', 'x'], ([y, x]: any): Number => {
+      Util.assert(isNum(y))
+      Util.assert(isNum(x) || isNullOrUndefined(x))
+
+      const result = isNullOrUndefined(x)
+        ? Math.atan(y.value)
+        : Math.atan2(y.value, x.value);
+
+      return Num(result)
+    });
+    env.define('sqrt', ['n'], ([n]: any): Number => {
+      Util.assert(isNum(n))
+      return Num(Math.sqrt(n.value))
+    });
     // procedure: expt z1 z2
     // procedure: make-rectangular x1 x2
     // procedure: make-polar x3 x4
@@ -438,13 +585,18 @@ export function addGlobals(
     // - 6.2.6 Numerical input and output
     env.define('number->string', ['n', 'radix?'], ([n, radix]: any) => {
       Util.assert(isNum(n), `"number->string" procedure takes a 'number' as an argument`);
-      return Str(n.toString(radix ?? 10));
+      return Str(n.value.toString(radix ?? 10));
     });
-    env.define('string->number', ['n', 'radix?'], ([n, radix = 10]: any) => {
-      Util.assert(isString(n), `"string->number" procedure takes a 'string' as an argument`);
-      if (n.toString().includes('e'))
-        return parseInt(new Number(n.toString()).toFixed(0).toString(), radix);
-      return parseInt(n.toString(), radix)
+
+    env.define('string->number', ['n', 'radix?'], ([n, radix = Num(10)]: any) => {
+      Util.assert(isString(n), `"string->number" argument (1) 'n' takes a 'string'`);
+      Util.assert(isNum(radix), `"string->number" argument (2) 'radix' takes a 'number'`);
+      const value = readNumber(n.valueOf(), {radix: radix.value})
+      Util.assert(isNum(value), "string->number returned a non-numeric value", value)
+      return value
+      // if (n.toString().includes('e'))
+      //   return Num(parseInt(new global.Number(n.toString()).toFixed(0).toString(), radix));
+      // return Num(parseInt(n.toString(), radix))
     });
     // END - 6.2.6 Numerical input and output
 
@@ -460,16 +612,18 @@ export function addGlobals(
     // - 6.3.2 Pairs and lists
     env.define('pair?', ['obj'], ([obj]: any) => Util.toL(isPair(obj)));
     env.define('cons', ['a', 'b'], ([a, b]: any) => new Pair(a, b));
-    env.define('car', 'args', (args: any) => Lisp.car(args));
-    env.define('cdr', 'args', (args: any) => Lisp.cdr(args));
+    env.define('car', ['args'], ([args]: any) => Lisp.car(args));
+    env.define('cdr', ['args'], ([args]: any) => Lisp.cdr(args));
     env.define('set-car!', ['l', 'v'], ([l, v]: any) => {
       if (Pair.is(l))
         l.car = v
       else l[0] = v
+      return NIL;
     });
     env.define('set-cdr!', ['l', 'v'], ([l, v]: any) => {
       Util.assert(isPair(l), 'invalid `set-cdr!` argument: ' + toString(l))
       l.cdr = v
+      return NIL;
     });
 
     // library procedure: caar pair
@@ -481,9 +635,9 @@ export function addGlobals(
     env.define('null?', ['n'], ([n]: any) => Util.toL(isEmpty(n)));
     env.define('list?', ['n'], ([n]: any) => Util.toL(isEmpty(n) || (isPair(n) && n.isList())));
     env.define('list', 'args', (args: any) => list(...args));
-    env.define('length', ['list'], ([list]: any) => {
+    env.define('length', ['list'], ([list]: any): Number => {
       Util.assert(isList(list), 'argument to length must be a list')
-      return isPair(list) ? list.length : /* empty */ 0
+      return Num(isPair(list) ? list.length : /* empty */ 0)
     });
 
     env.define('append', 'args', (args: any) => {
@@ -508,7 +662,19 @@ export function addGlobals(
     });
 
     // library procedure: list-tail list k
+    env.define('list-tail', ['list', 'k'], ([lst, k]: any) => {
+      Util.assert(isList(lst))
+      if (isEmpty(lst))
+        return lst
+      return lst.tail
+    });
     // library procedure: list-ref list k
+    env.define('list-ref', ['list', 'k'], ([lst, k]: any) => {
+      Util.assert(isList(lst), `'list-ref' must be a list`, lst)
+      if (isEmpty(lst))
+        return lst
+      return lst.at(k.value)
+    });
 
     // library procedure: memq obj list
     // library procedure: memv obj list
@@ -525,7 +691,7 @@ export function addGlobals(
     });
     env.define('symbol->string', ['n'], ([n]: any) => {
       Util.assert(isSym(n), `"symbol->string" procedure takes a 'symbol' as an argument`);
-      return Str(n.description!)
+      return Str(n.name)
     });
     env.define('string->symbol', ['n'], ([n]: any) => {
       Util.assert(isString(n), `"string->symbol" procedure takes a 'string' as an argument`);
@@ -584,12 +750,12 @@ export function addGlobals(
     env.define('char->integer', ['char'], ([char]: any) => {
       Util.assert(isChar(char))
       Util.assert(char.displayText.match(/[0-9]/) !== null)
-      return Number(char.displayText)
+      return Num(char.displayText)
     });
     // procedure: integer->char n
     env.define('integer->char', ['n'], ([n]: any) => {
       Util.assert(isNum(n))
-      return new Character(n.toString(10))
+      return Char(n.value.toString(10))
     });
 
     // library procedure: char-upcase char
@@ -600,21 +766,21 @@ export function addGlobals(
     env.define('string?', ['n'], ([n]: any) => Util.toL(isString(n)));
     env.define('string', 'args', args => {
       Util.assert(Array.isArray(args) && args.every(isChar), 'Arguments to `string` must be `char`s')
-      return Str(args.map(arg => toString(arg)).join(''))
+      return Str(args.map(arg => arg.displayText).join(''))
     });
     env.define('make-string', ['k', 'char'], ([k, char = ' ']: any) => {
       Util.assert(isChar(char), 'make-string arg(2) expects a char')
       Util.assert(isNum(k), 'make-string arg(1) expects a number')
-      return Str(char.displayText.repeat(k))
+      return Str(char.displayText.repeat(k.value))
     });
     env.define('string-length', ['n'], ([n]: any) => {
       Util.assert(isString(n))
-      return n.length
+      return Num(n.length)
     });
     env.define('string-ref', ['string', 'k'], ([string, k]: any) => {
       Util.assert(isString(string) && string.length >= k)
       Util.assert(isNum(k), format('Invalid `k` param passed to `string-ref`, expected number, got `%s`', typeof k))
-      return new Character(string.toString()[k])
+      return Char(string.toString()[k.value])
     });
     env.define('string-set!', ['string', 'k', 'char'], ([string, k, char]: any) => {
       Util.assert(isString(string) && string.length > k)
@@ -678,7 +844,7 @@ export function addGlobals(
     });
     env.define('string->list', ['string'], ([string]: any) => {
       Util.assert(isString(string))
-      return list(...string.toString().split('').map(c => new Character(c)))
+      return list(...string.toString().split('').map(c => Char(c)))
     });
     env.define('list->string', ['list', '...'], ([list]: any) => {
       Util.assert(isPair(list) && list.every(isString))
@@ -708,20 +874,20 @@ export function addGlobals(
     env.define('vector', 'args', (args: any) => {
       return new Vector(args)
     });
-    env.define('vector-length', ['vec'], ([vec]: any) => {
+    env.define('vector-length', ['vec'], ([vec]: any): Number => {
       Util.assert(isVec(vec), `vector-length expected a 'Vector' but got '${typeof vec}'`)
-      return vec.data.length
+      return Num(vec.data.length)
     });
-    env.define('vector-ref', ['vec', 'k'], ([vec, k]: any) => {
+    env.define('vector-ref', ['vec', 'k'], ([vec, k]: any): Form => {
       Util.assert(isVec(vec), `vector-ref arg(1) expected a 'Vector' but got '${typeof vec}'`)
       Util.assert(isNum(k), `vector-ref arg(2) expected a Number. Got: ${typeof k}`)
-      return vec.data[k]
+      return vec.data[k.value]
     });
-    env.define('vector-set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any, a) => {
+    env.define('vector-set!', ['vec', 'k', 'obj'], ([vec, k, obj]: any) => {
       Util.assert(isVec(vec), `vector-set! arg(1) expected a 'Vector' but got '${typeof vec}'`)
       Util.assert(isNum(k), `vector-set! arg(2) expected a Number. Got: ${typeof k}`)
       Util.assert(obj !== undefined, `vector-set! arg(3) is undefined`)
-      return vec.data[k] = obj
+      return vec.data[k.value] = obj
     });
     env.define('vector->list', ['vec'], ([vec]: any) => {
       Util.assert(isVec(vec), `vector-list expected a 'Vector' but got '${typeof vec}'`)
@@ -737,6 +903,7 @@ export function addGlobals(
       for (let i = 0; i < vec.data.length; i++) {
         vec.data[i] = fill
       }
+      return NIL;
     });
     // END - 6.3.6 Vectors
 
@@ -744,13 +911,11 @@ export function addGlobals(
     env.define('procedure?', ['obj'], ([obj]: any) => {
       return Util.toL(isProc(obj) || isNativeProc(obj))
     });
-    env.define('apply', ['proc', '.', 'args'], ([proc, ...args]: any, env) => {
+    env.define('apply', ['proc', '.', 'args'], ([proc, ...args]: any) => {
       Util.assert(isCallable(proc), 'called apply with a non procedure')
       // Note: `Apply` calls `proc` with the elements of the list
       // `(append (list arg1 ...) args)` as the actual arguments.
-      return proc.call(
-        Util.append(list(...args.slice(0, -1)), args[args.length - 1])
-      , env)
+      return proc.call(Util.append(list(...args.slice(0, -1)), args[args.length - 1]))
     });
     env.define('map', ['proc', '.', 'args'], ([proc, ...lists]: any) => {
       Util.assert(Array.isArray(lists) && lists.length >= 1 && lists.every(isPair), 'error 3823489')
@@ -763,7 +928,7 @@ export function addGlobals(
         lists.forEach(l => {
           res[i].push(l.at(i))
         })
-        res[i] = proc.call(list(...res[i]), env)
+        res[i] = proc.call(list(...res[i]))
       }
 
       const a = list(...res)
@@ -771,7 +936,7 @@ export function addGlobals(
     });
     // library procedure: for-each proc list1 list2 ...
     // library procedure: force promise
-    env.define('call-with-current-continuation', ['throw'], ([proc]: any, env: iEnv) => {
+    env.define('call-with-current-continuation', ['throw'], ([proc]: any) => {
       const ball = new RuntimeWarning("Sorry, can't continue this continuation any longer.");
 
       const fn = env.define('throw', ['retval'], ([retval]: any) => {
@@ -780,7 +945,7 @@ export function addGlobals(
 
       if (isProc(proc) || isNativeProc(proc)) {
         try {
-          return proc.call(list(fn), env);
+          return proc.call(list(fn));
         } catch (err) {
           if (err instanceof RuntimeWarning) {
             // console.log('RuntimeWarning (call/cc)')
@@ -796,20 +961,22 @@ export function addGlobals(
 
     // procedure: values obj ...
     // procedure: call-with-values producer consumer
-    env.define('dynamic-wind', ['before', 'thunk', 'after'], ([before, thunk, after]: any, env: iEnv) => {
+    env.define('dynamic-wind', ['before', 'thunk', 'after'], ([before, thunk, after]: any) => {
       Util.assert(isCallable(before))
       Util.assert(isCallable(thunk))
       Util.assert(isCallable(after))
-      before.call(NIL, env);
+      before.call(NIL);
       try {
-        return thunk.call(NIL, env);
+        return thunk.call(NIL);
       } catch (err) {
         // console.log('RuntimeWarning (dynamic-wind)')
       } finally {
-        after.call(NIL, env);
+        after.call(NIL);
       }
+      return NIL;
     });
     // END - 6.4 Control Features
+
 
     // - 6.5 Eval
     // procedure: eval expression environment-specifier
@@ -831,87 +998,89 @@ export function addGlobals(
     env.define('current-input-port', [], () => env.get('*current-input-port*'));
     env.define('current-output-port', [], () => env.get('*current-output-port*'));
 
-    env.define('set-current-input-port!', ['port'], ([port]: any) => env.set('*current-input-port*', port));
-    env.define('set-current-output-port!', ['port'], ([port]: any) => env.set('*current-output-port*', port));
+    env.define('set-current-input-port!', ['port'], ([port]: any) => {
+      env.set('*current-input-port*', port);
+      return NIL;
+    });
+    env.define('set-current-output-port!', ['port'], ([port]: any) => {
+      env.set('*current-output-port*', port);
+      return NIL;
+    });
     // END - 6.6.1 Ports
 
     // - 6.6.2 Input
     env.define('read', ['port'], ([port]: any) => {
-      const p: InPort = port ?? currentInputPort(world)
+      const p: InPort = port ?? currentInputPort(env)
       // console.log('reading port', p.name)
-      const data = read(p, world);
+      const data = read(p, env);
       // console.log('reading port (data):', data)
       return data
     });
 
     env.define('read-char', ['port'], ([port]: any) => {
-      const p: InPort = port ?? currentInputPort(world)
-      return p.readChar()
+      const p: InPort = port ?? currentInputPort(env)
+      return Char(p.readChar())
     });
 
     env.define('peek-char', ['port'], ([port]: any) => {
-      const p: InPort = port ?? currentInputPort(world)
-      return p.peekChar()
+      const p: InPort = port ?? currentInputPort(env)
+      return Char(p.peekChar())
     });
 
     env.define('eof-object?', ['obj'], ([obj]: any) => Util.toL(isEofString(obj)));
 
     env.define('char-ready?', ['port'], ([port]: any) => {
-      const p: InPort = port ?? currentInputPort(world)
+      const p: InPort = port ?? currentInputPort(env)
       return Util.toL(isEofString(p) || p.charReady())
     });
     // END - 6.6.2 Input
 
     // - 6.6.3 Output
     env.define('putchar', ['char', 'port?'], ([obj, port]: any) => {
-      const p: OutPort = port ?? currentOutputPort(world)
+      const p: OutPort = port ?? currentOutputPort(env)
       p.write(obj)
       return NIL
     });
 
     // NOTE: `Write' is intended for producing machine-readable output and `display' is for producing human-readable output.
     env.define('write', ['obj', 'port?'], ([obj, port]: any) => {
-      const p: OutPort = port ?? currentOutputPort(world)
+      const p: OutPort = port ?? currentOutputPort(env)
       p.write(toString(obj))
       return NIL
     });
     env.define('display', ['obj', 'port?'], ([obj, port]: any) => {
-      const p: OutPort = port ?? currentOutputPort(world)
+      const p: OutPort = port ?? currentOutputPort(env)
       const s = toString(obj, undefined, undefined, false);
-      console.log('displaying to port:', p.name, s)
       p.write(s)
       return NIL
     });
     env.define('newline', ['port?'], ([port]: any) => {
-      const p: OutPort = port ?? currentOutputPort(world)
+      const p: OutPort = port ?? currentOutputPort(env)
       p.write('\n')
       return NIL
     });
     env.define('write-char', ['char', 'port?'], ([char, port]: any) => {
       Util.assert(isChar(char), `not a character: ${char}`)
-      const p: OutPort = port ?? currentOutputPort(world)
+      const p: OutPort = port ?? currentOutputPort(env)
       p.write(char.displayText)
-      console.log('write-char', char.sym.description!)
       return NIL
     });
     env.define('displayln', ['obj', 'port?'], ([obj, port]: any) => {
-      const p: OutPort = port ?? currentOutputPort(world)
+      const p: OutPort = port ?? currentOutputPort(env)
       p.write(toString(obj, undefined, undefined, false))
       p.write('\n')
       return NIL
     });
     env.define('writeln', ['obj', 'port?'], ([obj, port]: any) => {
-      const p: OutPort = port ?? currentOutputPort(world)
+      const p: OutPort = port ?? currentOutputPort(env)
       p.write(toString(obj))
       p.write('\n')
       return NIL
     });
     env.define('display-to-string', ['obj'], ([obj]: any) => {
-      console.log('displaying to string i guess, lol', {obj})
       return Str(toString(obj, undefined, undefined, false))
     });
     env.define('write-to-string', ['obj'], ([obj]: any) => {
-      console.log('writing to string i guess, lol', {obj})
       return Str(toString(obj))
     });
     // END - 6.6.3 Output
@@ -946,19 +1115,19 @@ export function addGlobals(
 
     env.define('macroexpand', ['expr'], ([expr]: any) => {
       // console.log(toStringSafe(env.get<Procedure>('equal?').expr))
-      const rv = expand(expr, world, true);
+      const rv = expand(expr, env, true);
       return rv
     });
 
     env.define('tokenize', ['expr'], ([expr]: any) => {
-      return Lisp.tokenize(expr, world)
+      return Lisp.tokenize(expr, env)
     });
 
     env.define('putchar2', ['char1', 'char2', 'port?'], ([obj1, obj2, port]: any) => {
-      const p: OutPort = port ?? currentOutputPort(world)
+      const p: OutPort = port ?? currentOutputPort(env)
       p.write(obj1)
       p.write(obj2)
-      return
+      return NIL;
     });
 
     env.define('try', ['callable'], ([callable]: any) => {
@@ -972,7 +1141,6 @@ export function addGlobals(
         if (err instanceof RuntimeWarning) {
           console.log('RuntimeWarning (try)')
           return err.retval // continuation
-          // throw err
         }
         if (err instanceof Error) {
           return cons(FALSE, Str(err.message));
@@ -994,44 +1162,47 @@ export function addGlobals(
   if (options.repl) {
 
     env.define('exit-repl', [], () => {
-      if (isT(world.env.get('*in-repl-mode*')))
-        world.env.set('*in-repl-mode*', Util.toL(false))
+      if (isT(env.get('*in-repl-mode*')))
+        env.set('*in-repl-mode*', Util.toL(false))
       else
         throw new Error('not in repl mode');
+      return NIL;
     })
 
     env.define('set-current-repl-prompt!', ['prompt'], ([prompt]: any) => {
-      world.env.set('*current-repl-prompt*', prompt)
+      env.set('*current-repl-prompt*', prompt)
+      return NIL;
     })
 
     env.define('get-current-repl-prompt', [], () => {
-      return world.env.get('*current-repl-prompt*')
+      return env.get('*current-repl-prompt*')
     })
 
     env.define('revert-to-default-repl-prompt!', [], () => {
-      world.env.set('*current-repl-prompt*', world.env.get('*default-repl-prompt*'))
+      env.set('*current-repl-prompt*', env.get('*default-repl-prompt*'))
+      return NIL;
     })
 
     env.define('repl', [], () => {
-      world.env.set('*in-repl-mode*', Util.toL(true))
+      env.set('*in-repl-mode*', Util.toL(true))
 
       let lastInput: any, lastExpand: any, lastOutput: any, greet = true;
 
-      while (isT(world.env.get('*in-repl-mode*'))) {
-        const p = currentInputPort(world)
-        const o = currentOutputPort(world)
+      while (isT(env.get('*in-repl-mode*'))) {
+        const p = currentInputPort(env)
+        const o = currentOutputPort(env)
         try {
-          if (greet) o.write(world.env.get<MutableString>('*current-repl-prompt*'))
-          lastInput = read(p, world);
-          lastExpand = expand(lastInput, world, true)
-          lastOutput = evaluate(lastExpand, world.env)
+          if (greet) o.write(env.get<MutableString>('*current-repl-prompt*'))
+          lastInput = read(p, env);
+          lastExpand = expand(lastInput, env, true)
+          lastOutput = evaluate(lastExpand, env)
           const outputText = toStringSafe(lastOutput);
           o.write(outputText)
           if (!outputText.endsWith('\n'))
             o.write('\n')
         } catch (err) {
           if (err instanceof Resume) {
-            world.env.set('*in-repl-mode*', Util.toL(false))
+            env.set('*in-repl-mode*', Util.toL(false))
             throw err
           }
           if (err instanceof Error) {
@@ -1053,12 +1224,29 @@ export function addGlobals(
           process.exit(1)
         }
       }
+
+      return NIL;
     });
   }
   // #endregion
 
   env.define('run-tests', [], () => {
-    Lisp.execute('(load "tests/runner.scm")', world)
+    Lisp.execute('(load "tests/runner.scm")', env)
+    return NIL;
   });
 
+}
+
+function getToken(x: any) {
+  if (isPair(x) || isString(x) || isNum(x) || isChar(x) || isIdent(x))
+    return x.token
+}
+
+function getLineInfo(token: Token) {
+  const src = Source.from(token.port.file.data)
+  const [line_no, col_no] = src
+        .get_offset_line(token.range.start)
+        .map(([_, idx, col]) => [idx+1, col+1])
+        .unwrap_or_else(() => [0, 0])
+  return [line_no, col_no]
 }

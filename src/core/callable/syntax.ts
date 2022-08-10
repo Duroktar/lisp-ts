@@ -1,8 +1,9 @@
-import { isIdent, isNil, isPair } from "../../../guard"
-import type { iEnv } from "../../../interface/iEnv"
-import { NIL } from "../../const"
-import type { Form, List } from "../../form"
-import type { CallableFunc } from "../proc"
+import { isIdent, isNil, isPair } from "../../guard"
+import { iEnv } from "../../interface/iEnv"
+import { NIL } from "../const"
+import { Form, List } from "../form"
+import { Token } from "../read"
+import { CallableFunc } from "./proc"
 
 /**
  * Returned by `define-syntax`
@@ -18,8 +19,8 @@ export class Syntax {
     public params: List = NIL,
   ) {}
 
-  call(exprs: Form) {
-    return this.expr(exprs, this.scope)
+  call(exprs: Form, lexicalScope: iEnv) {
+    return this.expr(exprs, lexicalScope)
   }
 
   toString() {
@@ -27,7 +28,8 @@ export class Syntax {
   }
 
   static RESERVED = ['_', '...']
-  static debug: boolean = false
+  static DEBUG: boolean = false
+  public token?: Token
 
   static patternVars(
     pattern: Form,
@@ -38,7 +40,7 @@ export class Syntax {
     if (isNil(pattern)) { return results }
 
     if (isIdent(pattern)) {
-      const name = pattern.description!
+      const { name } = pattern
 
       if ((isPair(excluded) && excluded.includes(pattern)) || Syntax.RESERVED.includes(name)) {
         // return

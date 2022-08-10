@@ -1,13 +1,13 @@
-import { isBinding, isIdent, isNil, isPair, isString, isSym } from "../../guard";
-import type { iEnv } from "../../interface/iEnv";
-import { NativeFunc } from "../callable/func";
-import { Syntax } from "../callable/macro/syntax";
-import { Callable, Closure } from "../callable/proc";
-import { NIL } from "../const";
-import type { Form } from "../form";
+import { isBinding, isIdent, isNil, isPair, isString, isSym } from "../guard";
+import type { iEnv } from "../interface/iEnv";
+import { NativeFunc } from "./callable/func";
+import { Syntax } from "./callable/syntax";
+import { Callable, Closure } from "./callable/proc";
+import { NIL } from "./const";
+import type { Form } from "./form";
 import * as Errors from "./error";
-import { cons, list, Pair } from "./pair";
-import { Sym } from "./sym";
+import { cons, list, Pair } from "./data/pair";
+import { Sym, Symbol } from "./data/sym";
 
 export class Env implements iEnv {
 
@@ -15,6 +15,7 @@ export class Env implements iEnv {
   public runtime: any;
 
   constructor(params: Form = NIL, args: Form = NIL, public outer?: iEnv) {
+    // console.log(JSON.stringify(params, null, 4))
     if (isPair(params) && isPair(args)) {
       const formals = this.getParams(params, args);
       this.inner = Object.fromEntries(formals);
@@ -23,7 +24,7 @@ export class Env implements iEnv {
     // If the list of formals is not a list but a single identifier,
     // that identifier will be assigned a list of all the parameters
     else if (!isNil(params) && isSym(params)) {
-      this.inner = { [params.description!]: args };
+      this.inner = { [params.name]: args };
       return
     }
     else if (isNil(params) || isNil(args)) {
@@ -41,37 +42,42 @@ export class Env implements iEnv {
     const result: [string, Form][] = []
     const tail = params.tail.cdr
     let idx = 0
-    params.forEach((p: symbol) => {
-      result.push([p.description!, args.at(idx)])
+    params.forEach((p: Symbol) => {
+      result.push([p.name, args.at(idx)])
       idx++
     })
     if (isIdent(tail)) {
-      result.push([tail.description!, args.slice(idx-1)])
+      result.push([tail.name, args.slice(idx-1)])
     }
     return result
   }
 
-  get<T extends Form | Closure>(name: string): T {
+  get<T extends Form>(name: string): T {
     const result = this.inner[name] ?? this.outer?.get(name);
     if (result === undefined) {
       throw new Errors.UndefinedVariableError(String(name));
     }
     return result as T;
   }
-  getFrom<T extends Form | Closure>(expr: Form): T {
-    return this.get(this.toName(expr)) as T
+  getFrom<T extends Form>(expr: Form): T {
+    const name = this.toName(expr)
+    const result = this.inner[name] ?? this.outer?.get(name);
+    if (result === undefined) {
+      throw new Errors.UndefinedVariableError(String(name), expr);
+    }
+    return result as T;
   }
-  getOrDefault<T extends Form | Closure, R = T>(name: string, d?: R): T | R {
+  getOrDefault<T extends Form, R = T>(name: string, d?: R): T | R {
     const result = this.inner[name] ?? this.outer?.getOrDefault(name);
     return (result ?? d) as any;
   }
-  set(name: string, value: Form | Closure): void {
+  set(name: string, value: Form): void {
     this.inner[name] = value;
   }
-  setFrom(expr: Form, value: Form | Closure): void {
+  setFrom(expr: Form, value: Form): void {
     this.inner[this.toName(expr)] = value;
   }
-  mergeFrom(expr: Form, value: Form | Closure): void {
+  mergeFrom(expr: Form, value: Form): void {
     if (!this.hasFrom(expr)) {
       this.setFrom(expr, list(value));
       return
@@ -83,11 +89,11 @@ export class Env implements iEnv {
       this.setFrom(expr, cons(merger, value))
     }
   }
-  update(name: string, value: Form | Closure): void {
+  update(name: string, value: Form): void {
     let env = this.find(name)
     if (env) { env.set(name, value) }
   }
-  updateFrom(expr: Form, value: Form | Closure): void {
+  updateFrom(expr: Form, value: Form): void {
     return this.update(this.toName(expr), value)
   }
   find(name: string): iEnv | undefined {
@@ -145,9 +151,9 @@ export class Env implements iEnv {
     if (this.outer)
       return this.outer.innermostBinding(expr)
   }
-  define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray = true): Callable {
-    const paramList = typeof params === 'string' ? Sym(params) : list(...params.map(Sym));
-    const handler = (args: Form, env: iEnv) => cb(parseArgs(args, toArray), env);
+  define(name: string, params: string | string[], cb: (args: Form[] | Form) => Form, toArray = true): Callable {
+    const paramList = typeof params === 'string' ? Sym(params) : list(...params.map(s => Sym(s)));
+    const handler = (args: Form) => cb(parseArgs(args, toArray));
     const callable = new NativeFunc(this, paramList, handler, name);
     this.set(name, callable);
     return callable;
@@ -162,11 +168,11 @@ export class Env implements iEnv {
     if (isString(expr))
       return expr.toString()
     if (isSym(expr))
-      return expr.description!
+      return expr.name
     return undefined as any
   }
 
-  private inner: Record<string, Form | Closure>;
+  private inner: Record<string, Form>;
 }
 
 function parseArgs(args: Form, toArray: boolean): Form | Form[] {

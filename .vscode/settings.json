@@ -21,7 +21,8 @@
         "**/node_modules": true,
         "**/dist": true,
         "src/core/data/macro/__scratch.ts": true,
-        "src/core/data/macro/__syntax.old.ts": true
+        "src/core/data/macro/__syntax.old.ts": true,
+        "src/core/read.old.ts": true,
     },
     "vitest.commandLine": "yarn test --",
     "vitest.enable": true,

@@ -1,6 +1,6 @@
-import { isBinding, isChar, isExpansion, isNil, isNum, isString, isSym, isVec } from "../guard";
+import { isBinding, isChar, isExpansion, isNil, isNum, isPair, isString, isSym, isVec } from "../guard";
 import { NIL, UNDEF } from "./const";
-import { Syntax } from "./callable/macro";
+import { Syntax } from "./callable/syntax";
 import { TSchemeModule } from "./module/base";
 import { Pair } from "./data/pair";
 import { Port } from "./port";
@@ -8,6 +8,7 @@ import { Procedure } from "./callable/proc";
 import { NativeFunc } from "./callable/func";
 import { quoteMap } from "./data/quote";
 import { Form } from "./form";
+import { assertNever } from "../utils";
 
 export const toDisplayString = (expr: Form): string => {
   return toString(expr, undefined, undefined, false)
@@ -17,22 +18,20 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
   if (expr === undefined)
     return expr
   if (isSym(expr))
-    return expr?.description!;
+    return expr.name;
   if (isVec(expr))
     return `#(${expr.data.map(x => toString(x, inspect_, lambdaSymbol, repr)).join(' ')})`;
   if (isString(expr))
     return repr ? JSON.stringify(expr.toString()) : expr.toString()
   if (isChar(expr))
-    return repr ? expr.sym.description! : expr.displayText;
+    return repr ? `#\\${expr.sym.description!}` : expr.displayText;
   if (isNum(expr))
-    return String(expr);
+    return expr.toString();
   if (isNil(expr))
     return '()';
   if (isExpansion(expr))
-    // return toString(expr.expression, inspect_, lambdaSymbol, repr)
     return `<Expansion:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
   if (isBinding(expr))
-    // return toString(expr.expression, inspect_, lambdaSymbol, repr)
     return `<Binding:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
   if (expr instanceof TSchemeModule) {
     return `(module "${expr.displayName}")`;
@@ -52,13 +51,13 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
     return `(${lambdaSymbol} ${expr.name})`;
   }
 
-  if (Pair.is(expr)) {
-    if (!inspect_ && typeof expr.car === 'symbol' && quoteMap[expr.car]) {
+  if (isPair(expr)) {
+    if (!inspect_ && isSym(expr.car) && quoteMap[expr.car.name]) {
       const str = toString(expr.cdr, inspect_, lambdaSymbol, repr);
       if (str.startsWith('(') && str.endsWith(')'))
-        return `${quoteMap[expr.car]}${str.slice(1, -1)}`
+        return `${quoteMap[expr.car.name]}${str.slice(1, -1)}`
       else
-        return `${quoteMap[expr.car]}${str}`
+        return `${quoteMap[expr.car.name]}${str}`
     }
     const res: any[] = []
     let next: Form = expr
@@ -73,18 +72,17 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
     return `(${res.join(' ')})`
   }
 
-  const err = new Error('cannot convert to string');
-  console.log(`d'oh!`, expr)
-  console.log(`ctor-name:`, expr.constructor.name)
-  console.log(err.stack)
-  throw err
+  assertNever(expr)
 };
 
 export const toStringSafe = (expr: Form, inspect = false, lambdaSymbol = 'lambda', repr = true): string => {
   try {
     return toString(expr, inspect, lambdaSymbol, repr);
   } catch (e) {
-    return UNDEF.description!;
+    if (typeof expr === 'string') {
+      return expr
+    }
+    return UNDEF.name;
   }
 };
 

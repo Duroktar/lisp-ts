@@ -1,10 +1,11 @@
-import { isIdent, isList, isNil, isPair, isVec } from "../../guard";
-import { iEnv } from "../../interface/iEnv";
-import { isEqual } from "../../utils";
-import { Expansion, Syntax } from "../callable/macro";
-import { NIL } from "../const";
-import { evaluate } from "../eval";
-import { toString } from "../print";
+import { isIdent, isList, isNil, isPair, isVec } from "../guard";
+import { iEnv } from "../interface/iEnv";
+import { isEqual } from "../utils";
+import { Expansion } from "./callable/macro/expansion";
+import { Syntax } from "./callable/syntax";
+import { NIL } from "./const";
+import { evaluate } from "./eval";
+import { toString } from "./print";
 
 class Value {
   public value: any

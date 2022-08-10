@@ -1,5 +1,6 @@
 import { assert } from "../../utils";
 import type { Form } from "../form";
+import { Token } from "../read";
 
 export class Vector {
   constructor(public data: Form[]) {
@@ -9,4 +10,5 @@ export class Vector {
   public dup() {
     return new Vector([...this.data]);
   }
+  public token?: Token
 }

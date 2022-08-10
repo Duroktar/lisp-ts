@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest'
 import { parse } from "../core/lisp";
-import { createServerWorld } from "../world/server";
+import { createServerEnvironment } from "../env/server";
 import { toString } from '../core/print';
 
 test("(expand) testing quasiquotes", () => {
-  const env = createServerWorld()
+  const env = createServerEnvironment()
   const actual = parse("`(a ,(+ 1 2) ,@(map abs '(4 -5 6)) b)", env);
   const expected = (
     "(cons 'a (cons (+ 1 2) " +

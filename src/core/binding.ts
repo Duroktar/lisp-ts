@@ -1,9 +1,9 @@
-import { isNullOrUndefined, isPair } from "../../../guard"
-import type { iEnv } from "../../../interface/iEnv"
-import type { Pair } from "../../data/pair"
-import { MutableString } from "../../data/string"
-import { evaluate } from "../../eval"
-import type { Form } from "../../form"
+import { isNullOrUndefined, isPair } from "../guard"
+import type { iEnv } from "../interface/iEnv"
+import type { Pair } from "./data/pair"
+import { MutableString } from "./data/string"
+import type { Form } from "./form"
+import { Token } from "./read"
 
 export class Binding {
   constructor(
@@ -15,6 +15,7 @@ export class Binding {
   private _value!: any
 
   public parent?: Pair;
+  public token?: Token;
 
   replace(expression: Form) {
     if (this.parent) {
@@ -28,7 +29,7 @@ export class Binding {
   force() {
     if (!isNullOrUndefined(this._value) && this.memoized)
       return this._value
-    this._value = evaluate(this.expression, this.scope)
+    this._value = this.scope.getFrom(this.expression)
     return this._value
   }
 

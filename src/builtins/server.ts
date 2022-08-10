@@ -3,14 +3,13 @@ import { SocketClient } from "../core/port/Socket/client";
 import { SocketServer } from "../core/port/Socket/server";
 import { ServerSourceFile, StdIn, StdOut } from "../core/port/File/server";
 import { isIdent, isString, isSym } from "../guard";
-import { iWorld } from "../interface/iWorld";
 import { loadFile, loadFromLibrary, parseLoadSymbol } from "../core/load";
 import { assert } from "../utils";
 import { toString } from "../core/print";
 import { Str } from "../core/data/string";
+import { iEnv } from "../interface/iEnv";
 
-export function addServerFeatures(world: iWorld) {
-  const { env } = world
+export function addServerFeatures(env: iEnv) {
 
   env.set('#cwd', Str(process.cwd()));
 
@@ -55,22 +54,22 @@ export function addServerFeatures(world: iWorld) {
   env.define('load', ['file'], ([file]: any) => {
     assert(isString(file) || isIdent(file))
     if (isSym(file)) {
-      return loadFile(parseLoadSymbol(file), world)
+      return loadFile(parseLoadSymbol(file.value), env)
     }
-    return loadFile(file.toString(), world)
+    return loadFile(file.toString(), env)
   });
 
   env.define('load-from-library', ['file'], ([file]: any) => {
     assert(isString(file) || isIdent(file))
-    return loadFromLibrary(file.toString(), world)
+    return loadFromLibrary(file.toString(), env)
   });
 
   env.define('reload', ['file'], ([file]: any) => {
     assert(isString(file) || isIdent(file))
     if (isSym(file)) {
-      return loadFile(parseLoadSymbol(file), world, true)
+      return loadFile(parseLoadSymbol(file.value), env, true)
     }
-    return loadFile(file.toString(), world, true)
+    return loadFile(file.toString(), env, true)
   });
 
 }

@@ -35,8 +35,8 @@ export class StdOut extends File {
 }
 
 export class ServerSourceFile extends File {
-  constructor(filepath: string) {
+  constructor(public name: string) {
     super()
-    this.data = String(readFileSync(filepath))
+    this.data = String(readFileSync(name))
   }
 }

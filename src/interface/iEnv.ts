@@ -3,7 +3,7 @@ import { Callable, Closure } from "../core/callable/proc"
 
 export interface iEnv {
   runtime: any
-  define(name: string, params: string | string[], cb: (args: Form[] | Form, env: iEnv) => any, toArray?: boolean): Callable
+  define(name: string, params: string | string[], cb: (args: Form[] | Form) => Form, toArray?: boolean): Callable
   syntax(name: string, cb: (args: Form, env: iEnv) => any): void
   get<T extends Form | Closure>(name: string): T
   getFrom<T extends Form | Closure>(expr: Form): T

@@ -1,6 +1,6 @@
 import { execute } from './core/lisp';
 import { toString } from './core/print';
-import { createClientWorld } from './world/client';
+import { createClientEnvironment } from './env/client';
 
 const body = document.body
 
@@ -27,7 +27,7 @@ body.appendChild(button)
 
 
 window.addEventListener('load', async () => {
-  const env = await createClientWorld();
+  const env = await createClientEnvironment();
 
   button.onclick = async (e) => {
 

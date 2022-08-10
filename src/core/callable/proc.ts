@@ -1,9 +1,10 @@
 import type { iEnv } from "../../interface/iEnv";
 import { evaluate } from "../eval";
 import type { Form } from "../form";
-import { Env } from "../data/env";
-import type { Syntax } from "../callable/macro/syntax";
+import { Env } from "../env";
+import type { Syntax } from "./syntax";
 import { NativeFunc } from "./func";
+import { Token } from "../read";
 
 export type CallableFunc = (args: Form, env: iEnv) => Form;
 
@@ -14,11 +15,12 @@ export class Procedure {
     public expr: Form,
     public name = 'λ',
   ) {}
-  public call(args: Form, env?: iEnv): Form {
-    const closure = new Env(this.params, args, env ?? this.env)
+  public call(args: Form, scope?: iEnv): Form {
+    const closure = new Env(this.params, args, this.env)
     return evaluate(this.expr, closure);
   }
+  public token?: Token
 }
 
 export type Callable = Procedure | NativeFunc | Syntax
-export type Closure = Callable | Function
+export type Closure = Procedure | NativeFunc

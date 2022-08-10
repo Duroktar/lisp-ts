@@ -1,12 +1,14 @@
+import { LogConfig } from "../../../logging";
 import { range } from "../../../utils"
+import { Symbol } from "../../data/sym";
 import type { Form, List } from "../../form"
-import { Syntax } from "./syntax"
+import { Syntax } from "../syntax"
 import { Tree } from "./tree"
 
-const debug = false;
+const DEBUG = LogConfig.matches;
 
 function debugLog(...args: any[]): void {
-  if (debug) { console.log('[Matches]:'.blue, ...args); }
+  if (DEBUG) { console.log('[Matches]:'.blue, ...args); }
 }
 
 export class Matches {
@@ -26,20 +28,20 @@ export class Matches {
           set.descend(depth)
       })
   }
-  put(sym: symbol, value: Form) {
-    debugLog('put: '.red + sym.description)
-    const name = sym.description!
+  put(sym: Symbol, value: Form) {
+    debugLog('put: '.red + sym.name)
+    const name = sym.name
     if (this.has(sym))
       this.data[name].push(value)
   }
-  has(sym: symbol) {
-    debugLog('has: '.yellow + sym.description)
-    const name = sym.description!
+  has(sym: Symbol) {
+    debugLog('has: '.yellow + sym.name)
+    const name = sym.name
     return name in this.data && this.data[name] !== undefined
   }
-  get(sym: symbol) {
-    debugLog('get: '.gray + sym.description)
-    const name = sym.description!
+  get(sym: Symbol) {
+    debugLog('get: '.gray + sym.name)
+    const name = sym.name
     return this.data[name].read()
   }
   expand(template: any, depth: number, block: Function): void {
