@@ -1,16 +1,15 @@
-import { isChar, isIdent, isList, isNil, isNum, isPair, isString, isSym } from "../../guard";
+import { isChar, isCons, isIdent, isList, isNil, isNum, isPair, isString, isSym, isVec } from "../../guard";
 import type { iEnv } from "../../interface/iEnv";
-import { error } from "../../utils";
+import { LogConfig } from "../../logging";
+import { assert } from "../../utils";
 import { ellipsis } from "../const";
+import { Pair } from "../data/pair";
 import type { Form, List } from "../form";
 import { toString } from "../print";
-import { Pair } from "../data/pair";
 import { NativeFunc } from "./func";
 import { Expansion } from "./macro/expansion";
 import { Matches } from "./macro/matches";
 import { Syntax } from "./syntax";
-import { Env } from "../env";
-import { LogConfig } from "../../logging";
 
 const DEBUG = LogConfig.macro;
 
@@ -53,7 +52,7 @@ export class Macro extends NativeFunc {
     }
     debugLog('no match.. form:', toString(cells))
 
-    error('No match.. form: ' + toString(cells))
+    assert(false, `No match found for: ${toString(cells)}`, cells)
   }
 
   private ruleMatches(
@@ -66,17 +65,16 @@ export class Macro extends NativeFunc {
 
     matches = matches ?? new Matches(pattern, this.formals)
 
-    if (!isNil(pattern) && !isNil(input))
-      debugLog(`comparing`, `\n\tpattern:`.dim, toString(pattern), `\n\tinput:\t`.dim, toString(input))
+    debugLog(`comparing`, `\n\tpattern:`.dim, toString(pattern), `\n\tinput:\t`.dim, toString(input))
 
-    if (isList(pattern)) {
+    if (isCons(pattern)) {
 
       // If pattern is NULL, the input must also be NULL
       if (isNil(pattern))
         return (isNil(input)) ? matches : false
 
       // Fail if the pattern is a list and the input is not
-      if (!isPair(input)) return false
+      if (!isList(input)) { return false }
 
       // Iterate over the pattern, consuming input as we go
       let pattern_pair = pattern as any
@@ -142,6 +140,46 @@ export class Macro extends NativeFunc {
         return false
     }
 
+    else if (isVec(pattern)) {
+
+      // Fail if the pattern is a vector and the input is not
+      if (!isVec(input))
+        return false
+
+      // Iterate over the pattern and input, consuming input cells as we
+      // go. This is very similar to how we handle lists, we should
+      // probably refactor this.
+      let input_index = 0
+      pattern.data.forEach((token, pattern_index) => {
+        if (ellipsis.equal(token))
+          return
+
+        let followed_by_ellipsis = ellipsis.equal(pattern.data[pattern_index + 1])
+        let dx = followed_by_ellipsis ? 1 : 0
+
+        if (followed_by_ellipsis) {
+          matches!.descend(Syntax.patternVars(token, this.formals), depth + dx)
+        }
+
+        const consume = () => {
+          const data = input.data[input_index];
+          return (data !== undefined) &&
+            this.ruleMatches(scope, token, data, matches, depth + dx)
+        }
+
+        let consumed = consume()
+        if (!(consumed || followed_by_ellipsis))
+          return false
+        if (consumed)
+          input_index += 1
+        while (followed_by_ellipsis && consume())
+          input_index += 1
+      })
+
+      if (input_index !== input.size)
+        return false
+    }
+
     // If the pattern is a formal keyword for the macro (a 'literal
     // identifier' in the terms of the spec), return a boolean indicating
     // whether the input is an identifier with the same binding, that is
@@ -168,7 +206,7 @@ export class Macro extends NativeFunc {
     // literal data and make sure the input matches.
     else {
       const rv = this.eqLiteral(pattern, input) ? matches : false;
-      debugLog('eqLiteral:', !!rv)
+      debugLog('Comparing literal data.. Match?', !!rv)
       return rv
     }
 
@@ -184,6 +222,7 @@ export class Macro extends NativeFunc {
       return input.equal(pattern)
     if (isChar(input))
       return input.equal(pattern)
+    debugLog(`[eqLiteral] input: '${toString(input)}' does not match pattern '${toString(pattern)}'`)
     return false
   }
 

@@ -5,7 +5,7 @@ import { Resume } from "../core/callable/cont";
 import { Macro } from "../core/callable/macro";
 import { isSyntax, Syntax } from "../core/callable/syntax";
 import { FALSE, NIL, TRUE, UNDEF } from "../core/const";
-import { Char } from "../core/data/char";
+import { Char, Character } from "../core/data/char";
 import { Num, Number } from "../core/data/num";
 import { cons, list, Pair } from "../core/data/pair";
 import { MutableString, Str } from "../core/data/string";
@@ -19,7 +19,7 @@ import * as Lisp from "../core/lisp";
 import { currentInputPort, currentOutputPort, InPort, OutPort } from "../core/port";
 import { print, toDisplayString, toString, toStringSafe } from "../core/print";
 import { read, readNumber, Token } from "../core/read";
-import { isCallable, isChar, isEmpty, isEofString, isF, isIdent, isInputPort, isIOPort, isList, isMacro, isNativeProc, isNullOrUndefined, isNum, isOutputPort, isPair, isProc, isString, isSym, isT, isVec } from "../guard";
+import { isCallable, isChar, isCons, isEmpty, isEofString, isF, isIdent, isInputPort, isIOPort, isList, isMacro, isNativeProc, isNil, isNullOrUndefined, isNum, isOutputPort, isPair, isProc, isString, isSym, isT, isVec } from "../guard";
 import { iEnv } from "../interface/iEnv";
 import * as Util from "../utils";
 
@@ -53,10 +53,11 @@ export function addGlobals(
   const options = {...defaultOptions, ...opts }
 
   env.syntax('define-syntax', (args, scope) => {
-    Util.assert(isPair(args) && isPair(args.cdr), 'Invalid `define-syntax` form', args)
+    Util.assert(isPair(args) && isPair(args.cdr), `Invalid 'define-syntax' form: ${toStringSafe(args)}`, args)
     const macro = expand(Lisp.cadr(args), env);
     if (isMacro(macro)) macro.name = toString(Lisp.car(args));
     scope.setFrom(Lisp.car(args), macro);
+    return macro;
   })
 
   env.syntax('syntax-rules', (args, scope) => {
@@ -85,6 +86,7 @@ export function addGlobals(
     env.define('eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
 
     env.define('list', 'args', (args: any) => list(...args));
+
   }
   // #region [ rgba(20, 50, 80, 0.8) ] - TScheme
   //  - TScheme
@@ -231,7 +233,11 @@ export function addGlobals(
     // });
 
     env.define('i/o-port?', ['obj'], ([obj]: any) => Util.toL(isIOPort(obj)));
-    env.define('read-from-string', ['obj'], ([obj]: any) => Lisp.tokenize(obj, env));
+    env.define('read-from-string', ['obj'], ([obj]: any) => {
+      Util.assert(isString(obj), `'read-from-string' obj must be a string`, obj);
+      const rv = Lisp.tokenize(obj.valueOf(), env)
+      return list(rv)
+    });
 
     env.define('string-pad-end', ['string', 'maxLength', '.', 'fillString'], ([string, maxLength, ...[fillString]]: any) => {
       Util.assert(isString(string));
@@ -246,16 +252,6 @@ export function addGlobals(
   }
   //#endregion
 
-  /*
-    "here! (1)" "(let ((a 1) (b 2)) (cons a b))"
-    calling apply on: pp-loop
-    "here! (2)"
-    "here! (2.2)" (let ((a 1) (b 2)) (cons a b))
-    "pair? (2.2)" #t
-    "null? (2.2)" #f
-    "here! (3)"
-    called apply with a non procedure
-  */
   // #region [ rgba(0, 50, 150, 0.5) ] - r5rs
   // - r5rs
 
@@ -388,22 +384,24 @@ export function addGlobals(
                     memo)))))))
     `, env)
 
-    // Lisp.execute(
-    //   "(define-syntax quasiquote (syntax-rules (unquote unquote-splicing) " +
-    //   " (`,expr                 expr)" +
-    //   " (`(,@first . rest)      (append first `rest))" +
-    //   " (`(first . rest)        (cons `first `rest))" +
-    //   " (`#(,@first rest ...)   (list->vector `(,@first rest ...)))" +
-    //   " (`#(expr ...)           (list->vector `(expr ...)))" +
-    //   " (`expr                  'expr)))"
-    // , world)
+    Lisp.execute(
+      "(define-syntax quasiquote (syntax-rules (unquote unquote-splicing) " +
+      " (`,expr                 expr)" +
+      " (`(,@first . rest)      (append first `rest))" +
+      " (`(first . rest)        (cons `first `rest))" +
+      " (`#(,@first rest ...)   (list->vector `(,@first rest ...)))" +
+      " (`#(expr ...)           (list->vector `(expr ...)))" +
+      " (`expr                  'expr)))"
+    , env)
 
     //  - 6. Standard procedures
     // - 6.1 Equivalence Predicates
 
     env.define('eqv?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEqv(a, b)));
     env.define('eq?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEq(a, b)));
-    env.define('equal?', ['a', 'b'], ([a, b]: any) => Util.toL(Util.isEqual(a, b)));
+    env.define('equal?', ['a', 'b'], ([a, b]: any) => {
+      return Util.toL(Util.isEqual(a, b))
+    });
     // END - 6.1 Equivalence predicates
 
     // - 6.2 Numbers
@@ -621,7 +619,7 @@ export function addGlobals(
       return NIL;
     });
     env.define('set-cdr!', ['l', 'v'], ([l, v]: any) => {
-      Util.assert(isPair(l), 'invalid `set-cdr!` argument: ' + toString(l))
+      Util.assert(isPair(l), 'invalid `set-cdr!` argument: ' + toStringSafe(l))
       l.cdr = v
       return NIL;
     });
@@ -663,15 +661,16 @@ export function addGlobals(
 
     // library procedure: list-tail list k
     env.define('list-tail', ['list', 'k'], ([lst, k]: any) => {
-      Util.assert(isList(lst))
-      if (isEmpty(lst))
+      Util.assert(isList(lst), `'list-tail' 'list' must be a list`, lst)
+      if (isNil(lst))
         return lst
       return lst.tail
     });
     // library procedure: list-ref list k
     env.define('list-ref', ['list', 'k'], ([lst, k]: any) => {
-      Util.assert(isList(lst), `'list-ref' must be a list`, lst)
-      if (isEmpty(lst))
+      Util.assert(isList(lst), `'list-ref' 'list' must be a list`, lst)
+      Util.assert(isNum(k), `'list-ref' k must be a number`, lst)
+      if (isNil(lst))
         return lst
       return lst.at(k.value)
     });
@@ -846,17 +845,17 @@ export function addGlobals(
       Util.assert(isString(string))
       return list(...string.toString().split('').map(c => Char(c)))
     });
-    env.define('list->string', ['list', '...'], ([list]: any) => {
-      Util.assert(isPair(list) && list.every(isString))
-      return Str(list.toArray().join(''))
+    env.define('list->string', ['list'], ([list]: any) => {
+      Util.assert(isPair(list) && list.every(isChar), 'list->string requires all items to be characters', list)
+      return Str((<Character[]>list.toArray()).map(c => c.displayText).join(''))
     });
     env.define('string-copy', ['string'], ([string]: any) => {
-      Util.assert(isString(string))
+      Util.assert(isString(string), 'string-copy takes a string', string)
       return Str(string.toString())
     });
     env.define('string-fill!', ['string', 'char'], ([string, char]: any) => {
-      Util.assert(isString(string))
-      Util.assert(isChar(char))
+      Util.assert(isString(string), 'string-fill! takes a string (arg: 1)', string)
+      Util.assert(isChar(char), 'string-fill! takes a string (arg: 2)', char)
       return string.replaceAll(/.*/, char.displayText)
     });
     // END - 6.3.5 Strings
@@ -865,9 +864,8 @@ export function addGlobals(
     env.define('vector?', ['obj'], ([obj]: any) => {
       return Util.toL(isVec(obj))
     });
-    env.define('make-vector', ['k', 'fill?'], ([k, fill = 0]: any) => {
+    env.define('make-vector', ['k', 'fill?'], ([k, fill = Num(0)]: any) => {
       Util.assert(isNum(k), 'make-vector not given a size')
-      // Util.assert(fill === undefined, 'make-vector fill option not implemented')
       const arr = Array(k).fill(fill);
       return new Vector(arr);
     });
@@ -912,7 +910,8 @@ export function addGlobals(
       return Util.toL(isProc(obj) || isNativeProc(obj))
     });
     env.define('apply', ['proc', '.', 'args'], ([proc, ...args]: any) => {
-      Util.assert(isCallable(proc), 'called apply with a non procedure')
+      Util.assert(isCallable(proc), `called apply on proc: "${proc.name}" with a non procedure`)
+      // Util.assert(isCons(args), `called apply on proc: "${proc.name}" with no argument list`, args)
       // Note: `Apply` calls `proc` with the elements of the list
       // `(append (list arg1 ...) args)` as the actual arguments.
       return proc.call(Util.append(list(...args.slice(0, -1)), args[args.length - 1]))
@@ -948,7 +947,6 @@ export function addGlobals(
           return proc.call(list(fn));
         } catch (err) {
           if (err instanceof RuntimeWarning) {
-            // console.log('RuntimeWarning (call/cc)')
             return ball.retval;
           }
           else {
@@ -956,6 +954,7 @@ export function addGlobals(
           }
         }
       }
+
       throw new InvalidCallableExpression(proc);
     });
 
@@ -1011,9 +1010,7 @@ export function addGlobals(
     // - 6.6.2 Input
     env.define('read', ['port'], ([port]: any) => {
       const p: InPort = port ?? currentInputPort(env)
-      // console.log('reading port', p.name)
       const data = read(p, env);
-      // console.log('reading port (data):', data)
       return data
     });
 
@@ -1027,7 +1024,10 @@ export function addGlobals(
       return Char(p.peekChar())
     });
 
-    env.define('eof-object?', ['obj'], ([obj]: any) => Util.toL(isEofString(obj)));
+    env.define('eof-object?', ['obj'], ([obj]: any) => {
+      const rv = Util.toL(isEofString(obj))
+      return rv
+    });
 
     env.define('char-ready?', ['port'], ([port]: any) => {
       const p: InPort = port ?? currentInputPort(env)
@@ -1080,9 +1080,10 @@ export function addGlobals(
     env.define('display-to-string', ['obj'], ([obj]: any) => {
       return Str(toString(obj, undefined, undefined, false))
     });
-    env.define('write-to-string', ['obj'], ([obj]: any) => {
-      return Str(toString(obj))
-    });
+    // env.define('write-to-string', ['obj'], ([obj]: any) => {
+    //   console.log('write-to-string')
+    //   return Str(toString(obj))
+    // });
     // END - 6.6.3 Output
 
     // - 6.6.4 System interface
@@ -1113,9 +1114,28 @@ export function addGlobals(
 
   if (options.misc) {
 
-    env.define('macroexpand', ['expr'], ([expr]: any) => {
-      // console.log(toStringSafe(env.get<Procedure>('equal?').expr))
-      const rv = expand(expr, env, true);
+    env.define('list-join', ['list'], ([list, sep = Char('\n')]: any) => {
+      Util.assert(isPair(list) && list.every(isString), 'list->join requires all items to be string', list)
+      Util.assert(isChar(sep), 'list->join requires separator to be a character', sep)
+      return Str((<MutableString[]>list.toArray()).map(c => c.valueOf()).join(sep.displayText))
+    });
+
+    env.define('macroexpand', ['expr', '.', 'opts'], ([expr, opts]: any) => {
+      let options: Record<string, string[]> | undefined = undefined
+      if (isPair(opts)) {
+        for (let o of opts.each()) {
+          options = options ?? {}
+          const [key, value] = Util.sequence(Lisp.car, Lisp.cadr, o)
+          Util.assert(isSym(key), 'key must be Symbol', key)
+          Util.assert(isList(value), 'value must be List', value)
+          options[key.name] = isNil(value) ? [] : value.toArray().map(o => {
+            Util.assert(isSym(o), 'key value must be Symbol', o)
+            return o.name
+          })
+        }
+      }
+
+      const rv = expand(expr, env, true, <any>options);
       return rv
     });
 
@@ -1139,8 +1159,8 @@ export function addGlobals(
         return cons(FALSE, Str('InvalidCallableExpression'))
       } catch (err) {
         if (err instanceof RuntimeWarning) {
-          console.log('RuntimeWarning (try)')
-          return err.retval // continuation
+          // console.log('RuntimeWarning (try)', toStringSafe(err.retval))
+          return cons(FALSE, err.retval) // continuation
         }
         if (err instanceof Error) {
           return cons(FALSE, Str(err.message));
@@ -1237,9 +1257,11 @@ export function addGlobals(
 
 }
 
-function getToken(x: any) {
-  if (isPair(x) || isString(x) || isNum(x) || isChar(x) || isIdent(x))
-    return x.token
+export function getToken(x: Form | undefined): Token | undefined {
+  const result = x?.token
+  if (result === undefined && isPair(x))
+    return getToken(x.car) ?? getToken(x.cdr)
+  return result
 }
 
 function getLineInfo(token: Token) {

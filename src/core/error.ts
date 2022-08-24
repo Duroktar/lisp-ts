@@ -1,3 +1,4 @@
+import colors from "colors"
 import lc from "line-column"
 import {Label, Range, Report, ReportKind, Source, mkStringWriter} from "ariadne-ts"
 import type { Form } from "./form";
@@ -5,6 +6,8 @@ import type { Syntax } from "./callable/syntax";
 import { toString, toStringSafe } from "./print";
 import { Position } from "./../utils";
 import { Port } from "./port";
+import { Token } from "./read";
+import { getToken } from "../builtins";
 
 export type SourceInfo = {
   source: string
@@ -53,13 +56,14 @@ export class UndefinedVariableError extends Error {
   static errno: number = ErrorCode.UndefinedVariableError;
   constructor(public name: string, public expr?: Form) {
     super(`Error: undefined variable: ${name}`);
-    if (expr && 'token' in expr && expr.token) {
+    const token = getToken(expr);
+    if (token) {
       const msg = mkStringWriter()
 
-      const source = expr.token.port.file.data
-      const sourceName = expr.token.port.file.name
+      const source = token.port.file.data
+      const sourceName = token.port.file.name
 
-      const variableLabel = Label.from([sourceName, expr.token.range]);
+      const variableLabel = Label.from([sourceName, token.range]);
 
       Report.build(ReportKind.Error, sourceName, 34)
         .with_code(UndefinedVariableError.errno)
@@ -167,11 +171,33 @@ export class SocketServerUnavailableError extends Error {
 }
 
 export class AssertionError extends Error {
+  static errno: number = ErrorCode.AssertionError;
   constructor(
     public message: string,
     public form?: Form,
   ) {
-    super(`${message}\t${form ? toStringSafe(form) : ''}`)
+    super(message)
+    const token = getToken(this.form)
+    this.message = this.getMessage(token)
+  }
+  getMessage(token: Token | undefined) {
+
+    if (!token) { return this.message }
+
+    const msg = mkStringWriter()
+
+    const { range, port: { file: { data: source, name: sourceName } } } = token
+
+    const startLabel = Label.from([sourceName, range]);
+
+    Report.build(ReportKind.Custom(AssertionError.name, undefined, colors.rainbow), sourceName, 34)
+      .with_code(AssertionError.errno)
+      .with_message(this.message)
+      .with_label(startLabel.with_message(`This where the ${'assertion'.cyan} occurred.`))
+      .finish()
+      .print([sourceName, Source.from(source)])
+
+    return msg.unwrap()
   }
 }
 
@@ -191,6 +217,10 @@ export type FormatErrorOptions = {
   start: Position;
   end: Position;
 };
+
+function hasToken(expr: Form | undefined): expr is Form & {token: Token} {
+  return !!(expr && 'token' in expr && expr.token);
+}
 
 export function formatError(source: string, options: FormatErrorOptions) {
   const lines = source.split('\n');

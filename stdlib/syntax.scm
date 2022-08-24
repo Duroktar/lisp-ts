@@ -145,17 +145,17 @@
               (set! forced #t)
               memo)))))))
 
-; ;-------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
 
-; ; Quasiquotation
+; Quasiquotation
 
-; ; (quasiquote) is similar to (quote), except that when it encounters an
-; ; (unquote) or (unquote-splicing) expression it will evaluate it and insert the
-; ; result into the surrounding quoted list.
-; (define-syntax quasiquote (syntax-rules (unquote unquote-splicing)
-;   (`,expr                 expr)
-;   (`(,@first . rest)      (append first `rest))
-;   (`(first . rest)        (cons `first `rest))
-;   (`#(,@first rest ...)   (list->vector `(,@first rest ...)))
-;   (`#(expr ...)           (list->vector `(expr ...)))
-;   (`expr                  'expr)))
+; (quasiquote) is similar to (quote), except that when it encounters an
+; (unquote) or (unquote-splicing) expression it will evaluate it and insert the
+; result into the surrounding quoted list.
+(define-syntax quasiquote (syntax-rules (unquote unquote-splicing)
+  (`,expr                 expr)
+  (`(,@first . rest)      (append first `rest))
+  (`(first . rest)        (cons `first `rest))
+  (`#(,@first rest ...)   (list->vector `(,@first rest ...)))
+  (`#(expr ...)           (list->vector `(expr ...)))
+  (`expr                  'expr)))

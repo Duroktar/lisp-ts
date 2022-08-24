@@ -78,17 +78,17 @@
       (append (reverse (cdr object))
               (list (car object)))))
 
-; (list-tail list k)
-; Returns the sublist of list obtained by omitting the first k elements.
-(define (list-tail list k)
-  (do ((pair list (cdr pair))
-       (i k (- i 1)))
-      ((zero? i) pair)))
+; ; (list-tail list k)
+; ; Returns the sublist of list obtained by omitting the first k elements.
+; (define (list-tail list k)
+;   (do ((pair list (cdr pair))
+;        (i k (- i 1)))
+;       ((zero? i) pair)))
 
-; (list-ref list k)
-; Returns the kth element of list.
-(define (list-ref list k)
-  (car (list-tail list k)))
+; ; (list-ref list k)
+; ; Returns the kth element of list.
+; (define (list-ref list k)
+;   (car (list-tail list k)))
 
 ; (memq obj list)
 ; (memv obj list)

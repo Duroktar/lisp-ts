@@ -19,7 +19,7 @@ import { LogConfig } from '../logging';
 const DEBUG = LogConfig.read
 
 function debugLog(...args: string[]): void {
-  if (DEBUG) { console.log('[Read.NEW]:', ...args) }
+  if (DEBUG) { console.log('[Read]:'.yellow, ...args); }
 }
 
 const numberRegex = /^\#?(?:(?<radix>(?:(?:[e|i]?[b|o|d|x]{1})|(?:[b|o|d|x]{1}[e|i]?))?)(?:(?<integer>\d*)|(?<number>(?:\d+(?:\.(?:\d)+))))(?<precision>(?:[s|f|d|l]{1}\d+))?)$/gim
@@ -111,6 +111,8 @@ export function read(port: InPort, env: iEnv): Form {
     advance();
 
     while (!isDblQt() && !isNewLine() && !isEOF()) {
+      if (current() === '\\')
+        advance();
       stringValue += advance()
     }
 
@@ -273,10 +275,12 @@ export function read(port: InPort, env: iEnv): Form {
         throw SyntaxError('unexpected )')
       }
       case 'quote': {
+        debugLog('reading quote')
         const quote = shortQuoteToLongQuote(token.value)
         return list(quote, read_ahead(next_token()))
       }
       case 'hash': {
+        debugLog('reading hash')
         token = next_token()
         if (token.type === 'open') {
           const items = read_ahead(token);
@@ -289,12 +293,16 @@ export function read(port: InPort, env: iEnv): Form {
         throw new SyntaxError('unexpected EOF')
       }
       case 'char':
+        debugLog('reading char:', token.value)
         return Char(token.value, token)
       case 'string':
+        debugLog('reading string:', token.value)
         return Str(token.value, token)
       case 'symbol':
+        debugLog('reading symbol:', token.value)
         return Sym(token.value, token)
       case 'number':
+        debugLog('reading number:', token.value.toString())
         return token.value
       default: {
         return assertNever(token)

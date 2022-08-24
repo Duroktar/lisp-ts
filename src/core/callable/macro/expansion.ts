@@ -1,15 +1,15 @@
-import { isIdent, isList, isNil, isPair } from "../../../guard";
+import { isCons, isIdent, isList, isNil, isPair } from "../../../guard";
 import type { iEnv } from "../../../interface/iEnv";
-import { ellipsis, NIL } from "../../const";
-import { Pair } from "../../data/pair";
+import { LogConfig } from "../../../logging";
+import { Binding } from "../../binding";
+import { ellipsis } from "../../const";
+import { list, Pair } from "../../data/pair";
+import { Sym, Symbol } from "../../data/sym";
 import type { Form, List } from "../../form";
 import { cadr } from "../../lisp";
-import { Binding } from "../../binding";
-import type { Matches } from "./matches";
-import { toString } from "../../print";
+import { toString, toStringSafe } from "../../print";
 import { Token } from "../../read";
-import { Sym, Symbol } from "../../data/sym";
-import { LogConfig } from "../../../logging";
+import type { Matches } from "./matches";
 
 const DEBUG = LogConfig.expansion;
 
@@ -40,26 +40,28 @@ export class Expansion {
     ignoringEllipses = false,
   ): Form {
 
-    debugLog('expanding template:', toString(template))
+    debugLog('expanding template:'.dim.blue, toString(template))
 
-    if (isList(template)) {
+    if (isCons(template)) {
+      debugLog('template is a list ..'.dim)
 
       if (isNil(template)) {
-        debugLog('template is nil ..')
+        debugLog('template is nil ..'.dim)
         return template
       }
 
       if (ellipsis.equal(template.car)) {
-        debugLog('template car is an ellipsis.. expanding cadr(template)')
+        debugLog('template car is an ellipsis.. expanding cadr(template)'.dim)
         return this.expand(cadr(template), matches, depth, true)
       }
 
       let result        : any = null,
-          last          : any = null,
+          last          : any = list(),
           repeater      : any = null,
           template_pair : any = template;
 
       const push = (value: Form) => {
+        debugLog('push'.dim, toStringSafe(value))
         let pair = new Pair(value)
         pair.hosts(value)
         result = result ?? pair
@@ -86,7 +88,10 @@ export class Expansion {
         // Once we reach an ellipsis, expand the preceeding form the
         // correct number of times depending on the +matches+
         if (ellipsis.equal(cell) && !ignoringEllipses) {
+          debugLog('Expand the preceeding form the correct number of times'.dim)
+          let n = 1
           matches.expand(repeater, depth + 1, () => {
+            debugLog(`Expanding (${n})`)
             push(this.expand(repeater, matches, depth + 1))
           })
         }
@@ -95,6 +100,7 @@ export class Expansion {
         // followed by an ellipsis, expand it and push the result onto
         // the output
         else if (!followed_by_ellipsis) {
+          debugLog('Not an ellipsis and is not followed by an ellipsis'.dim)
           push(this.expand(cell, matches, depth + dx, ignoringEllipses))
         }
 
@@ -103,12 +109,14 @@ export class Expansion {
 
       // Handle the tail of improper list templates
       if (!isNil(last)) {
+        debugLog(`Handle the tail of improper list templates (last: ${toStringSafe(last)})`.dim.red)
         last.cdr = this.expand(template_pair, matches, depth, ignoringEllipses)
       }
 
-      debugLog('returning result:', toString(result))
-      return result
+      debugLog('returning result:'.blue, toStringSafe(result))
+      return result ?? list()
     }
+    // TODO: Vectors
     else if (isIdent(template)) {
       // If the template is a pattern variable, return the current match
       // for that variable. See +Matches+ to see how repeated patterns

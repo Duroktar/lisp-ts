@@ -10,5 +10,8 @@ export class Vector {
   public dup() {
     return new Vector([...this.data]);
   }
+  public get size(): number {
+    return this.data.length
+  }
   public token?: Token
 }

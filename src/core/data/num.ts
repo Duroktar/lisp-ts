@@ -58,7 +58,7 @@ export class Number {
     return this.value <= other.value;
   }
   isZero(): boolean {
-    throw this.value === 0;
+    return this.value === 0;
   }
 
   toJS(): number { return this.value }

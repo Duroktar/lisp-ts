@@ -21,8 +21,6 @@
 
 ; This implementation is inefficient, use "fluid-let.scm" instead.
 
-; (load-from-library "syntax-rules.scm")
-
 (define-syntax fluid-let
   (syntax-rules ()
     ((_ () expr . exprs)

@@ -36,9 +36,7 @@ export const caaddr = (e: any) => car(car(cdr(cdr(e))))
 
 export function tokenizeWithPort(code: string, env: iEnv): [Form, Port] {
   const port = InPort.fromString(code);
-  return decorateErrorWithSourceInfo(() => {
-    return [read(port, env), port];
-  }, port)
+  return [read(port, env), port];
 };
 
 export function tokenize(code: string, env: iEnv): Form {
@@ -48,9 +46,7 @@ export function tokenize(code: string, env: iEnv): Form {
 export function parseWithPort(code: string, env: iEnv): [Form, Port] {
   const port = InPort.fromString(code);
   const tokens = read(port, env);
-  return decorateErrorWithSourceInfo(() => {
-    return [expand(tokens, env, true), port];
-  }, port)
+  return [expand(tokens, env, true), port];
 };
 
 export function parse(code: string, env: iEnv): Form {
@@ -59,10 +55,8 @@ export function parse(code: string, env: iEnv): Form {
 
 export function execute(code: string, env: iEnv): Form {
   const [parsed, port] = parseWithPort(code, env);
-  return decorateErrorWithSourceInfo(() => {
-    const result = evaluate(parsed, env);
-    return result;
-  }, port)
+  const result = evaluate(parsed, env);
+  return result;
 };
 
 export function debugExecute(code: string, env: iEnv): Form {

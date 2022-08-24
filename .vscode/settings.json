@@ -4,6 +4,7 @@
         "titleBar.activeBackground": "#890601",
         "titleBar.activeForeground": "#FFFBFB"
     },
+    "magic-racket.lsp.enabled": false,
     "typescript.tsdk": "node_modules/typescript/lib",
     "files.exclude": {
         "**/.git": true,
@@ -22,7 +23,7 @@
         "**/dist": true,
         "src/core/data/macro/__scratch.ts": true,
         "src/core/data/macro/__syntax.old.ts": true,
-        "src/core/read.old.ts": true,
+        "src/core/read.old.ts": true
     },
     "vitest.commandLine": "yarn test --",
     "vitest.enable": true,

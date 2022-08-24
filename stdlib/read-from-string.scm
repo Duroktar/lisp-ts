@@ -39,7 +39,6 @@
 
 (define (read-from-string s . opts)
 
-  (writeln "here! (ROF)")
 
   (define LPAREN #\()
   (define RPAREN #\))
@@ -58,7 +57,6 @@
       (and (memv c separators) #t))))
 
   (define (skip-blanks s)
-    (writeln "skip-blanks")
     (cond ((null? s)
             '())
           ((char-whitespace? (car s))
@@ -67,7 +65,6 @@
             s)))
 
   (define (skip-to-next-line s)
-    (writeln "skip-to-next-line")
     (cond ((null? s)
             '())
           ((char=? #\newline (car s))
@@ -86,11 +83,9 @@
             (and (memv c symbol-chars) #t)))))
 
   (define (extract-symbol s)
-    (print "extract-symbol" s)
     (letrec
       ((extract-symbol2
          (lambda (s sym)
-           (writeln "extract-symbol2")
            (cond ((or (null? s)
                       (separator? (car s)))
                    (cons (list->string (reverse! sym)) s))
@@ -99,13 +94,10 @@
       (extract-symbol2 s '())))
 
   (define (read-symbol s)
-    (writeln "read-symbol")
     (let ((x (extract-symbol s)))
-      (writeln "read-symbol inner")
       (cons (string->symbol (car x)) (cdr x))))
 
   (define (read-symbol-or-number s)
-    (writeln "read-symbol")
     (let ((x (extract-symbol s)))
       (cond ((string->number (car x))
               => (lambda (n)
@@ -114,7 +106,6 @@
               (cons (string->symbol (car x)) (cdr x))))))
 
   (define (read-string s)
-    (writeln "read-string")
     (letrec
       ((rev-lst->str!
          (lambda (s)
@@ -135,7 +126,6 @@
       (read-string3 (cdr s) '() #f)))
 
   (define (read-character s)
-    (writeln "read-character")
     (cond ((null? (cddr s))
             "read-from-string: bad char literal")
           ((null? (cdddr s))
@@ -165,7 +155,6 @@
                 x)))))
 
   (define (read-pair s)
-    (writeln "read-pair")
     (letrec
       ((read-list
          (lambda (s lst)
@@ -249,7 +238,6 @@
 
   (define (char-list->datum s)
     (let ((s (skip-blanks s)))
-      (writeln "char-list->datum")
       (cond ((null? s)
               '())
             ((char=? #\; (car s))
@@ -288,11 +276,7 @@
   (accept-keywords "read-from-string" opts '(convert-unreadable))
   (set! convert-unreadable (keyword-value opts 'convert-unreadable #f))
 
-  (print "here! (ROF) 2")
   (let ((r (string->datum s)))
-
-    ; (print "here! (ROF) r->" r)))
-
     (if (pair? r)
         (if (null? (cdr r))
             (list (car r))

@@ -10,8 +10,14 @@ import { InPort, Port } from "./port";
 import { ServerSourceFile } from "./port/File/server";
 import { read } from "./read";
 import { isString } from "../guard";
-import { decorateErrorWithSourceInfo } from "./error";
 import { iEnv } from "../interface/iEnv";
+import { LogConfig } from "../logging";
+
+const DEBUG = LogConfig.load;
+
+function debugLog(...args: any[]): void {
+  if (DEBUG) { console.log('[Load]:'.blue, ...args); }
+}
 
 export function parseLoadSymbol(sym: symbol, ext = '.scm') {
   const repr = sym.description
@@ -26,6 +32,7 @@ export function parseLoadSymbol(sym: symbol, ext = '.scm') {
 }
 
 export function readFile(path: string, env: iEnv): [Form[], Port] {
+  debugLog('read'.dim.yellow, path)
   const port = new InPort(new ServerSourceFile(path), 'file');
   const getNext = () => read(port, env);
   let terms = [];
@@ -41,41 +48,44 @@ export function readFile(path: string, env: iEnv): [Form[], Port] {
 
 export function parseFile(path: string, env: iEnv): [Form[], Port] {
   const [file, port] = readFile(path, env);
-  return decorateErrorWithSourceInfo(() => {
-    const rv: Form[] = []
-    for (let f of file) {
-      rv.push(expand(f, env, true))
-    }
-    return [rv, port];
-  }, port)
+  const rv: Form[] = []
+  debugLog('parse'.dim.blue, path)
+  for (let f of file) {
+    rv.push(expand(f, env, true))
+  }
+  return [rv, port];
 };
 
 export function executeFile(path: string, env: iEnv): Form[] {
   const [file, port] = parseFile(path, env);
-  return decorateErrorWithSourceInfo(() => {
-    const rv: Form[] = []
-    for (let form of file) {
-      rv.push(evaluate(form, env))
-    }
-    return rv;
-  }, port)
+  const rv: Form[] = []
+  debugLog('execute'.red, path)
+  for (let form of file) {
+    rv.push(evaluate(form, env))
+  }
+  return rv;
 };
 
 export function loadFile(file: string, env: iEnv, bustCache = true) {
+  debugLog('load'.dim.green, file, 'bustcache:'.dim, String(bustCache).dim.blue)
   return loadFileFromCache(file, env, bustCache)
 };
 
 export function loadFromLibrary(file: string, env: iEnv, bustCache = true) {
+  debugLog('loadFromLibrary'.dim.green, file, 'bustcache:'.dim, String(bustCache).dim.blue)
   const libPath = join('stdlib', file);
   return loadFile(libPath, env, bustCache)
 }
 
 export function loadFileFromCache(file: string, env: iEnv, bustCache = true) {
+  debugLog('loadFileFromCache'.dim.green, file, 'bustcache:'.dim, String(bustCache).dim.blue)
   if (!TSchemeModuleFS.loaderCache.has(file) || bustCache) {
     const cacheData = new TSchemeModuleFS(file)
 
     if (isAbsolute(file)) {
       const absPath = join(env.get('#cwd').toString(), file);
+
+      debugLog('loading file'.green, '(absPath)'.dim, absPath)
       executeFile(absPath, env);
     } else {
       const fromPath = env.get('#cwd');
@@ -88,10 +98,12 @@ export function loadFileFromCache(file: string, env: iEnv, bustCache = true) {
       assert(existsSync(relPath),
         `import not found: ${relPath}`)
 
+      debugLog('loading file'.green, '(relpath)'.dim, relPath)
       executeFile(relPath, env);
     }
     TSchemeModuleFS.loaderCache.set(file, cacheData);
   }
 
+  debugLog('returning cached file'.yellow, file)
   return TSchemeModuleFS.loaderCache.get(file)!
 };

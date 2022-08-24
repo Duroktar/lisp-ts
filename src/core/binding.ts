@@ -1,8 +1,13 @@
-import { isNullOrUndefined, isPair } from "../guard"
+import { isNullOrUndefined, isPair, isSym } from "../guard"
 import type { iEnv } from "../interface/iEnv"
-import type { Pair } from "./data/pair"
+import { assert } from "../utils"
+import { list, Pair } from "./data/pair"
 import { MutableString } from "./data/string"
+import { Env } from "./env"
+import { UndefinedVariableError } from "./error"
+import { evaluate } from "./eval"
 import type { Form } from "./form"
+import { toString } from "./print"
 import { Token } from "./read"
 
 export class Binding {
@@ -17,6 +22,11 @@ export class Binding {
   public parent?: Pair;
   public token?: Token;
 
+  get name(): string {
+    assert(isSym(this.expression), 'Binding expression must be a Symbol', this)
+    return this.expression.name
+  }
+
   replace(expression: Form) {
     if (this.parent) {
       if (isPair(this.parent)) {
@@ -29,7 +39,7 @@ export class Binding {
   force() {
     if (!isNullOrUndefined(this._value) && this.memoized)
       return this._value
-    this._value = this.scope.getFrom(this.expression)
+    this._value = evaluate(this.expression, this.scope)
     return this._value
   }
 
@@ -50,5 +60,16 @@ export class Binding {
 
   innermost_binding(identifier: string) {
     return this.scope
+  }
+}
+
+export class ForwardDeclaration extends Binding {
+  constructor(
+    expression: Form,
+  ) {
+    super(expression, new Env(list(), list()), false)
+  }
+  eval(scope: iEnv): Form {
+      throw new UndefinedVariableError(toString(this.expression))
   }
 }

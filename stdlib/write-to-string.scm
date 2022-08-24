@@ -21,8 +21,6 @@
 (define (make-string-writer readable)
   (lambda (x)
 
-    (print "make-string-writer")
-
     (define (stringify-improper-list a first)
       (cond
         ((pair? a)
@@ -64,23 +62,17 @@
                   (q (cdr si) (cons (car si) so)))))))
 
     (define (to-string x)
-      (print "to-string" x)
-      (print "to-string (?)" (eq? #f x))
       (cond ((eq? #t x)
-              (print "to-string:(eq? #t)")
               "#t")
             ((eq? #f x)
-              (print "to-string:(eq? #f)")
               "#f")
             ((symbol? x)
-              (print "to-string:symbol?")
               (symbol->string x))
             ((number? x)
               (number->string x))
             ((char? x)
               (char->string x))
             ((string? x)
-              (print "to-string:string?")
               (if readable
                   (string-append "\"" (quote-string x) "\"")
                   x))

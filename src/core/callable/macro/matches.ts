@@ -2,6 +2,7 @@ import { LogConfig } from "../../../logging";
 import { range } from "../../../utils"
 import { Symbol } from "../../data/sym";
 import type { Form, List } from "../../form"
+import { toString } from "../../print";
 import { Syntax } from "../syntax"
 import { Tree } from "./tree"
 
@@ -21,7 +22,7 @@ export class Matches {
       .forEach(name => { this.data[name] = new Tree(name) })
   }
   descend(names: string[], depth: number) {
-    debugLog('descend: ' + names.join(', '))
+    debugLog('descend ' + names.join(', '))
     Object.entries(this.data)
       .forEach(([name, set]) => {
         if (names.includes(name))
@@ -29,23 +30,25 @@ export class Matches {
       })
   }
   put(sym: Symbol, value: Form) {
-    debugLog('put: '.red + sym.name)
+    debugLog('put '.red + sym.name)
     const name = sym.name
     if (this.has(sym))
       this.data[name].push(value)
   }
   has(sym: Symbol) {
-    debugLog('has: '.yellow + sym.name)
     const name = sym.name
-    return name in this.data && this.data[name] !== undefined
+    const rv = name in this.data && this.data[name] !== undefined;
+    debugLog('has '.yellow + sym.name.blue, String(rv).dim.green)
+    return rv
   }
   get(sym: Symbol) {
-    debugLog('get: '.gray + sym.name)
     const name = sym.name
-    return this.data[name].read()
+    const rv = this.data[name].read()
+    debugLog('get'.gray, sym.name.blue, 'got'.dim, toString(rv).green)
+    return rv
   }
   expand(template: any, depth: number, block: Function): void {
-    debugLog('expand')
+    debugLog('expand'.dim)
     const names = Syntax.patternVars(template);
     range(0, this.size(names, depth)).forEach(() => {
       block();
@@ -53,7 +56,6 @@ export class Matches {
     })
   }
   size(names: any[], depth: number): number {
-    debugLog('size')
     let sizes: any[] = []
     Object.entries(this.data).forEach(([name, tree]) => {
       if (names.includes(name)) {
@@ -64,9 +66,11 @@ export class Matches {
 
     // sizes = sizes.compact.uniq
     let _sizes = [...new Set(sizes.filter(o => o !== undefined))]
-    debugLog('sizes'.rainbow, _sizes)
-    if (_sizes.length == 1)
-      return _sizes[0]
+    if (_sizes.length == 1) {
+      const rv = _sizes[0];
+      debugLog('size'.rainbow, rv)
+      return rv
+    }
 
     throw new Error(
       "Macro could not be expanded: mismatched repetition patterns")

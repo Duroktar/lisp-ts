@@ -55,13 +55,13 @@ export class Tree {
   tail(depth: number) {
     debugLog('tail depth:'.dim, depth)
     return range(0, depth)
-      .reduce(list => list[list.length-1], <any>this.data)
+      .reduce<any>(list => list[list.length-1], this.data)
   }
   current(depth: number) {
     debugLog('current depth:'.cyan, depth)
     return range(0, depth)
       .map(i => this.indexes[i])
-      .reduce((list, i) => list[i], <any>this.data)
+      .reduce<any>((list, i) => list[i], this.data)
   }
 
   get indexes(): number[] {

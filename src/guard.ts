@@ -18,6 +18,7 @@ import { Number } from "./core/data/num";
 export const isList = (x: any): x is List => (isPair(x) && x.isList()) || isEmpty(x);
 export const isAtom = (x: any): x is Atom => isSym(x) || isString(x) || isNum(x);
 export const isPair = (x: any): x is Pair => x instanceof Pair;
+export const isCons = (x: any): x is Pair | Symbol => isPair(x) || isEmpty(x);
 export const isSym = (x: any): x is Symbol => x instanceof Symbol;
 export const isNum = (x: any): x is Number => x instanceof Number;
 export const isVec = (x: any): x is Vector => x instanceof Vector;

@@ -6,7 +6,7 @@ export interface iEnv {
   define(name: string, params: string | string[], cb: (args: Form[] | Form) => Form, toArray?: boolean): Callable
   syntax(name: string, cb: (args: Form, env: iEnv) => any): void
   get<T extends Form | Closure>(name: string): T
-  getFrom<T extends Form | Closure>(expr: Form): T
+  getFrom<T extends Form | Closure>(expr: Form, name?: string): T
   getOrDefault<T extends Form | Closure>(name: string, d?: any): T | any
   set(name: string, value: Form | Closure): void
   setFrom(expr: Form, value: Form | Closure): void

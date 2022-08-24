@@ -18,22 +18,18 @@ function debugLog(...args: any[]): void {
   if (DEBUG) { console.log('[Evaluate]:'.cyan, ...args); }
 }
 
-export function evaluate(e: Form, a: iEnv): Form {
+export function evaluate(e: Form, a: iEnv, stack: [proc: string, args: string][] = []): Form {
   while (true) {
-    debugLog('evaluating term:'.dim, toString(e));
+    console.log('evaluating:', toString(e))
     if (isSym(e)) {
-      debugLog('evaluating identifier', toString(e));
       const rv = a.getFrom<Form>(e);
-      debugLog('returning identifier', toString(rv));
       return rv;
     }
     else if (!isPair(e)) {
       if (isBinding(e)) {
-        debugLog('evaluating binding');
         const rv = e.force();
         return rv
       }
-      debugLog('evaluating atom');
       return e;
     }
     else {
@@ -42,7 +38,6 @@ export function evaluate(e: Form, a: iEnv): Form {
         case SymTable.CAR.equal(e.car): return car(evaluate(cadr(e), a));
         case SymTable.CDR.equal(e.car): return cdr(evaluate(cadr(e), a));
         case SymTable.LAMBDA.equal(e.car): {
-          debugLog('defining lambda proc');
           return new Procedure(a, cadr(e), caddr(e));
         }
         case SymTable.DEFINE.equal(e.car): {
@@ -72,30 +67,51 @@ export function evaluate(e: Form, a: iEnv): Form {
           break
         }
         case SymTable.SET.equal(e.car): {
-          assert(a.hasFrom(cadr(e)), 'Variable must be bound');
+          assert(a.hasFrom(cadr(e)), 'Variable must be bound', e.car);
           const name = toString(cadr(e));
           a.find(name)!.set(name, evaluate(caddr(e), a));
           return UNDEF
         }
         default: {
-          debugLog('evaluating proc');
 
           const proc = evaluate(car(e), a);
           const args = evaluateList(cdr(e), a);
 
-          debugLog('proc:', toStringSafe(proc));
-          debugLog('args:', toStringSafe(args));
+          const procStr = toStringSafe(proc);
+          const argsStr = toStringSafe(args);
+
+          // debugLog('proc:', procStr);
+          // debugLog('args:', argsStr);
 
           if (isNativeProc(proc)) {
-            return proc.call(args);
+            stack.push([procStr, argsStr])
+
+            debugLog('evaluating native proc', (<any>proc)?.name);
+            // debugLog(' - form', toStringSafe(e));
+            printStack(debugLog, stack);
+
+            const rv = proc.call(args);
+            stack.pop();
+            return rv
           }
           else if (isProc(proc)) {
             e = proc.expr
             a = new Env(proc.params, args, proc.env)
+
+            debugLog('evaluating proc', (<any>proc)?.name);
+            // debugLog(' - form', toStringSafe(e));
+
+            printStack(debugLog, stack);
+
             continue
           }
 
-          throw new AssertionError(`Cannot evaluate form: ${toStringSafe(e)}`)
+          throw new AssertionError(
+            `Cannot evaluate form: ${
+              toStringSafe(e)
+            }\n${
+              printStack(debugLog, stack)
+            }`)
         }
       }
     }
@@ -105,10 +121,19 @@ export function evaluate(e: Form, a: iEnv): Form {
 
 function evaluateList(e: Form, a: iEnv): Form {
   assert(isList(e), 'evaluateList passed a non list value')
-  debugLog('evaluating list', toStringSafe(e));
+  // debugLog('evaluating list', toStringSafe(e));
   if (isEmpty(e)) return e
   if (isPair(e)) {
     return cons(evaluate(car(e), a), evaluateList(cdr(e), a))
   }
   return evaluate(e, a)
+}
+
+function printStack(cb: (arg: string) => any, stack: [proc: string, args: string][]) {
+  cb(' -- stack -- ')
+  stack.forEach((s, i) => {
+    const msg = `(${s[0]} ${s[1]})`;
+    const pad = msg.length + (i * 2);
+    cb(msg.padStart(pad, ' '));
+  })
 }

@@ -7,8 +7,8 @@ import { Port } from "./port";
 import { Procedure } from "./callable/proc";
 import { NativeFunc } from "./callable/func";
 import { quoteMap } from "./data/quote";
-import { Form } from "./form";
-import { assertNever } from "../utils";
+import { Form, List } from "./form";
+import { assert, assertNever, isEq } from "../utils";
 
 export const toDisplayString = (expr: Form): string => {
   return toString(expr, undefined, undefined, false)
@@ -30,9 +30,13 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
   if (isNil(expr))
     return '()';
   if (isExpansion(expr))
-    return `<Expansion:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
+    return inspect_
+      ? `#<expansion ${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
+      : toString(expr.expression, inspect_, lambdaSymbol, repr)
   if (isBinding(expr))
-    return `<Binding:${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
+    return inspect_
+      ? `#<binding ${toString(expr.expression, inspect_, lambdaSymbol, repr)}>`
+      : toString(expr.expression, inspect_, lambdaSymbol, repr)
   if (expr instanceof TSchemeModule) {
     return `(module "${expr.displayName}")`;
   }
@@ -52,7 +56,7 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
   }
 
   if (isPair(expr)) {
-    if (!inspect_ && isSym(expr.car) && quoteMap[expr.car.name]) {
+    if (inspect_ && isSym(expr.car) && quoteMap[expr.car.name]) {
       const str = toString(expr.cdr, inspect_, lambdaSymbol, repr);
       if (str.startsWith('(') && str.endsWith(')'))
         return `${quoteMap[expr.car.name]}${str.slice(1, -1)}`
@@ -64,6 +68,11 @@ export const toString = (expr: Form, inspect_ = false, lambdaSymbol = 'lambda', 
     while (Pair.is(next)) {
       res.push(toString(next.car, inspect_, lambdaSymbol, repr))
       next = next.cdr
+      if (hasCycle(next)) {
+        res.push('<CircularRef>')
+        next = NIL
+        break
+      }
     }
     if (next !== NIL) {
       res.push('.')
@@ -89,3 +98,22 @@ export const toStringSafe = (expr: Form, inspect = false, lambdaSymbol = 'lambda
 export const print = (e: Form, inspect = false, lambdaSymbol = 'lambda' /* λ */, repr = true): void => {
   console.log(toString(e, inspect, lambdaSymbol, repr));
 };
+
+function _hasCycleH(slowLs: List, fastLs: List): boolean {
+  if (isNil(fastLs)) return false
+  if (isNil(fastLs.cdr)) return false
+  if (isEq(fastLs, slowLs)) return true
+  if (!(isPair(slowLs) && isPair(fastLs)))
+    return false
+  if (!(isPair(slowLs.cdr) && isPair(fastLs.cdr) && isPair(fastLs.cdr.cdr)))
+    return false
+  return _hasCycleH(slowLs.cdr, fastLs.cdr.cdr)
+}
+
+function hasCycle(ls: Form) {
+  if (isNil(ls)) return false
+  if (!isPair(ls)) return false
+  if (!isPair(ls.cdr)) return false
+
+  return _hasCycleH(ls, ls.cdr)
+}

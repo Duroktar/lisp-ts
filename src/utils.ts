@@ -272,8 +272,8 @@ export function rangeBuilder() {
   }
 }
 
-export function assertNever(token: never): never {
-  throw new SwitchFallthroughError(`Unexpected fallthrough: ${token}`);
+export function assertNever(token: never, msg?: string): never {
+  throw new SwitchFallthroughError(`Unexpected fallthrough: ${token}` + msg ? msg : '');
 }
 
 export function updateTokenFrom(source: Form, to: Form) {

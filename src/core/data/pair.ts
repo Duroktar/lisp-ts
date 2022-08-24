@@ -107,6 +107,7 @@ export class Pair  {
 
   isList(): this is Pair & {cdr: Pair} {
     if (this.cdr === NIL) return true
+    if (this === this.cdr || this.car === this.cdr) return false
     return Pair.is(this.cdr) && this.cdr.isList()
   }
 

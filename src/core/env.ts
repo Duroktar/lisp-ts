@@ -59,9 +59,12 @@ export class Env implements iEnv {
     }
     return result as T;
   }
-  getFrom<T extends Form>(expr: Form): T {
-    const name = this.toName(expr)
-    const result = this.inner[name] ?? this.outer?.get(name);
+  getFrom<T extends Form>(expr: Form, _name?: string): T {
+    const name = _name ?? this.toName(expr)
+    if (name === undefined) {
+      throw new Errors.AssertionError('Invalid type passed getFrom', expr)
+    }
+    const result = this.inner[name] ?? this.outer?.getFrom(expr, _name);
     if (result === undefined) {
       throw new Errors.UndefinedVariableError(String(name), expr);
     }
@@ -165,8 +168,6 @@ export class Env implements iEnv {
   private toName(expr: Form): string {
     if (isBinding(expr))
       return this.toName(expr.expression)
-    if (isString(expr))
-      return expr.toString()
     if (isSym(expr))
       return expr.name
     return undefined as any

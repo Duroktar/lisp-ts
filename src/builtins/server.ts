@@ -2,18 +2,22 @@ import { InPort, IOPort, OutPort } from "../core/port";
 import { SocketClient } from "../core/port/Socket/client";
 import { SocketServer } from "../core/port/Socket/server";
 import { ServerSourceFile, StdIn, StdOut } from "../core/port/File/server";
-import { isIdent, isString, isSym } from "../guard";
+import { isCallable, isIdent, isString, isSym } from "../guard";
 import { loadFile, loadFromLibrary, parseLoadSymbol } from "../core/load";
-import { assert } from "../utils";
+import { assert, sequence } from "../utils";
 import { toString } from "../core/print";
 import { Str } from "../core/data/string";
 import { iEnv } from "../interface/iEnv";
+import { car } from "../core/lisp";
+import { evaluate } from "../core/eval";
+import { list } from "../core/data/pair";
 
 export function addServerFeatures(env: iEnv) {
 
   env.set('#cwd', Str(process.cwd()));
 
   env.define('error', 'args', ([...args]: any) => {
+    console.log('heEEEEY')
     console.error(args.map(toString).join(' '));
     process.exit(1);
   });
@@ -51,6 +55,18 @@ export function addServerFeatures(env: iEnv) {
     return openOutputFile(filename.toString())
   });
 
+  env.define('with-input-from-file', ['string', 'thunk'], ([string, thunk]: any) => {
+    assert(isString(string), 'with-input-from-file "string" arg should be a string', string)
+    assert(isCallable(thunk), 'with-input-from-file "thunk" arg should be a function', thunk)
+    const port = openInputFile(string.toString())
+    const previousPort = env.get('*current-input-port*')
+    env.set('*current-input-port*', port)
+    const rv = evaluate(list(thunk), env)
+    port.close()
+    env.set('*current-input-port*', previousPort)
+    return rv
+  });
+
   env.define('load', ['file'], ([file]: any) => {
     assert(isString(file) || isIdent(file))
     if (isSym(file)) {
@@ -59,8 +75,9 @@ export function addServerFeatures(env: iEnv) {
     return loadFile(file.toString(), env)
   });
 
-  env.define('load-from-library', ['file'], ([file]: any) => {
-    assert(isString(file) || isIdent(file))
+  env.syntax('load-from-library', (args, env) => {
+    const [file] = sequence(car, args)
+    assert(isString(file) || isIdent(file), 'load-from-library expects a string or identifier', file)
     return loadFromLibrary(file.toString(), env)
   });
 

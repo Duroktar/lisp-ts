@@ -25,6 +25,8 @@
         (define *expected* expected)
         (define *test-id*  (if (not (eq? 'name 'expected)) (describe name) " "))
         (incr-total)
+        ; (if *verbose-test* (displayln (string-append "Testing .. " (describe *expected*))))
+        ; (if *verbose-test* (displayln (string-append "Result .. " (describe (cdr *result*)))))
         (if (equal? *expected* (cdr *result*))
           (begin
             (if *verbose-test* (displayln "Passed..."))

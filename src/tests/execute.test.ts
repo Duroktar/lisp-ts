@@ -93,7 +93,11 @@ describe("(execute) testing quasiquotes", () => {
 
   test.only("dfdfsfddfdsfdf", () => {
     const env = createServerEnvironment()
-    const actual = execute(`(case (car '(c d)) ((a e i o u) 'vowel) ((w y) 'semivowel) (else 'consonant))`, env);
+    execute(`
+      (load-from-library "r5rs.scm")
+      (load-from-library "syntax.scm")
+    `, env);
+    const actual = execute(`(load-from-library "merp.scm")`, env);
     const expected = ""
 
     expect(toString(actual)).toEqual(expected)

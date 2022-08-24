@@ -52,14 +52,16 @@
 
 (test 70 (let ((x 2) (y 3)) (let* ((x 7) (z (+ x y))) (* z x))))
 
-;; (test -2 (let ()
-;;            (define x 2)
-;;            (define f (lambda () (- x)))
-;;            (f)))
+(test -2 (let ()
+           (define x 2)
+           (define f (lambda () (- x)))
+           (f)))
 
-;; (define let*-def 1)
-;; (let* () (define let*-def 2) #f)
-;; (test 1 let*-def)
+((lambda () (begin
+  (define let*-def 1)
+  (let* () (define let*-def 2) #f)
+  (test 1 let*-def)
+)))
 
 (test '#(0 1 2 3 4)
  (do ((vec (make-vector 5))
@@ -265,10 +267,10 @@
 
 (test #f (list? '(a . b)))
 
-;; (test #f
-;;     (let ((x (list 'a)))
-;;       (set-cdr! x x)
-;;       (list? x)))
+(test #f
+    (let ((x (list 'a)))
+      (set-cdr! x x)
+      (list? x)))
 
 (test '(a 7 c) (list 'a (+ 3 4) 'c))
 
@@ -424,22 +426,13 @@
 ;; (test '(,foo) (let ((unquote 1)) `(,foo)))
 ;; (test '(,@foo) (let ((unquote-splicing 1)) `(,@foo)))
 
-; (test 'ok
-;     (let ((... 2))
-;       (let-syntax ((s (syntax-rules ()
-;                         ((_ x ...) 'bad)
-;                         ((_ . r) 'ok))))
-;         (s a b c))))
-
-; (test 'ok (let ()
-;             (let-syntax ()
-;               (define internal-def 'ok))
-;             internal-def))
-
-; (test 'ok (let ()
-;             (letrec-syntax ()
-;               (define internal-def 'ok))
-;             internal-def))
+;; ; TODO: switch bad and ok ?? rackets fails also.. hm...
+;; (test 'ok
+;;     (let ((... 2))
+;;       (let-syntax ((s (syntax-rules ()
+;;                         ((_ x ...) 'bad)
+;;                         ((_ . r) 'ok))))
+;;         (s a b c))))
 
 (test '(2 1)
     ((lambda () (let ((x 1)) (let ((y x)) (set! x 2) (list x y))))))
@@ -467,29 +460,24 @@
       (dynamic-wind (lambda () (add 'a)) (lambda () (add 'b)) (lambda () (add 'c)))
       (reverse path)))
 
-; (test '(connect talk1 disconnect connect talk2 disconnect)
-;     (let ((path '())
-;           (c #f))
-;       (let ((add (lambda (s)
-;                    (set! path (cons s path)))))
-;         (dynamic-wind
-;             (lambda () (add 'connect))
-;             (lambda ()
-;               (add (call-with-current-continuation
-;                     (lambda (c0)
-;                       (set! c c0)
-;                       'talk1))))
-;             (lambda () (add 'disconnect)))
-;         (if (< (length path) 4)
-;             (c 'talk2)
-;             (reverse path)))))
+(test '(connect talk1 disconnect connect talk2 disconnect)
+    (let ((path '())
+          (c #f))
+      (let ((add (lambda (s)
+                   (set! path (cons s path)))))
+        (dynamic-wind
+            (lambda () (add 'connect))
+            (lambda ()
+              (add (call-with-current-continuation
+                    (lambda (c0)
+                      (set! c c0)
+                      'talk1))))
+            (lambda () (add 'disconnect)))
+        (if (< (length path) 4)
+            (c 'talk2)
+            (reverse path)))))
 
-;; (test 2 (let-syntax
-;;             ((foo (syntax-rules ::: ()
-;;                     ((foo ... args :::)
-;;                      (args ::: ...)))))
-;;           (foo 3 - 5)))
-
+;; ; TODO
 ;; (test '(5 4 1 2 3)
 ;;     (let-syntax
 ;;         ((foo (syntax-rules ()

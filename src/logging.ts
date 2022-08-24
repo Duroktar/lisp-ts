@@ -7,4 +7,5 @@ export const LogConfig = {
   syntax: false,
   matches: false,
   tree: false,
+  load: false,
 }

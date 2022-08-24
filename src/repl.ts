@@ -1,5 +1,4 @@
 import { highlight } from 'cli-highlight';
-import colors from 'colors';
 import { InvalidArgumentError, program } from 'commander';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import path, { join } from 'path';
@@ -9,15 +8,14 @@ import { Recoverable, ReplOptions } from 'repl';
 import io from 'socket.io-client';
 import * as Errors from "./core/error";
 import { evaluate } from './core/eval';
-import * as Lisp from "./core/lisp";
-import { toString, toStringSafe } from "./core/print";
-import { createServerEnvironment } from './env/server';
-import * as Utils from "./utils";
-import { isNil } from './guard';
 import { Form } from './core/form';
+import * as Lisp from "./core/lisp";
+import { executeFile } from './core/load';
+import { toStringSafe } from "./core/print";
+import { createServerEnvironment } from './env/server';
+import { isNil } from './guard';
 import { iEnv } from './interface/iEnv';
-import { Str } from './core/data/string';
-import { UNDEF } from './core/const';
+import * as Utils from "./utils";
 
 const APPDATA = Utils.exists(getPath('appdata'), 'Error looking up appdata directory!');
 const HISTORY_FILE_PTH = join(APPDATA, 'lisp-ts', 'repl', 'history', '0.log');
@@ -29,6 +27,7 @@ type TSchemeReplOptions = {
   attach: string | number | null | undefined
   r5rs: boolean
   colors: boolean
+  "input-file"?: string
 }
 
 export const initializeREPL = (env: iEnv, options: TSchemeReplOptions) => {
@@ -39,6 +38,7 @@ export const initializeREPL = (env: iEnv, options: TSchemeReplOptions) => {
   }
 
   Lisp.execute(`(load-from-library "r5rs.scm")`, env)
+  Lisp.execute(`(load-from-library "syntax.scm")`, env)
 
   if (options.colors)
     console.error(`Welcome to ${'lisp-ts'.blue} ${('v' + LANGUAGE_VERSION).yellow}`)
@@ -46,8 +46,12 @@ export const initializeREPL = (env: iEnv, options: TSchemeReplOptions) => {
     console.error(`Welcome to lisp-ts ${('v' + LANGUAGE_VERSION)}`)
 }
 
-export function start(options: TSchemeReplOptions) {
+export function start(options: TSchemeReplOptions, args?: string[]) {
   const env = createServerEnvironment()
+
+  if (typeof args?.[0] === 'string') {
+    return executeFile(args[0], env)
+  }
 
   const prettyOpts = options.colors ? { colorize: colorizer } : {}
 
@@ -154,7 +158,6 @@ function colorizer(output: string) {
 
 function errorHandler(err: unknown, callback: any): any {
   if (err instanceof Error) {
-    console.log(err.stack)
     if (err instanceof Errors.RuntimeWarning) {
       console.error('runtime warning (repl)')
       return callback(null, err.retval)
@@ -194,24 +197,26 @@ function errorHandler(err: unknown, callback: any): any {
 function parseAttachOption(value: string) {
   // parseInt takes a string and a radix
   const parsedValue = parseInt(value, 10);
+
   if (!isNaN(parsedValue)) {
     return parsedValue;
   }
 
   if (value.match(/(ws|www|http:|https:)+[^\s]+[\w]/))
     return value
-  throw new InvalidArgumentError('Attach must be a port number or url')
+
+  throw new InvalidArgumentError(
+    'Attach must be a port number or url')
 }
 
-const options: TSchemeReplOptions = program
+const options = program
   .name('string-util')
   .description('CLI to some JavaScript string utilities')
   .version('0.8.0')
   .option('-a, --attach <value>', 'Attach to a running TScheme program through websocket.', parseAttachOption)
   .option('--r5rs <boolean>', 'Include the r5rs standard library.', true)
   .option('--colors <boolean>', 'Use colors in the terminal output.', v => v === 'false' ? false : true)
+  .argument('[input-file]', 'Compile and run a file (by default runs the repl when not specified)', false)
   .parse()
-  .opts()
 
-
-start(options)
+start(options.opts(), options.args)

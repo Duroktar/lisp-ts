@@ -1,9 +1,14 @@
-(define (some-thing a b)
-  (cond
-    ((= 3 a) 'a)
-    ((= 3 b) 'b))
-    ((= b b) 'c)
-    (else 'lol))
+(load-from-library "pretty-print.scm")
 
-; (describe '(some-thing 2 3))
-; (some-thing 2 3)
+(writeln (let ((a 0))
+  (let ((f (lambda () a)))
+    (let ((a 1))
+      (f)))))
+
+(writeln (let ((a 0))
+  (let ((f (lambda () a)))
+    (fluid-let ((a 1))
+      (f)))))
+
+(display (pp '(let ((a 0)) (let ((f (lambda () a))) (let ((a 1)) (f))))))
+(newline)
