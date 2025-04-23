@@ -5,6 +5,7 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
             "name": "ts-node",
             "type": "node",
@@ -17,7 +18,7 @@
                 "ts-node/register"
             ],
             "cwd": "${workspaceRoot}",
-            "protocol": "inspector",
+            // "protocol": "inspector",
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
@@ -32,7 +33,7 @@
                 "ts-node/register"
             ],
             "cwd": "${workspaceRoot}",
-            "protocol": "inspector",
+            // "protocol": "inspector",
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
@@ -47,7 +48,7 @@
                 "ts-node/register"
             ],
             "cwd": "${workspaceRoot}",
-            "protocol": "inspector",
+            // "protocol": "inspector",
             "internalConsoleOptions": "openOnSessionStart"
         },
         {

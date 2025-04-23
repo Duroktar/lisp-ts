@@ -836,7 +836,7 @@ export function addGlobals(
     env.define('set-current-input-port!', ['port'], ([port]: any) => env.set('*current-input-port*', port));
     env.define('set-current-output-port!', ['port'], ([port]: any) => env.set('*current-output-port*', port));
     // END - 6.6.1 Ports
-
+    // (set-current-input-port! (socket-server->input-port 8878))
     // - 6.6.2 Input
     env.define('read', ['port'], ([port]: any) => {
       const p: InPort = port ?? currentInputPort(world)

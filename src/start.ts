@@ -21,6 +21,10 @@ import { createServerWorld } from './world/server';
 
   // execute('(load "tests/runner.scm")', env);
 
+  // execute('(load "tests/scratch.scm")', env);
+
+  execute('(load "samples/repl.scm")', env)
+  
   // execute('(load "samples/scratch.scm")', env)
   // execute('(load "samples/do.scm")', env)
   // execute('(load "samples/let.scm")', env)
@@ -30,11 +34,11 @@ import { createServerWorld } from './world/server';
   // Lisp.execute('(begin (write-char #\\() (newline))', env)
   // Lisp.execute('(display (read (open-input-string "hello world")))', env)
 
-  // Lisp.execute('(load "tests/utils.scm")', env)
-  // Lisp.execute('(load "tests/spec.scm")', env)
-  // Lisp.execute('(load "tests/r5rs.scm")', env)
-  // Lisp.execute('(load "samples/fac.scm")', env)
-  execute('(load "samples/hygiene.scm")', env)
+  // execute('(load "tests/utils.scm")', env)
+  // execute('(load "tests/spec.scm")', env)
+  // execute('(load "tests/r5rs.scm")', env)
+  // execute('(load "samples/fac.scm")', env)
+  // execute('(load "samples/hygiene.scm")', env)
   // Lisp.execute('(load "samples/assoc.scm")', env)
   // execute('(load "samples/cond.scm")', env)
   // Lisp.execute('(load "samples/repl.scm")', env)

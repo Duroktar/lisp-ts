@@ -233,5 +233,14 @@
 
 ; `(list ,(+ 1 2) 4)
 
-; (define-syntax and (syntax-rules (then =>) ((and expr1 expr2 ...) (begin expr1 expr2 ...))))
+; (define-syntax and
+;   (syntax-rules ()
+;     ([and] #t)
+;     ([and test] test)
+;     ([and test1 test2 ...]
+;       (if test1 [and test2 ...] #f))))
+
+; (define-syntax and
+;     (syntax-rules (then =>) ((and expr1 expr2 ...) (begin expr1 expr2 ...))))
+
 ; (and 1 2 3)

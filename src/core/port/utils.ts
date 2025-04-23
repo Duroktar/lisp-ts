@@ -14,6 +14,5 @@ export const getchar = async (encoding: BufferEncoding = 'ascii'): Promise<strin
       }
       process.stdin.setRawMode(false);
       resolve(data.toString(encoding));
-
   }));
 };

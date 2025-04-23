@@ -10,7 +10,7 @@ import { Expansion } from "./expansion";
 import { Matches } from "./matches";
 import { Syntax } from "./syntax";
 
-const debug = true;
+const debug = false;
 
 function debugLog(...args: any[]): void {
   if (debug) { console.log('[Macro]:'.cyan, ...args); }
@@ -92,7 +92,7 @@ export class Macro extends NativeFunc {
         // in the current pattern have hit a repetition boundary. Note we
         // do not increment +depth+ itself since this would persist for the
         // remaining tokens in the pattern after we get past the ellipsis.
-        let followed_by_ellipsis = ((<any>pattern_pair)?.cdr?.car == ellipsis ?? false)
+        let followed_by_ellipsis = ((<any>pattern_pair)?.cdr?.car == ellipsis)
         let dx = followed_by_ellipsis ? 1 : 0
 
         if (followed_by_ellipsis)
@@ -146,11 +146,8 @@ export class Macro extends NativeFunc {
       if (isPair(this.formals) && this.formals.includes(pattern)) {
         debugLog('pattern === input', {pattern, input})
         if (pattern === input) {
-          // const p = this.env.getOrDefault(toString(pattern));
-          // const i = scope.getOrDefault(toString(input));
-          // return p === i
-          // TODO
-          return (this.env.innermostBinding(pattern) === scope.innermostBinding(input))
+          const rv = (this.env.innermostBinding(pattern) === scope.innermostBinding(input))
+          return rv
         }
         return false
       } else {

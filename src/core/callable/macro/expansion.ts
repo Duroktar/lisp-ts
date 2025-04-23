@@ -8,7 +8,7 @@ import { Binding } from "./binding";
 import type { Matches } from "./matches";
 import { toString } from "../../print";
 
-const debug = true;
+const debug = false;
 
 function debugLog(...args: any[]): void {
   if (debug) { console.log('[Expansion]:'.green, ...args); }
@@ -89,7 +89,7 @@ export class Expansion {
         // If the current subtemplate is not an ellipsis and is not
         // followed by an ellipsis, expand it and push the result onto
         // the output
-        else if (!followed_by_ellipsis) {
+        else if (cell !== ellipsis && !followed_by_ellipsis) {
           push(this.expand(cell, matches, depth + dx, ignoringEllipses))
         }
 
@@ -131,9 +131,10 @@ export class Expansion {
         return rv
       }
       else {
-        const rv = this.rename(template)
-        debugLog('returning renamed', toString(rv))
-        return rv
+        // const rv = this.rename(template)
+        // debugLog('returning renamed', toString(rv))
+        // return rv
+        return template
       }
     }
     else {
@@ -159,7 +160,7 @@ export class Expansion {
   static runtime = { hygienic: true }
 }
 
-// .> (print (macroexpand '(let ((=> #f)) (cond (#t => 'ok)))))
+// .> (print (macroexpand '(let ((=> 1)) (cond (#t => 'ok)))))
 
 // actual:
 // ((lambda (=>) ((lambda (temp) (if temp ('ok temp) #f)) #t)) #f)

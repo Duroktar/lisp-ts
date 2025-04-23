@@ -9,7 +9,7 @@ import type { Form } from "./form";
 import { caar, caddr, cadr, car, cddr, cdr } from "./lisp";
 import { toString, toStringSafe } from "./print";
 
-const DEBUG = true
+const DEBUG = false
 
 function debugLog(...args: string[]): void {
   if (DEBUG) { console.log('[Expand]:', ...args) }

@@ -190,14 +190,16 @@ function parseAttachOption(value: string) {
 }
 
 const options: TSchemeReplOptions = program
-  .name('string-util')
-  .description('CLI to some JavaScript string utilities')
+  .name('tscheme')
+  .description('A Scheme REPL for TypeScript')
   .version('0.8.0')
-  .option('-a, --attach <value>', 'Attach to a running TScheme program through websocket.', parseAttachOption)
-  .option('--r5rs <boolean>', 'Include the r5rs standard library.', true)
-  .option('--colors <boolean>', 'Use colors in the terminal output.', v => v === 'false' ? false : true)
+  .option('-a, --attach <value>', 'Attach to a running TScheme program through websocket. The value must be a port number or a URL.', parseAttachOption)
+  .option('--r5rs', 'Include the r5rs standard library.', true)
+  .option('--colors', 'Use colors in the terminal output.', true)
   .parse()
   .opts()
 
+
+// console.log(options)
 
 start(options)
